@@ -227,7 +227,8 @@ class ProjectSerializer(BaseSerializer):
 
     class Meta:
         model = Project
-        fields = "__all__"
+        # Tags are managed through the project overview endpoints.
+        exclude = ["tags"]
         read_only_fields = [
             "id",
             "emoji",

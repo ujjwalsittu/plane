@@ -18,8 +18,18 @@ from plane.app.permissions import (
     WorkspaceEntityPermission,
 )
 from plane.app.serializers import IssueTypeSerializer, MilestoneSerializer
-from plane.db.models import Issue, IssueType, Milestone, Project, ProjectIssueType, Workspace, WorkspaceMember
+from plane.db.models import (
+    Issue,
+    IssueType,
+    Milestone,
+    Project,
+    ProjectIssueType,
+    ProjectTag,
+    Workspace,
+    WorkspaceMember,
+)
 from plane.utils.host import base_host
+from plane.utils.project_overview import OverviewError, create_tag, overview_payload, tag_payload, update_overview
 from plane.utils.milestone import (
     default_epic_flag,
     enable_milestones,
@@ -449,3 +459,41 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(self.FEATURES, status=status.HTTP_200_OK)
+
+
+# --- project overview and tags ---------------------------------------------------
+
+
+class ProjectOverviewAPIEndpoint(BaseAPIView):
+    permission_classes = [ProjectEntityPermission]
+    model = Project
+
+    def get(self, request, slug, project_id):
+        project = Project.objects.get(pk=project_id, workspace__slug=slug)
+        return Response(overview_payload(request.user, project), status=status.HTTP_200_OK)
+
+    def patch(self, request, slug, project_id):
+        project = Project.objects.get(pk=project_id, workspace__slug=slug)
+        try:
+            update_overview(request.user, project, request.data if isinstance(request.data, dict) else {})
+        except OverviewError as exc:
+            return Response({exc.field: exc.message, "error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(overview_payload(request.user, project), status=status.HTTP_200_OK)
+
+
+class ProjectTagListCreateAPIEndpoint(BaseAPIView):
+    permission_classes = [WorkspaceEntityPermission]
+    model = Project
+
+    def get(self, request, slug):
+        return Response(
+            [tag_payload(tag) for tag in ProjectTag.objects.filter(workspace__slug=slug)], status=status.HTTP_200_OK
+        )
+
+    def post(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        try:
+            tag = create_tag(workspace.id, request.data if isinstance(request.data, dict) else {})
+        except OverviewError as exc:
+            return Response({exc.field: exc.message, "error": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(tag_payload(tag), status=status.HTTP_201_CREATED)

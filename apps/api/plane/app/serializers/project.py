@@ -34,7 +34,8 @@ class ProjectSerializer(BaseSerializer):
 
     class Meta:
         model = Project
-        fields = "__all__"
+        # Tags are managed through the project overview endpoints.
+        exclude = ["tags"]
         # Audit fields are set server-side by BaseModel.save().
         read_only_fields = ["workspace", "deleted_at", "created_by", "updated_by"]
 
@@ -149,7 +150,8 @@ class ProjectListSerializer(DynamicBaseSerializer):
 
     class Meta:
         model = Project
-        fields = "__all__"
+        # Tags are managed through the project overview endpoints.
+        exclude = ["tags"]
 
 
 class ProjectDetailSerializer(BaseSerializer):
@@ -163,7 +165,8 @@ class ProjectDetailSerializer(BaseSerializer):
 
     class Meta:
         model = Project
-        fields = "__all__"
+        # Tags are managed through the project overview endpoints.
+        exclude = ["tags"]
 
 
 class ProjectMemberSerializer(BaseSerializer):

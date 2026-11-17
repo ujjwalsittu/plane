@@ -13,6 +13,8 @@ from plane.api.views.milestone import (
     ProjectWorkItemTypeDetailAPIEndpoint,
     ProjectWorkItemTypeListCreateAPIEndpoint,
     WorkspaceFeatureAPIEndpoint,
+    ProjectOverviewAPIEndpoint,
+    ProjectTagListCreateAPIEndpoint,
     WorkspaceWorkItemTypeDetailAPIEndpoint,
     WorkspaceWorkItemTypeListCreateAPIEndpoint,
 )
@@ -66,6 +68,8 @@ _routes = [
         "workspace-work-item-type-detail",
     ),
     (f"{_WORKSPACE}/features", WorkspaceFeatureAPIEndpoint, ["get", "patch"], "workspace-features"),
+    (f"{_PROJECT}/overview", ProjectOverviewAPIEndpoint, ["get", "patch"], "project-overview"),
+    (f"{_WORKSPACE}/project-tags", ProjectTagListCreateAPIEndpoint, ["get", "post"], "project-tags"),
 ]
 
 # The Plane SDK calls most of these without a trailing slash; a redirect would

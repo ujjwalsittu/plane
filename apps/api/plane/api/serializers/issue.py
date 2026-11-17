@@ -29,6 +29,7 @@ from plane.db.models import (
     User,
     EstimatePoint,
 )
+from plane.utils.markdown import looks_like_markdown, to_html
 from plane.utils.content_validator import (
     validate_html_content,
     validate_binary_data,
@@ -71,6 +72,7 @@ class IssueSerializer(BaseSerializer):
     milestone_id = serializers.PrimaryKeyRelatedField(
         source="milestone", queryset=Milestone.objects.all(), required=False, allow_null=True
     )
+    description_markdown = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Issue
@@ -103,6 +105,12 @@ class IssueSerializer(BaseSerializer):
             and data.get("start_date", None) > data.get("target_date", None)
         ):
             raise serializers.ValidationError("Start date cannot exceed target date")
+
+        # Markdown in: an explicit description_markdown, or a description_html
+        # with no HTML tags at all (clients that can only send that field).
+        markdown = data.pop("description_markdown", None)
+        if markdown is not None or looks_like_markdown(data.get("description_html")):
+            data["description_html"] = to_html(data.get("description_html"), markdown)
 
         try:
             if data.get("description_html", None) is not None:
@@ -752,11 +760,28 @@ class IssueCommentCreateSerializer(BaseSerializer):
     access control, and external integration tracking.
     """
 
+    comment_markdown = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    def validate(self, data):
+        # Markdown in (explicit, or comment_html with no tags), then sanitise
+        # like the app does -- external comment HTML was stored unsanitised.
+        markdown = data.pop("comment_markdown", None)
+        if markdown is not None or looks_like_markdown(data.get("comment_html")):
+            data["comment_html"] = to_html(data.get("comment_html"), markdown)
+        if data.get("comment_html"):
+            is_valid, error_msg, sanitized_html = validate_html_content(data["comment_html"])
+            if not is_valid:
+                raise serializers.ValidationError({"comment_html": error_msg or "html content is not valid"})
+            if sanitized_html is not None:
+                data["comment_html"] = sanitized_html
+        return data
+
     class Meta:
         model = IssueComment
         fields = [
             "comment_json",
             "comment_html",
+            "comment_markdown",
             "access",
             "external_source",
             "external_id",

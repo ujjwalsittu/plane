@@ -4,6 +4,7 @@
 
 from django.urls import path
 
+from plane.api.views.inline_asset import InlineAssetUploadAPIEndpoint
 from plane.api.views.page import (
     ProjectPageArchiveAPIEndpoint,
     ProjectPageDetailAPIEndpoint,
@@ -18,6 +19,7 @@ _WORK_ITEM = f"{_PROJECT}/work-items/<uuid:issue_id>"
 
 _routes = [
     (f"{_PROJECT}/pages", ProjectPageListCreateAPIEndpoint, ["get", "post"], "project-page-list"),
+    (f"{_PROJECT}/assets/inline", InlineAssetUploadAPIEndpoint, ["post"], "project-inline-asset"),
     (f"{_PROJECT}/pages/<uuid:page_id>", ProjectPageDetailAPIEndpoint, ["get", "put", "delete"], "project-page-detail"),
     (
         f"{_PROJECT}/pages/<uuid:page_id>/archive",

@@ -73,6 +73,10 @@ class Project(ChangeTrackerMixin, BaseModel):
     description = models.TextField(verbose_name="Project Description", blank=True)
     description_text = models.JSONField(verbose_name="Project Description RT", blank=True, null=True)
     description_html = models.JSONField(verbose_name="Project Description HTML", blank=True, null=True)
+    # Rich overview shown on the project's home page, and pages linked there.
+    overview_html = models.TextField(blank=True, default="<p></p>")
+    overview_page_ids = models.JSONField(default=list, blank=True)
+    tags = models.ManyToManyField("db.ProjectTag", blank=True, related_name="projects")
     network = models.PositiveSmallIntegerField(default=2, choices=NETWORK_CHOICES)
     workspace = models.ForeignKey("db.WorkSpace", on_delete=models.CASCADE, related_name="workspace_project")
     identifier = models.CharField(max_length=12, verbose_name="Project Identifier", db_index=True)
@@ -422,3 +426,28 @@ class ProjectUserProperty(ProjectBaseModel):
     def __str__(self):
         """Return properties status of the project"""
         return str(self.user)
+
+
+class ProjectTag(BaseModel):
+    """A workspace-wide label for grouping projects."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="project_tags")
+    name = models.CharField(max_length=255)
+    color = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        unique_together = ["workspace", "name", "deleted_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "name"],
+                condition=Q(deleted_at__isnull=True),
+                name="project_tag_unique_workspace_name_when_deleted_at_null",
+            )
+        ]
+        verbose_name = "Project Tag"
+        verbose_name_plural = "Project Tags"
+        db_table = "project_tags"
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name

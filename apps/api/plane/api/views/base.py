@@ -24,6 +24,7 @@ from rest_framework.generics import GenericAPIView
 # Module imports
 from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.api.rate_limit import ApiKeyRateThrottle
+from plane.utils.markdown import add_markdown_fields
 from plane.utils.exception_logger import log_exception
 from plane.utils.paginator import BasePaginator
 from plane.utils.core.mixins import ReadReplicaControlMixin
@@ -132,6 +133,15 @@ class BaseAPIView(TimezoneMixin, GenericAPIView, ReadReplicaControlMixin, BasePa
         ratelimit_reset = request.META.get("X-RateLimit-Reset")
         if ratelimit_reset is not None:
             response["X-RateLimit-Reset"] = ratelimit_reset
+
+        # ?markdown=true adds a Markdown copy next to every HTML body.
+        if (
+            request.method == "GET"
+            and str(request.query_params.get("markdown", "")).lower() in ("1", "true", "yes")
+            and getattr(response, "data", None) is not None
+            and 200 <= response.status_code < 300
+        ):
+            add_markdown_fields(response.data)
 
         return response
 

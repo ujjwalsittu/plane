@@ -79,6 +79,9 @@ dependencies = [
     "drf-spectacular==0.29.0",
     # html sanitizer
     "nh3==0.2.18",
+    "markdown-it-py==4.3.0",
+    "mdit-py-plugins==0.7.0",
+    "markdownify==1.2.3",
 ]
 
 [dependency-groups]

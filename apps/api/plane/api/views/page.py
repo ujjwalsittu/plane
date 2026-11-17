@@ -33,6 +33,7 @@ from plane.app.views.page.base import unarchive_archive_page_and_descendants
 from plane.bgtasks.page_transaction_task import page_transaction
 from plane.db.models import Page, ProjectMember, UserFavorite
 from plane.utils.content_validator import validate_html_content
+from plane.utils.markdown import looks_like_markdown, to_html
 
 ADMIN = 20
 
@@ -89,6 +90,11 @@ def project_pages(request, slug, project_id):
 def _clean_html(data):
     """The sanitised description_html of a request, or an error Response."""
     html = data.get("description_html")
+    markdown = data.get("description_markdown")
+    if markdown is not None or looks_like_markdown(html):
+        if markdown is not None and not isinstance(markdown, str):
+            return None, Response({"description_markdown": "Must be a string"}, status=status.HTTP_400_BAD_REQUEST)
+        html = to_html(html, markdown)
     if html is None:
         return None, None
     if not isinstance(html, str):

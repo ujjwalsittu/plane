@@ -4,6 +4,11 @@
 
 from django.urls import path
 
+from plane.app.views.project.overview import (
+    ProjectOverviewEndpoint,
+    ProjectTagDetailEndpoint,
+    ProjectTagEndpoint,
+)
 from plane.app.views import (
     MilestoneIssueEndpoint,
     MilestoneViewSet,
@@ -38,5 +43,10 @@ urlpatterns = [
         f"{_PROJECT}/issue-types/<uuid:pk>/",
         ProjectIssueTypeDetailEndpoint.as_view(),
         name="project-issue-type-detail",
+    ),
+    path(f"{_PROJECT}/overview/", ProjectOverviewEndpoint.as_view(), name="project-overview"),
+    path("workspaces/<str:slug>/project-tags/", ProjectTagEndpoint.as_view(), name="project-tags"),
+    path(
+        "workspaces/<str:slug>/project-tags/<uuid:pk>/", ProjectTagDetailEndpoint.as_view(), name="project-tag-detail"
     ),
 ]
