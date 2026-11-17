@@ -5,7 +5,7 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TIssueType, TIssueTypeFormData, TMilestone, TMilestoneFormData } from "@plane/types";
+import type { TIssue, TIssueType, TIssueTypeFormData, TMilestone, TMilestoneFormData } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 export class MilestoneService extends APIService {
@@ -67,6 +67,20 @@ export class MilestoneService extends APIService {
       issues: issueIds,
     })
       .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  /** Work items of a project matching legacy filter params (e.g. milestone, issue_type, parent). */
+  async listIssues(workspaceSlug: string, projectId: string, params: Record<string, string>): Promise<TIssue[]> {
+    return this.get(`${this.base(workspaceSlug, projectId)}/issues/`, {
+      params: { per_page: 1000, cursor: "1000:0:0", ...params },
+    })
+      .then((res) => {
+        const results = res?.data?.results;
+        return Array.isArray(results) ? (results as TIssue[]) : [];
+      })
       .catch((err) => {
         throw err?.response?.data;
       });

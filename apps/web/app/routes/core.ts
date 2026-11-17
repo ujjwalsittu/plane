@@ -154,6 +154,21 @@ export const coreRoutes: RouteConfigEntry[] = [
             ),
           ]),
 
+          // Milestones
+          route(
+            ":workspaceSlug/projects/:projectId/milestones",
+            "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/milestones/page.tsx"
+          ),
+          route(
+            ":workspaceSlug/projects/:projectId/milestones/:milestoneId",
+            "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/milestones/[milestoneId]/page.tsx"
+          ),
+          // Epics
+          route(
+            ":workspaceSlug/projects/:projectId/epics",
+            "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/epics/page.tsx"
+          ),
+
           // Cycles List
           layout("./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/cycles/(list)/layout.tsx", [
             route(
