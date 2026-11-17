@@ -19,6 +19,14 @@ class UserEndpoint(BaseAPIView):
     serializer_class = UserLiteSerializer
     model = User
 
+    def get_throttles(self):
+        # Clients such as the Plane MCP server call this before every request to
+        # check that the API key is valid, and treat any non-200 -- including a
+        # 429 -- as a revoked key. Rate limiting it turns a burst of ordinary
+        # calls into a lost connection, so it neither counts toward nor is
+        # blocked by the API key limit; the real calls still are.
+        return []
+
     @user_docs(
         operation_id="get_current_user",
         summary="Get current user",
