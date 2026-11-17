@@ -51,6 +51,20 @@ export const PROJECT_SETTINGS: Record<TProjectSettingsTabs, TProjectSettingsItem
     access: [EUserProjectRoles.ADMIN],
     highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/features/cycles/`,
   },
+  features_milestones: {
+    key: "features_milestones",
+    i18n_label: "milestones_feature.settings.short_title",
+    href: `/features/milestones`,
+    access: [EUserProjectRoles.ADMIN],
+    highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/features/milestones/`,
+  },
+  features_issue_types: {
+    key: "features_issue_types",
+    i18n_label: "issue_types_feature.settings.short_title",
+    href: `/features/work-item-types`,
+    access: [EUserProjectRoles.ADMIN],
+    highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/features/work-item-types/`,
+  },
   features_modules: {
     key: "features_modules",
     i18n_label: "project_settings.features.modules.short_title",
@@ -115,12 +129,14 @@ export const GROUPED_PROJECT_SETTINGS: Record<PROJECT_SETTINGS_CATEGORY, TProjec
   [PROJECT_SETTINGS_CATEGORY.GENERAL]: [PROJECT_SETTINGS["general"], PROJECT_SETTINGS["members"]],
   [PROJECT_SETTINGS_CATEGORY.FEATURES]: [
     PROJECT_SETTINGS["features_cycles"],
+    PROJECT_SETTINGS["features_milestones"],
     PROJECT_SETTINGS["features_modules"],
     PROJECT_SETTINGS["features_views"],
     PROJECT_SETTINGS["features_pages"],
     PROJECT_SETTINGS["features_intake"],
   ],
   [PROJECT_SETTINGS_CATEGORY.WORK_STRUCTURE]: [
+    PROJECT_SETTINGS["features_issue_types"],
     PROJECT_SETTINGS["states"],
     PROJECT_SETTINGS["labels"],
     PROJECT_SETTINGS["estimates"],

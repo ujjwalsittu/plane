@@ -24,8 +24,10 @@ from plane.db.models import (
     IssueActivity,
     IssueComment,
     IssueReaction,
+    IssueType,
     IssueSubscriber,
     Label,
+    Milestone,
     Module,
     Project,
     State,
@@ -234,6 +236,80 @@ def track_state(
                 epoch=epoch,
             )
         )
+
+
+def _track_fk(
+    requested_data,
+    current_instance,
+    keys,
+    field,
+    lookup,
+    issue_id,
+    project_id,
+    workspace_id,
+    actor_id,
+    issue_activities,
+    epoch,
+):
+    """Record a change of a single-valued reference (milestone, type)."""
+    current_id = next((current_instance.get(k) for k in keys if current_instance.get(k)), None)
+    requested_id = next((requested_data.get(k) for k in keys if k in requested_data), None)
+    current_id = str(current_id) if current_id and is_valid_uuid(str(current_id)) else None
+    requested_id = str(requested_id) if requested_id and is_valid_uuid(str(requested_id)) else None
+    if current_id == requested_id:
+        return
+    old = lookup(current_id) if current_id else None
+    new = lookup(requested_id) if requested_id else None
+    issue_activities.append(
+        IssueActivity(
+            issue_id=issue_id,
+            actor_id=actor_id,
+            verb="updated",
+            old_value=old or "",
+            new_value=new or "",
+            field=field,
+            project_id=project_id,
+            workspace_id=workspace_id,
+            comment=f"updated the {field} to",
+            old_identifier=current_id,
+            new_identifier=requested_id,
+            epoch=epoch,
+        )
+    )
+
+
+def track_milestone(
+    requested_data, current_instance, issue_id, project_id, workspace_id, actor_id, issue_activities, epoch
+):
+    _track_fk(
+        requested_data,
+        current_instance,
+        ("milestone_id", "milestone"),
+        "milestone",
+        lambda pk: Milestone.objects.filter(pk=pk, project_id=project_id).values_list("title", flat=True).first(),
+        issue_id,
+        project_id,
+        workspace_id,
+        actor_id,
+        issue_activities,
+        epoch,
+    )
+
+
+def track_type(requested_data, current_instance, issue_id, project_id, workspace_id, actor_id, issue_activities, epoch):
+    _track_fk(
+        requested_data,
+        current_instance,
+        ("type_id", "type"),
+        "type",
+        lambda pk: IssueType.objects.filter(pk=pk).values_list("name", flat=True).first(),
+        issue_id,
+        project_id,
+        workspace_id,
+        actor_id,
+        issue_activities,
+        epoch,
+    )
 
 
 # Track changes in issue target date
@@ -646,11 +722,15 @@ def update_issue_activity(
         "estimate_point": track_estimate_points,
         "archived_at": track_archive_at,
         "closed_to": track_closed_to,
+        "milestone_id": track_milestone,
+        "type_id": track_type,
         # External endpoint keys
         "parent": track_parent,
         "state": track_state,
         "assignees": track_assignees,
         "labels": track_labels,
+        "milestone": track_milestone,
+        "type": track_type,
     }
 
     requested_data = json.loads(requested_data) if requested_data is not None else None

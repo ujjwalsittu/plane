@@ -91,6 +91,7 @@ class ProjectCreateSerializer(BaseSerializer):
             "external_source",
             "external_id",
             "is_issue_type_enabled",
+            "milestone_view",
             "is_time_tracking_enabled",
         ]
 

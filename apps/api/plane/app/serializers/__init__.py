@@ -54,6 +54,7 @@ from .cycle import (
     CycleUserPropertiesSerializer,
 )
 from .asset import FileAssetSerializer
+from .milestone import MilestoneSerializer, IssueTypeSerializer
 from .issue import (
     IssueCreateSerializer,
     IssueActivitySerializer,

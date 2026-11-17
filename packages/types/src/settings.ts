@@ -27,6 +27,8 @@ export type TProjectSettingsTabs =
   | "features_views"
   | "features_pages"
   | "features_intake"
+  | "features_milestones"
+  | "features_issue_types"
   | "states"
   | "labels"
   | "estimates"

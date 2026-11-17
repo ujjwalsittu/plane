@@ -14,6 +14,8 @@ from rest_framework import serializers
 from plane.db.models import (
     Issue,
     IssueType,
+    Milestone,
+    ProjectIssueType,
     IssueActivity,
     IssueAssignee,
     FileAsset,
@@ -65,6 +67,9 @@ class IssueSerializer(BaseSerializer):
     )
     type_id = serializers.PrimaryKeyRelatedField(
         source="type", queryset=IssueType.objects.all(), required=False, allow_null=True
+    )
+    milestone_id = serializers.PrimaryKeyRelatedField(
+        source="milestone", queryset=Milestone.objects.all(), required=False, allow_null=True
     )
 
     class Meta:
@@ -178,6 +183,25 @@ class IssueSerializer(BaseSerializer):
             ).exists()
         ):
             raise serializers.ValidationError("Estimate point is not valid please pass a valid estimate_point_id")
+
+        if (
+            data.get("milestone")
+            and not Milestone.objects.filter(
+                workspace_id=self.context.get("workspace_id"),
+                project_id=self.context.get("project_id"),
+                pk=data.get("milestone").id,
+            ).exists()
+        ):
+            raise serializers.ValidationError("Milestone is not valid please pass a valid milestone_id")
+
+        if (
+            data.get("type")
+            and not ProjectIssueType.objects.filter(
+                project_id=self.context.get("project_id"),
+                issue_type_id=data.get("type").id,
+            ).exists()
+        ):
+            raise serializers.ValidationError("Work item type is not valid please pass a valid type_id")
 
         return data
 

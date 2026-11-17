@@ -100,6 +100,12 @@ from .cycle.base import (
     CycleProgressEndpoint,
 )
 from .cycle.issue import CycleIssueViewSet
+from .milestone.base import (
+    MilestoneViewSet,
+    MilestoneIssueEndpoint,
+    ProjectIssueTypeEndpoint,
+    ProjectIssueTypeDetailEndpoint,
+)
 from .cycle.archive import CycleArchiveUnarchiveEndpoint
 
 from .asset.base import FileAssetEndpoint, UserAssetsEndpoint, FileAssetViewSet

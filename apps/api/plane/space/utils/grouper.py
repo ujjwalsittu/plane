@@ -16,8 +16,10 @@ from plane.db.models import (
     Cycle,
     Issue,
     Label,
+    Milestone,
     Module,
     Project,
+    ProjectIssueType,
     ProjectMember,
     State,
     WorkspaceMember,
@@ -209,6 +211,14 @@ def issue_group_values(
         return list(queryset) + ["None"]
     if field == "cycle_id":
         queryset = Cycle.objects.filter(workspace__slug=slug, project_id=project_id).values_list("id", flat=True)
+        return list(queryset) + ["None"]
+    if field == "milestone_id":
+        queryset = Milestone.objects.filter(workspace__slug=slug, project_id=project_id).values_list("id", flat=True)
+        return list(queryset) + ["None"]
+    if field == "type_id":
+        queryset = ProjectIssueType.objects.filter(workspace__slug=slug, project_id=project_id).values_list(
+            "issue_type_id", flat=True
+        )
         return list(queryset) + ["None"]
     if field == "project_id":
         return list(Project.objects.filter(workspace__slug=slug, id=project_id).values_list("id", flat=True))

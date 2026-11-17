@@ -158,6 +158,8 @@ class SubIssuesEndpoint(BaseAPIView):
                 "project_id",
                 "parent_id",
                 "cycle_id",
+                "milestone_id",
+                "type_id",
                 "module_ids",
                 "label_ids",
                 "assignee_ids",

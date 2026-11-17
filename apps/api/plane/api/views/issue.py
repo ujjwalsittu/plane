@@ -91,6 +91,8 @@ from plane.utils.order_queryset import (
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from .base import BaseAPIView
 from plane.utils.host import base_host
+from plane.utils.pql_lite import SUPPORTED as PQL_SUPPORTED, UnsupportedPQL, pql_to_q
+from plane.utils.uuid import is_valid_uuid
 from plane.utils.serializers import writable_data
 from plane.utils.issue_relation_mapper import get_actual_relation
 from plane.bgtasks.webhook_task import model_activity
@@ -389,19 +391,35 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
         Supports filtering, ordering, and field selection through query parameters.
         """
 
-        unsupported_filters = [param for param in ("pql", "filters") if request.GET.get(param)]
-        if unsupported_filters:
+        if request.GET.get("filters"):
             return Response(
                 {
-                    "pql": (
-                        "PQL and structured filters are not supported on this Plane edition. "
-                        "Remove the pql/filters parameter and filter results client-side, or use "
-                        "a Plane edition that supports work item query filtering."
+                    "filters": (
+                        "Structured filters are not supported on this Plane edition. "
+                        f"Use pql with the supported subset: {PQL_SUPPORTED}."
                     ),
-                    "unsupported_parameters": unsupported_filters,
+                    "unsupported_parameters": ["filters"],
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # The pql subset and direct id filters (type, milestone) narrow the list.
+        extra_filter = Q()
+        if request.GET.get("pql"):
+            try:
+                extra_filter &= pql_to_q(request.GET["pql"], slug)
+            except UnsupportedPQL as exc:
+                return Response(
+                    {"pql": f"{exc}. Supported on this Plane edition: {PQL_SUPPORTED}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        for param, field in (("type_id", "type_id"), ("milestone_id", "milestone_id")):
+            value = request.GET.get(param)
+            if value:
+                ids = [v for v in value.split(",") if is_valid_uuid(v)]
+                if not ids:
+                    return Response({param: "Expected one or more ids"}, status=status.HTTP_400_BAD_REQUEST)
+                extra_filter &= Q(**{f"{field}__in": ids})
 
         external_id = request.GET.get("external_id")
         external_source = request.GET.get("external_source")
@@ -461,7 +479,10 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
             )
         )
 
-        total_issue_queryset = Issue.issue_objects.filter(project_id=project_id, workspace__slug=slug)
+        issue_queryset = issue_queryset.filter(extra_filter)
+        total_issue_queryset = Issue.issue_objects.filter(project_id=project_id, workspace__slug=slug).filter(
+            extra_filter
+        )
 
         if restricted_guest:
             issue_queryset = issue_queryset.filter(created_by=request.user)

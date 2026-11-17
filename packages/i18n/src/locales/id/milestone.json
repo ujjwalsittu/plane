@@ -1,0 +1,99 @@
+{
+  "milestones_feature": {
+    "label": "Milestone",
+    "label_plural": "Milestones",
+    "none": "No milestone",
+    "add": "Add milestone",
+    "create_title": "Create milestone",
+    "edit_title": "Edit milestone",
+    "fields": {
+      "title": "Title",
+      "title_placeholder": "e.g. M1 · Beta launch",
+      "description": "Description",
+      "description_placeholder": "What does reaching this milestone mean?",
+      "target_date": "Target date",
+      "no_target_date": "No target date"
+    },
+    "progress": "{completed} of {total} done",
+    "work_items": "{count} work items",
+    "overdue": "Overdue",
+    "due_today": "Due today",
+    "empty": {
+      "title": "No milestones yet",
+      "description": "Milestones mark dated checkpoints. Put work items under one to track progress toward it."
+    },
+    "detail": {
+      "back": "All milestones",
+      "no_items": "No work items in this milestone yet. Set the Milestone property on a work item to add it."
+    },
+    "delete": {
+      "title": "Delete milestone",
+      "description": "Delete {title}? Its work items are kept; they just lose this milestone.",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Milestone created",
+      "updated": "Milestone updated",
+      "deleted": "Milestone deleted",
+      "error": "Something went wrong. Please try again."
+    },
+    "disabled": {
+      "title": "Milestones are turned off",
+      "description": "Turn on milestones in project settings to plan work toward dated checkpoints."
+    },
+    "settings": {
+      "title": "Milestones",
+      "short_title": "Milestones",
+      "description": "Track progress toward dated checkpoints such as releases or launches.",
+      "toggle_title": "Enable milestones",
+      "toggle_description": "Group work items under dated checkpoints."
+    }
+  },
+  "issue_types_feature": {
+    "label": "Type",
+    "label_plural": "Work item types",
+    "none": "No type",
+    "epic": "Epic",
+    "add": "Add type",
+    "name_placeholder": "e.g. Story",
+    "is_epic": "Epic",
+    "is_epic_help": "Epics group child work items and show their combined progress.",
+    "default": "Default",
+    "set_default": "Set as default",
+    "unset_default": "Remove default",
+    "default_help": "New work items created through the API get the default type.",
+    "add_epic": "Add Epic type",
+    "empty": "No work item types yet.",
+    "delete": {
+      "title": "Delete work item type",
+      "description": "Delete {name}? Work items with this type keep their content and lose the type.",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Work item type created",
+      "updated": "Work item type updated",
+      "deleted": "Work item type deleted",
+      "error": "Something went wrong. Please try again."
+    },
+    "settings": {
+      "title": "Work item types",
+      "short_title": "Work item types",
+      "description": "Classify work items as Epic, Story, Bug and so on.",
+      "toggle_title": "Enable work item types",
+      "toggle_description": "Show a Type property on work items."
+    }
+  },
+  "epics_feature": {
+    "label_plural": "Epics",
+    "children_progress": "{completed} of {total} sub-items done",
+    "no_children": "No sub-items yet",
+    "empty": {
+      "title": "No epics yet",
+      "description": "Give a work item the Epic type and it appears here, with the progress of its sub-items."
+    },
+    "no_epic_type": {
+      "title": "No Epic type in this project",
+      "description": "Add an Epic type in project settings, under Work item types."
+    }
+  }
+}

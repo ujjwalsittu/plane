@@ -1,0 +1,110 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
+"""A small subset of Plane Query Language for the external work item list.
+
+Supported, joined with AND:
+
+* ``type = "<uuid>"`` / ``type IN ("<uuid>", ...)``
+* ``milestone = "<uuid>"`` / ``milestone IN (...)``
+* ``parent = "<uuid>"``
+* ``childOf("<PROJECT>-<N>")`` -- direct children of a work item
+
+Anything else raises :class:`UnsupportedPQL`, which the view turns into a 400
+naming what is supported.
+"""
+
+# Python imports
+import re
+import uuid
+
+# Django imports
+from django.db.models import Q
+
+# Module imports
+from plane.db.models import Issue
+
+SUPPORTED = (
+    'type = "<id>", type IN ("<id>", ...), milestone = "<id>", milestone IN (...), '
+    'parent = "<id>" and childOf("<PROJECT>-<N>"), joined with AND'
+)
+
+_FIELDS = {"type": "type_id", "milestone": "milestone_id", "parent": "parent_id"}
+_COMPARISON = re.compile(r"^(?P<field>\w+)\s*(?P<op>=|IN)\s*(?P<value>.+)$", re.IGNORECASE)
+_CHILD_OF = re.compile(r'^childOf\(\s*"(?P<identifier>[^"]+)"\s*\)$', re.IGNORECASE)
+_STRING = re.compile(r'"([^"]*)"')
+
+
+class UnsupportedPQL(ValueError):
+    pass
+
+
+def _uuids(raw):
+    values = _STRING.findall(raw)
+    if not values:
+        raise UnsupportedPQL(f"Expected quoted ids in: {raw}")
+    try:
+        return [str(uuid.UUID(v)) for v in values]
+    except ValueError as exc:
+        raise UnsupportedPQL(f"Not a valid id in: {raw}") from exc
+
+
+_AND = re.compile(r"\s+AND\s+", re.IGNORECASE)
+
+
+def _split_and(pql):
+    """Split on AND outside quotes and parentheses."""
+    parts, start, depth, in_quote, i = [], 0, 0, False, 0
+    while i < len(pql):
+        ch = pql[i]
+        if ch == '"':
+            in_quote = not in_quote
+        elif not in_quote and ch == "(":
+            depth += 1
+        elif not in_quote and ch == ")":
+            depth -= 1
+        elif not in_quote and depth == 0:
+            match = _AND.match(pql, i)
+            if match:
+                parts.append(pql[start:i].strip())
+                start = i = match.end()
+                continue
+        i += 1
+    parts.append(pql[start:].strip())
+    if in_quote or depth:
+        raise UnsupportedPQL("Unbalanced quotes or parentheses")
+    return [p for p in parts if p]
+
+
+def pql_to_q(pql, slug):
+    """Translate ``pql`` into a Q for Issue querysets of workspace ``slug``."""
+    q = Q()
+    for clause in _split_and(pql.strip()):
+        child_of = _CHILD_OF.match(clause)
+        if child_of:
+            identifier = child_of.group("identifier")
+            project_identifier, _, sequence = identifier.rpartition("-")
+            if not project_identifier or not sequence.isdigit():
+                raise UnsupportedPQL(f"childOf expects an identifier like PROJ-12, got: {identifier}")
+            parent = Issue.objects.filter(
+                workspace__slug=slug,
+                project__identifier__iexact=project_identifier,
+                sequence_id=int(sequence),
+            ).first()
+            # An unknown parent matches nothing rather than everything.
+            q &= Q(parent_id=parent.id) if parent else Q(pk__in=[])
+            continue
+
+        comparison = _COMPARISON.match(clause)
+        if not comparison or comparison.group("field").lower() not in _FIELDS:
+            raise UnsupportedPQL(f"Unsupported clause: {clause}")
+        field = _FIELDS[comparison.group("field").lower()]
+        ids = _uuids(comparison.group("value"))
+        if comparison.group("op").upper() == "=":
+            if len(ids) != 1:
+                raise UnsupportedPQL(f"= takes one id: {clause}")
+            q &= Q(**{field: ids[0]})
+        else:
+            q &= Q(**{f"{field}__in": ids})
+    return q

@@ -38,6 +38,9 @@ from plane.db.models import (
     IssueVote,
     IssueRelation,
     State,
+    Milestone,
+    IssueType,
+    ProjectIssueType,
     IssueVersion,
     IssueDescriptionVersion,
     ProjectMember,
@@ -86,6 +89,12 @@ class IssueCreateSerializer(BaseSerializer):
     )
     parent_id = serializers.PrimaryKeyRelatedField(
         source="parent", queryset=Issue.objects.all(), required=False, allow_null=True
+    )
+    milestone_id = serializers.PrimaryKeyRelatedField(
+        source="milestone", queryset=Milestone.objects.all(), required=False, allow_null=True
+    )
+    type_id = serializers.PrimaryKeyRelatedField(
+        source="type", queryset=IssueType.objects.all(), required=False, allow_null=True
     )
     label_ids = serializers.ListField(
         child=serializers.PrimaryKeyRelatedField(queryset=Label.objects.all()),
@@ -203,6 +212,25 @@ class IssueCreateSerializer(BaseSerializer):
             ).exists()
         ):
             raise serializers.ValidationError("Estimate point is not valid please pass a valid estimate_point_id")
+
+        # Milestones belong to one project; types must be enabled for it.
+        if (
+            attrs.get("milestone")
+            and not Milestone.objects.filter(
+                project_id=self.context.get("project_id"),
+                pk=attrs.get("milestone").id,
+            ).exists()
+        ):
+            raise serializers.ValidationError("Milestone is not valid please pass a valid milestone_id")
+
+        if (
+            attrs.get("type")
+            and not ProjectIssueType.objects.filter(
+                project_id=self.context.get("project_id"),
+                issue_type_id=attrs.get("type").id,
+            ).exists()
+        ):
+            raise serializers.ValidationError("Work item type is not valid please pass a valid type_id")
 
         return attrs
 
@@ -780,6 +808,8 @@ class IssueIntakeSerializer(DynamicBaseSerializer):
 class IssueSerializer(DynamicBaseSerializer):
     # ids
     cycle_id = serializers.PrimaryKeyRelatedField(read_only=True)
+    milestone_id = serializers.PrimaryKeyRelatedField(read_only=True)
+    type_id = serializers.PrimaryKeyRelatedField(read_only=True)
     module_ids = serializers.ListField(child=serializers.UUIDField(), required=False)
 
     # Many to many
@@ -807,6 +837,8 @@ class IssueSerializer(DynamicBaseSerializer):
             "project_id",
             "parent_id",
             "cycle_id",
+            "milestone_id",
+            "type_id",
             "module_ids",
             "label_ids",
             "assignee_ids",
@@ -871,6 +903,8 @@ class IssueListDetailSerializer(serializers.Serializer):
             "archived_at": instance.archived_at,
             # Computed fields
             "cycle_id": instance.cycle_id,
+            "milestone_id": instance.milestone_id,
+            "type_id": instance.type_id,
             "module_ids": self.get_module_ids(instance),
             "label_ids": self.get_label_ids(instance),
             "assignee_ids": self.get_assignee_ids(instance),

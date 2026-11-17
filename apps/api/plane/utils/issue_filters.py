@@ -425,6 +425,32 @@ def filter_logged_by(params, issue_filter, method, prefix=""):
     return issue_filter
 
 
+def _filter_fk(params, issue_filter, method, prefix, param, field):
+    """Filter on a nullable foreign key column; "None" selects unset."""
+    if method == "GET":
+        values = [item for item in params.get(param).split(",") if item != "null"]
+        ids = filter_valid_uuids(values)
+        # These filters become keyword arguments, which cannot OR "unset" with
+        # a list of ids; ids win when both are given (the rich filters can OR).
+        if ids:
+            issue_filter[f"{prefix}{field}__in"] = ids
+        elif "None" in values:
+            issue_filter[f"{prefix}{field}__isnull"] = True
+    else:
+        value = params.get(param, None)
+        if value and len(value) and value != "null":
+            issue_filter[f"{prefix}{field}__in"] = value
+    return issue_filter
+
+
+def filter_milestone(params, issue_filter, method, prefix=""):
+    return _filter_fk(params, issue_filter, method, prefix, "milestone", "milestone_id")
+
+
+def filter_issue_type(params, issue_filter, method, prefix=""):
+    return _filter_fk(params, issue_filter, method, prefix, "issue_type", "type_id")
+
+
 def issue_filters(query_params, method, prefix=""):
     issue_filter = {}
 
@@ -448,6 +474,8 @@ def issue_filters(query_params, method, prefix=""):
         "type": filter_issue_state_type,
         "project": filter_project,
         "cycle": filter_cycle,
+        "milestone": filter_milestone,
+        "issue_type": filter_issue_type,
         "module": filter_module,
         "intake_status": filter_intake_status,
         "inbox_status": filter_inbox_status,
