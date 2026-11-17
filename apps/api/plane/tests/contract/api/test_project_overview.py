@@ -104,3 +104,25 @@ def test_app_overview_and_tags(session_client, workspace, project):
     assert deleted.status_code == status.HTTP_204_NO_CONTENT
     assert not ProjectTag.objects.filter(pk=tag.data["id"]).exists()
     assert session_client.get(url).data["tags"] == []
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_tag_lists_include_project_ids(api_key_client, session_client, workspace, project, create_user):
+    other = Project.objects.create(name="Other", identifier="OTHR", workspace=workspace, created_by=create_user)
+    gone = Project.objects.create(name="Gone", identifier="GONE", workspace=workspace, created_by=create_user)
+    gov = ProjectTag.objects.create(workspace=workspace, name="Gov")
+    ProjectTag.objects.create(workspace=workspace, name="Alpha")
+    project.tags.add(gov)
+    other.tags.add(gov)
+    gone.tags.add(gov)
+    gone.delete()
+
+    for response in (
+        api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/project-tags"),
+        session_client.get(f"/api/workspaces/{workspace.slug}/project-tags/"),
+    ):
+        assert response.status_code == status.HTTP_200_OK, response.data
+        assert [tag["name"] for tag in response.data] == ["Alpha", "Gov"]
+        assert response.data[0]["project_ids"] == []
+        assert sorted(response.data[1]["project_ids"]) == sorted([str(project.id), str(other.id)])

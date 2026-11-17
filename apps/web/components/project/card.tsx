@@ -33,6 +33,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from "@makeplane/propel/comp
 import { Logo } from "@plane/blocks/emoji-icon-picker";
 import { setPromiseToast, setToast } from "@plane/blocks/toast";
 import { Tooltip } from "@makeplane/propel/components/tooltip";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import type { IProject, IUserLite } from "@plane/types";
 import type { TContextMenuItem } from "@plane/blocks/context-menu";
 import { ContextMenu, getRenderableItems, resolveItemVariant } from "@plane/blocks/context-menu";
@@ -66,6 +67,8 @@ const stopCardNavigation = {
   },
 };
 
+const MAX_CARD_TAGS = 3;
+
 export const ProjectCard = observer(function ProjectCard(props: Props) {
   const { project } = props;
   // states
@@ -78,6 +81,8 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
   // router
   const router = useAppRouter();
   const { workspaceSlug } = useParams();
+  const { getProjectTags } = useProjectTags(workspaceSlug?.toString());
+  const projectTags = getProjectTags(project.id);
   // plane hooks
   const { t } = useTranslation();
   // store hooks
@@ -339,6 +344,25 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                 </div>
               )}
             </div>
+            {/* tags */}
+            {projectTags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                {projectTags.slice(0, MAX_CARD_TAGS).map((tag) => (
+                  <Badge key={tag.id} variant="neutral" size="sm" label={tag.name} />
+                ))}
+                {projectTags.length > MAX_CARD_TAGS && (
+                  <Tooltip
+                    label={projectTags
+                      .slice(MAX_CARD_TAGS)
+                      .map((tag) => tag.name)
+                      .join(", ")}
+                    disabled={isMobile}
+                  >
+                    <span className="text-caption-sm-medium text-tertiary">+{projectTags.length - MAX_CARD_TAGS}</span>
+                  </Tooltip>
+                )}
+              </div>
+            )}
           </div>
           {/* footer */}
           <div className="flex items-center justify-between gap-2 border-t border-subtle p-3">

@@ -24,12 +24,18 @@ from plane.db.models import (
     Milestone,
     Project,
     ProjectIssueType,
-    ProjectTag,
     Workspace,
     WorkspaceMember,
 )
 from plane.utils.host import base_host
-from plane.utils.project_overview import OverviewError, create_tag, overview_payload, tag_payload, update_overview
+from plane.utils.project_overview import (
+    OverviewError,
+    create_tag,
+    overview_payload,
+    tag_payload,
+    update_overview,
+    workspace_tags_payload,
+)
 from plane.utils.milestone import (
     default_epic_flag,
     enable_milestones,
@@ -486,9 +492,7 @@ class ProjectTagListCreateAPIEndpoint(BaseAPIView):
     model = Project
 
     def get(self, request, slug):
-        return Response(
-            [tag_payload(tag) for tag in ProjectTag.objects.filter(workspace__slug=slug)], status=status.HTTP_200_OK
-        )
+        return Response(workspace_tags_payload(slug), status=status.HTTP_200_OK)
 
     def post(self, request, slug):
         workspace = Workspace.objects.get(slug=slug)

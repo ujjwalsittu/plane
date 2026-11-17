@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { useParams, useSearchParams } from "next/navigation";
 // plane imports
 import { EUserPermissionsLevel, EUserPermissions } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
@@ -18,8 +19,12 @@ import { useCommandPalette } from "@/hooks/store/use-command-palette";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectFilter } from "@/hooks/store/use-project-filter";
 import { useUserPermissions } from "@/hooks/store/user";
+import { useAppRouter } from "@/hooks/use-app-router";
+import { useProjectTags } from "@/hooks/use-project-tags";
+import { useQueryParams } from "@/hooks/use-query-params";
 // local imports
 import { ProjectCard } from "./card";
+import { ProjectTagFilterBar } from "./tag-filter-bar";
 
 type TProjectCardListProps = {
   totalProjectIds?: string[];
@@ -41,6 +46,15 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
   } = useProject();
   const { currentWorkspaceDisplayFilters, currentWorkspaceFilters } = useProjectFilter();
   const { allowPermissions } = useUserPermissions();
+  // tag filter, kept in ?tag= so a filtered view can be shared
+  const { workspaceSlug } = useParams();
+  const searchParams = useSearchParams();
+  const router = useAppRouter();
+  const { updateQueryParams } = useQueryParams();
+  const { tags } = useProjectTags(workspaceSlug?.toString());
+  const activeTag = tags.find((tag) => tag.id === searchParams.get("tag"));
+  const setActiveTag = (tagId: string | null) =>
+    router.push(updateQueryParams(tagId ? { paramsToAdd: { tag: tagId } } : { paramsToRemove: ["tag"] }));
 
   // derived values
   const workspaceProjectIds = totalProjectIdsProps ?? storeWorkspaceProjectIds;
@@ -100,10 +114,27 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
       />
     );
 
+  const visibleProjectIds = activeTag
+    ? filteredProjectIds.filter((projectId) => activeTag.project_ids?.includes(projectId))
+    : filteredProjectIds;
+
   return (
     <ContentWrapper>
+      {tags.length > 0 && (
+        <ProjectTagFilterBar
+          tags={tags}
+          activeTagId={activeTag?.id ?? null}
+          projectIds={filteredProjectIds}
+          onChange={setActiveTag}
+        />
+      )}
+      {visibleProjectIds.length === 0 && (
+        <p className="py-10 text-center text-body-sm-regular text-tertiary">
+          {t("project_overview.no_projects_with_tag")}
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {filteredProjectIds.map((projectId) => {
+        {visibleProjectIds.map((projectId) => {
           const projectDetails = getProjectById(projectId);
           if (!projectDetails) return;
           return <ProjectCard key={projectDetails.id} project={projectDetails} />;

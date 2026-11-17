@@ -9,7 +9,7 @@ the same way.
 """
 
 # Django imports
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 
 # Module imports
 from plane.db.models import Page, Project, ProjectTag
@@ -26,6 +26,16 @@ class OverviewError(ValueError):
 
 def tag_payload(tag):
     return {"id": str(tag.id), "name": tag.name, "color": tag.color}
+
+
+def workspace_tags_payload(workspace_slug):
+    """All of a workspace's project tags, each with the ids of the projects carrying it."""
+    tags = (
+        ProjectTag.objects.filter(workspace__slug=workspace_slug)
+        .order_by("name")
+        .prefetch_related(Prefetch("projects", queryset=Project.objects.filter(deleted_at__isnull=True).only("id")))
+    )
+    return [{**tag_payload(tag), "project_ids": [str(p.id) for p in tag.projects.all()]} for tag in tags]
 
 
 def visible_project_pages(user, project):

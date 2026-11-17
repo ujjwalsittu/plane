@@ -51,6 +51,8 @@ export type TProjectTag = {
   id: string;
   name: string;
   color: string;
+  /** Present on the workspace tag list: projects carrying this tag. */
+  project_ids?: string[];
 };
 
 export type TProjectOverviewLinkedPage = {

@@ -15,6 +15,7 @@ from plane.utils.project_overview import (
     create_tag,
     overview_payload,
     tag_payload,
+    workspace_tags_payload,
     update_overview,
     update_tag,
 )
@@ -45,8 +46,7 @@ class ProjectOverviewEndpoint(BaseAPIView):
 class ProjectTagEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def get(self, request, slug):
-        tags = ProjectTag.objects.filter(workspace__slug=slug)
-        return Response([tag_payload(tag) for tag in tags], status=status.HTTP_200_OK)
+        return Response(workspace_tags_payload(slug), status=status.HTTP_200_OK)
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER], level="WORKSPACE")
     def post(self, request, slug):

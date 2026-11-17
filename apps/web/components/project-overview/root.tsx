@@ -35,6 +35,7 @@ import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
 import { useUserPermissions } from "@/hooks/store/user";
 import { MilestoneService } from "@/services/milestone.service";
+import { getProjectTagsKey } from "@/hooks/use-project-tags";
 import { ProjectPageService } from "@/services/page";
 
 const milestoneService = new MilestoneService();
@@ -73,7 +74,7 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
 
   const overviewKey = `PROJECT_OVERVIEW_${projectId}`;
   const { data: overview, mutate } = useSWR(overviewKey, () => milestoneService.getOverview(workspaceSlug, projectId));
-  const { data: tags, mutate: mutateTags } = useSWR(`PROJECT_TAGS_${workspaceSlug}`, () =>
+  const { data: tags, mutate: mutateTags } = useSWR(getProjectTagsKey(workspaceSlug), () =>
     milestoneService.listProjectTags(workspaceSlug)
   );
   const { data: pages } = useSWR(canEdit ? `PROJECT_PAGES_FOR_OVERVIEW_${projectId}` : null, () =>
@@ -101,7 +102,8 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
 
   const toggleTag = (tagId: string) => {
     const next = tagIds.has(tagId) ? [...tagIds].filter((id) => id !== tagId) : [...tagIds, tagId];
-    void update({ tag_ids: next });
+    // The workspace tag list carries project ids, so refresh it for the projects page.
+    void update({ tag_ids: next }).then(() => mutateTags());
   };
 
   const addTag = async () => {
@@ -110,8 +112,8 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
     try {
       const tag = await milestoneService.createProjectTag(workspaceSlug, { name });
       setNewTag("");
-      await mutateTags();
       await update({ tag_ids: [...tagIds, tag.id] });
+      await mutateTags();
     } catch {
       setToast({ type: "error", title: t("project_overview.tag_error") });
     }
