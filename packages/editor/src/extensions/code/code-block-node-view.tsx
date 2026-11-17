@@ -5,6 +5,7 @@
  */
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { Editor } from "@tiptap/react";
 import { NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import ts from "highlight.js/lib/languages/typescript";
 import { common, createLowlight } from "lowlight";
@@ -15,6 +16,7 @@ import { IconButton } from "@makeplane/propel/components/icon-button";
 // types
 import type { TCodeBlockAttributes } from "./types";
 import { ECodeBlockAttributeNames } from "./types";
+import { MermaidPreview } from "./mermaid-preview";
 
 // we just have ts support for now
 const lowlight = createLowlight(common);
@@ -22,12 +24,18 @@ lowlight.register("ts", ts);
 
 type Props = {
   node: ProseMirrorNode;
+  editor?: Editor;
 };
 
-export function CodeBlockComponent({ node }: Props) {
+export function CodeBlockComponent({ node, editor }: Props) {
   const [copied, setCopied] = useState(false);
+  const [showSource, setShowSource] = useState(false);
   // derived values
   const attrs = node.attrs as TCodeBlockAttributes;
+  const isMermaid = attrs[ECodeBlockAttributeNames.LANGUAGE] === "mermaid";
+  const isEditable = editor?.isEditable ?? false;
+  // A diagram shows its source while editing, or when asked to.
+  const sourceVisible = !isMermaid || isEditable || showSource;
 
   const copyToClipboard = async (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     try {
@@ -53,7 +61,22 @@ export function CodeBlockComponent({ node }: Props) {
         />
       </div>
 
-      <pre className="my-2 rounded-lg bg-layer-3 p-4 text-primary">
+      {isMermaid && (
+        <div className="my-2 rounded-lg border border-subtle bg-surface-1 p-4">
+          <MermaidPreview code={node.textContent} />
+          {!isEditable && (
+            <button
+              type="button"
+              contentEditable={false}
+              className="mt-2 text-caption-sm-regular text-tertiary hover:text-primary"
+              onClick={() => setShowSource((value) => !value)}
+            >
+              {showSource ? "Hide diagram source" : "Show diagram source"}
+            </button>
+          )}
+        </div>
+      )}
+      <pre className={sourceVisible ? "my-2 rounded-lg bg-layer-3 p-4 text-primary" : "hidden"}>
         <NodeViewContent<"code"> as="code" className="whitespace-pre-wrap" />
       </pre>
     </NodeViewWrapper>
