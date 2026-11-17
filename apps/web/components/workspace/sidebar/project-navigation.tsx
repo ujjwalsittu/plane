@@ -15,6 +15,7 @@ import {
   CyclesOutline,
   IntakeOutline,
   EpicOutline,
+  OverviewOutline,
   MilestoneOutline,
   ModuleOutline,
   PagesOutline,
@@ -81,6 +82,16 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
 
   const baseNavigation = useCallback(
     (slug: string, id: string): TNavigationItem[] => [
+      {
+        i18n_key: "project_overview.label",
+        key: "overview",
+        name: "Overview",
+        href: `/${slug}/projects/${id}/overview`,
+        icon: OverviewOutline,
+        access: [EUserPermissions.ADMIN, EUserPermissions.MEMBER, EUserPermissions.GUEST],
+        shouldRender: true,
+        sortOrder: 0,
+      },
       {
         i18n_key: "sidebar.work_items",
         key: "work_items",

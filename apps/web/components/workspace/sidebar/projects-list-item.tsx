@@ -283,7 +283,14 @@ export const SidebarProjectsListItem = observer(function SidebarProjectsListItem
 
   const handleItemClick = () => {
     if (projectPreferences.navigationMode === "ACCORDION") {
-      setIsProjectListOpen(!isProjectListOpen);
+      // Clicking another project opens its home page and expands it; clicking
+      // the project you are in toggles its menu.
+      if (URLProjectId !== project.id) {
+        setIsProjectListOpen(true);
+        router.push(defaultTabUrl);
+      } else {
+        setIsProjectListOpen(!isProjectListOpen);
+      }
     } else {
       router.push(defaultTabUrl);
     }

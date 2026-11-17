@@ -95,5 +95,21 @@
       "title": "No Epic type in this project",
       "description": "Add an Epic type in project settings, under Work item types."
     }
+  },
+  "project_overview": {
+    "label": "Overview",
+    "title": "Overview",
+    "placeholder": "Describe the project: goals, scope, links and diagrams. Markdown and ```mermaid blocks work.",
+    "edit_tags": "Tags",
+    "new_tag": "New tag",
+    "view_all": "View all",
+    "linked_pages": "Linked pages",
+    "link_page": "Link page",
+    "unlink": "Unlink",
+    "no_linked_pages": "No pages linked yet.",
+    "no_modules": "No modules yet.",
+    "save_error": "Couldn't save the overview. Please try again.",
+    "tag_error": "Couldn't create the tag.",
+    "untitled": "Untitled"
   }
 }

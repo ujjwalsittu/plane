@@ -154,6 +154,11 @@ export const coreRoutes: RouteConfigEntry[] = [
             ),
           ]),
 
+          // Project overview (home)
+          route(
+            ":workspaceSlug/projects/:projectId/overview",
+            "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/overview/page.tsx"
+          ),
           // Milestones
           route(
             ":workspaceSlug/projects/:projectId/milestones",

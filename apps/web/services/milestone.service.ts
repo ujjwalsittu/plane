@@ -5,7 +5,16 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TIssue, TIssueType, TIssueTypeFormData, TMilestone, TMilestoneFormData } from "@plane/types";
+import type {
+  TIssue,
+  TIssueType,
+  TIssueTypeFormData,
+  TMilestone,
+  TMilestoneFormData,
+  TProjectOverview,
+  TProjectOverviewUpdate,
+  TProjectTag,
+} from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 export class MilestoneService extends APIService {
@@ -121,6 +130,42 @@ export class MilestoneService extends APIService {
 
   async deleteIssueType(workspaceSlug: string, projectId: string, issueTypeId: string): Promise<void> {
     return this.delete(`${this.base(workspaceSlug, projectId)}/issue-types/${issueTypeId}/`)
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async getOverview(workspaceSlug: string, projectId: string): Promise<TProjectOverview> {
+    return this.get(`${this.base(workspaceSlug, projectId)}/overview/`)
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async updateOverview(
+    workspaceSlug: string,
+    projectId: string,
+    data: TProjectOverviewUpdate
+  ): Promise<TProjectOverview> {
+    return this.patch(`${this.base(workspaceSlug, projectId)}/overview/`, data)
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async listProjectTags(workspaceSlug: string): Promise<TProjectTag[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/project-tags/`)
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async createProjectTag(workspaceSlug: string, data: Partial<TProjectTag>): Promise<TProjectTag> {
+    return this.post(`/api/workspaces/${workspaceSlug}/project-tags/`, data)
       .then((res) => res?.data)
       .catch((err) => {
         throw err?.response?.data;

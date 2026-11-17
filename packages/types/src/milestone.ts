@@ -46,3 +46,31 @@ export type TIssueType = {
 };
 
 export type TIssueTypeFormData = Pick<TIssueType, "name" | "description" | "is_epic">;
+
+export type TProjectTag = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type TProjectOverviewLinkedPage = {
+  id: string;
+  name: string;
+  access: number;
+  archived_at: string | null;
+};
+
+export type TProjectOverview = {
+  project_id: string;
+  overview_html: string;
+  linked_pages: TProjectOverviewLinkedPage[];
+  overview_page_ids: string[];
+  tags: TProjectTag[];
+  updated_at: string | null;
+};
+
+export type TProjectOverviewUpdate = Partial<{
+  overview_html: string;
+  overview_page_ids: string[];
+  tag_ids: string[];
+}>;
