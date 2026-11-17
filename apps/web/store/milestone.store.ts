@@ -25,6 +25,8 @@ export interface IMilestoneStore {
   getProjectEpicTypeIds: (projectId: string | null | undefined) => string[];
   // milestone actions
   fetchMilestones: (workspaceSlug: string, projectId: string) => Promise<TMilestone[]>;
+  ensureMilestones: (workspaceSlug: string, projectId: string) => Promise<void>;
+  ensureIssueTypes: (workspaceSlug: string, projectId: string) => Promise<void>;
   fetchMilestone: (workspaceSlug: string, projectId: string, milestoneId: string) => Promise<TMilestone>;
   createMilestone: (workspaceSlug: string, projectId: string, data: Partial<TMilestoneFormData>) => Promise<TMilestone>;
   updateMilestone: (
@@ -53,6 +55,8 @@ export class MilestoneStore implements IMilestoneStore {
   projectIssueTypeIds: Record<string, string[]> = {};
   service = new MilestoneService();
   rootStore: CoreRootStore;
+  // In-flight loads, so many dropdowns mounting at once share one request.
+  private pendingLoads = new Map<string, Promise<void>>();
 
   constructor(rootStore: CoreRootStore) {
     makeObservable(this, {
@@ -113,6 +117,29 @@ export class MilestoneStore implements IMilestoneStore {
     const ids = this.projectIssueTypeIds[projectId] ?? [];
     if (!ids.includes(issueType.id)) this.projectIssueTypeIds[projectId] = [...ids, issueType.id];
   }
+
+  private loadOnce(key: string, load: () => Promise<unknown>) {
+    let pending = this.pendingLoads.get(key);
+    if (!pending) {
+      pending = load()
+        .then(() => undefined)
+        .finally(() => this.pendingLoads.delete(key));
+      this.pendingLoads.set(key, pending);
+    }
+    return pending;
+  }
+
+  /** Loads a project's milestones unless they are already in the store. */
+  ensureMilestones = async (workspaceSlug: string, projectId: string) => {
+    if (this.projectMilestoneIds[projectId]) return;
+    await this.loadOnce(`milestones:${projectId}`, () => this.fetchMilestones(workspaceSlug, projectId));
+  };
+
+  /** Loads a project's work item types unless they are already in the store. */
+  ensureIssueTypes = async (workspaceSlug: string, projectId: string) => {
+    if (this.projectIssueTypeIds[projectId]) return;
+    await this.loadOnce(`issue-types:${projectId}`, () => this.fetchIssueTypes(workspaceSlug, projectId));
+  };
 
   // milestone actions
   fetchMilestones = async (workspaceSlug: string, projectId: string) => {

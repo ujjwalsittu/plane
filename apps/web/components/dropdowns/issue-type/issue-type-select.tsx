@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { EpicOutline, LayerStackOutline } from "@makeplane/propel/icons";
@@ -58,7 +58,7 @@ export const IssueTypeSelect = observer(function IssueTypeSelect(props: Props) {
   } = props;
   const { workspaceSlug } = useParams();
   const { t } = useTranslation();
-  const { getProjectIssueTypes, getIssueTypeById, fetchIssueTypes } = useMilestone();
+  const { getProjectIssueTypes, getIssueTypeById, fetchIssueTypes, ensureIssueTypes } = useMilestone();
 
   const resolvedPlaceholder = placeholder ?? t("issue_types_feature.none");
   const resolvedTooltip = useMemo<SelectTooltipOverride | undefined>(() => {
@@ -89,6 +89,13 @@ export const IssueTypeSelect = observer(function IssueTypeSelect(props: Props) {
   );
 
   const issueType = value ? getIssueTypeById(value) : null;
+
+  // The label comes from the store; load the project's list if this value isn't in it yet
+  // (e.g. a work item opened directly, before any list view loaded them).
+  useEffect(() => {
+    if (!value || issueType || !workspaceSlug || !projectId) return;
+    ensureIssueTypes(workspaceSlug.toString(), projectId).catch(() => undefined);
+  }, [value, issueType, workspaceSlug, projectId, ensureIssueTypes]);
   const selected = issueType ? toOption(issueType) : null;
   const clearOption = useMemo<IssueTypeOption>(
     () => ({ id: CLEAR_OPTION_ID, name: t("issue_types_feature.none") }),

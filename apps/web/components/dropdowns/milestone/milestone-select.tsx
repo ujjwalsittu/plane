@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { MilestoneOutline } from "@makeplane/propel/icons";
@@ -55,7 +55,7 @@ export const MilestoneSelect = observer(function MilestoneSelect(props: Props) {
   } = props;
   const { workspaceSlug } = useParams();
   const { t } = useTranslation();
-  const { getProjectMilestones, getMilestoneById, fetchMilestones } = useMilestone();
+  const { getProjectMilestones, getMilestoneById, fetchMilestones, ensureMilestones } = useMilestone();
 
   const resolvedPlaceholder = placeholder ?? t("milestones_feature.none");
   const resolvedTooltip = useMemo<SelectTooltipOverride | undefined>(() => {
@@ -85,6 +85,13 @@ export const MilestoneSelect = observer(function MilestoneSelect(props: Props) {
   );
 
   const milestone = value ? getMilestoneById(value) : null;
+
+  // The label comes from the store; load the project's list if this value isn't in it yet
+  // (e.g. a work item opened directly, before any list view loaded them).
+  useEffect(() => {
+    if (!value || milestone || !workspaceSlug || !projectId) return;
+    ensureMilestones(workspaceSlug.toString(), projectId).catch(() => undefined);
+  }, [value, milestone, workspaceSlug, projectId, ensureMilestones]);
   const selected = milestone ? toOption(milestone) : null;
   const clearOption = useMemo<MilestoneOption>(
     () => ({ id: CLEAR_OPTION_ID, title: t("milestones_feature.none") }),
