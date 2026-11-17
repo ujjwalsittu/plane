@@ -14,6 +14,8 @@ from .user import urlpatterns as user_patterns
 from .work_item import urlpatterns as work_item_patterns
 from .invite import urlpatterns as invite_patterns
 from .sticky import urlpatterns as sticky_patterns
+from .estimate import urlpatterns as estimate_patterns
+from .work_item_relation import urlpatterns as work_item_relation_patterns
 
 urlpatterns = [
     *asset_patterns,
@@ -28,4 +30,6 @@ urlpatterns = [
     *work_item_patterns,
     *invite_patterns,
     *sticky_patterns,
+    *estimate_patterns,
+    *work_item_relation_patterns,
 ]

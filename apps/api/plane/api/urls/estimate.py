@@ -10,20 +10,28 @@ from plane.api.views.estimate import (
     EstimatePointDetailAPIEndpoint,
 )
 
-urlpatterns = [
-    path(
-        "workspaces/<str:slug>/projects/<uuid:project_id>/estimates/",
+_ESTIMATES = "workspaces/<str:slug>/projects/<uuid:project_id>/estimates"
+
+_routes = [
+    (
+        _ESTIMATES,
         ProjectEstimateAPIEndpoint.as_view(http_method_names=["get", "post", "patch", "delete"]),
-        name="project-estimate",
+        "project-estimate",
     ),
-    path(
-        "workspaces/<str:slug>/projects/<uuid:project_id>/estimates/<uuid:estimate_id>/estimate-points/",
+    (
+        f"{_ESTIMATES}/<uuid:estimate_id>/estimate-points",
         EstimatePointListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
-        name="estimate-point-list-create",
+        "estimate-point-list-create",
     ),
-    path(
-        "workspaces/<str:slug>/projects/<uuid:project_id>/estimates/<uuid:estimate_id>/estimate-points/<uuid:estimate_point_id>/",
+    (
+        f"{_ESTIMATES}/<uuid:estimate_id>/estimate-points/<uuid:estimate_point_id>",
         EstimatePointDetailAPIEndpoint.as_view(http_method_names=["patch", "delete"]),
-        name="estimate-point-detail",
+        "estimate-point-detail",
     ),
+]
+
+# The Plane SDK calls these routes without a trailing slash. APPEND_SLASH
+# would answer with a redirect, which turns a POST into a GET, so serve both.
+urlpatterns = [path(f"{route}/", view, name=name) for route, view, name in _routes] + [
+    path(route, view, name=f"{name}-no-slash") for route, view, name in _routes
 ]
