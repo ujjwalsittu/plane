@@ -2,6 +2,7 @@
 #
 # Images (mirroring the official makeplane/* names):
 #   ghcr.io/<owner>/plane-admin | plane-frontend | plane-space | plane-live | plane-backend | plane-proxy
+#   ghcr.io/<owner>/plane-mcp (Plane MCP server with the fork's auth patch, deployments/plane-mcp)
 #
 # Tags:
 #   push to `custom`          -> :custom, :sha-<short>
@@ -21,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       images:
-        description: "Comma-separated images to build (admin,frontend,space,live,backend,proxy) or 'all'"
+        description: "Comma-separated images to build (admin,frontend,space,live,backend,proxy,mcp) or 'all'"
         required: false
         default: "all"
 
@@ -53,7 +54,8 @@ jobs:
             {"name":"space","context":".","dockerfile":"./apps/space/Dockerfile.space"},
             {"name":"live","context":".","dockerfile":"./apps/live/Dockerfile.live"},
             {"name":"backend","context":"./apps/api","dockerfile":"./apps/api/Dockerfile.api"},
-            {"name":"proxy","context":"./apps/proxy","dockerfile":"./apps/proxy/Dockerfile.ce"}
+            {"name":"proxy","context":"./apps/proxy","dockerfile":"./apps/proxy/Dockerfile.ce"},
+            {"name":"mcp","context":"./deployments/plane-mcp","dockerfile":"./deployments/plane-mcp/Dockerfile"}
           ]'
           if [ "$REQUESTED" = "all" ] || [ -z "$REQUESTED" ]; then
             MATRIX=$(echo "$ALL" | jq -c .)
