@@ -17,6 +17,7 @@ import { isCommentEmpty } from "@plane/utils";
 // components
 import { LiteTextEditor } from "@/components/editor/lite-text";
 import { IssueCommentToolbar } from "@/components/editor/lite-text/toolbar";
+import { MarkdownEditModal } from "@/components/editor/markdown/markdown-edit-modal";
 // hooks
 import { useWorkspace } from "@/hooks/store/use-workspace";
 // services
@@ -42,6 +43,7 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
   const [isEditorReady, setIsEditorReady] = useState(false);
   // refs
   const editorRef = useRef<EditorRefApi>(null);
+  const [isMarkdownOpen, setIsMarkdownOpen] = useState(false);
   // store hooks
   const workspaceStore = useWorkspace();
   // derived values
@@ -91,6 +93,7 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
 
   return (
     <div
+      role="presentation"
       className="sticky bottom-0 z-[4] bg-surface-1 sm:static"
       onKeyDown={(e) => {
         if (
@@ -136,6 +139,7 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
                     showAccessSpecifier={false}
                     showSubmitButton={false}
                     editorRef={isEditorReady ? editorRef.current : null}
+                    onEditMarkdown={isEditorReady ? () => setIsMarkdownOpen(true) : undefined}
                   />
                 }
                 editor={
@@ -178,6 +182,13 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
             )}
           />
         )}
+      />
+      <MarkdownEditModal
+        isOpen={isMarkdownOpen}
+        onClose={() => setIsMarkdownOpen(false)}
+        editorRef={editorRef}
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
       />
     </div>
   );

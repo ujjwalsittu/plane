@@ -17,6 +17,7 @@ import { isCommentEmpty } from "@plane/utils";
 // components
 import { LiteTextEditor } from "@/components/editor/lite-text";
 import { IssueCommentToolbar } from "@/components/editor/lite-text/toolbar";
+import { MarkdownEditModal } from "@/components/editor/markdown/markdown-edit-modal";
 
 type Props = {
   activityOperations: TCommentsOperations;
@@ -43,6 +44,7 @@ export const CommentCardEditForm = observer(function CommentCardEditForm(props: 
   const { t } = useTranslation();
   // refs
   const editorRef = useRef<EditorRefApi>(null);
+  const [isMarkdownOpen, setIsMarkdownOpen] = useState(false);
   // states
   const [isEditorReady, setIsEditorReady] = useState(false);
   // form info
@@ -84,85 +86,95 @@ export const CommentCardEditForm = observer(function CommentCardEditForm(props: 
   }, [isEditing, setFocus]);
 
   return (
-    <CommentBox
-      submitLabel={t("save")}
-      onSubmit={() => void handleSubmit(onEnter)()}
-      canSubmit={canSubmit}
-      isSubmitting={isSubmitting}
-      toolbar={
-        <div className="flex items-center gap-2 pr-2">
-          <div className="min-w-0 flex-1">
-            <IssueCommentToolbar
-              executeCommand={(item) => {
-                // TODO: update this while toolbar homogenization
-                // @ts-expect-error type mismatch here
-                editorRef.current?.executeMenuItemCommand({
-                  itemKey: item.itemKey,
-                  ...item.extraProps,
-                });
-              }}
-              handleSubmit={() => void handleSubmit(onEnter)()}
-              isCommentEmpty={isEmpty}
-              isSubmitting={isSubmitting}
-              showAccessSpecifier={false}
-              showSubmitButton={false}
-              editorRef={isEditorReady ? editorRef.current : null}
+    <>
+      <CommentBox
+        submitLabel={t("save")}
+        onSubmit={() => void handleSubmit(onEnter)()}
+        canSubmit={canSubmit}
+        isSubmitting={isSubmitting}
+        toolbar={
+          <div className="flex items-center gap-2 pr-2">
+            <div className="min-w-0 flex-1">
+              <IssueCommentToolbar
+                executeCommand={(item) => {
+                  // TODO: update this while toolbar homogenization
+                  // @ts-expect-error type mismatch here
+                  editorRef.current?.executeMenuItemCommand({
+                    itemKey: item.itemKey,
+                    ...item.extraProps,
+                  });
+                }}
+                handleSubmit={() => void handleSubmit(onEnter)()}
+                isCommentEmpty={isEmpty}
+                isSubmitting={isSubmitting}
+                showAccessSpecifier={false}
+                showSubmitButton={false}
+                editorRef={isEditorReady ? editorRef.current : null}
+                onEditMarkdown={isEditorReady ? () => setIsMarkdownOpen(true) : undefined}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              stretch="auto"
+              label={t("cancel")}
+              disabled={isSubmitting}
+              onClick={handleCancel}
             />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            stretch="auto"
-            label={t("cancel")}
-            disabled={isSubmitting}
-            onClick={handleCancel}
-          />
-        </div>
-      }
-      editor={
-        // Scoped to the editor so Enter on Cancel or a toolbar control activates it instead of saving.
-        <div
-          role="presentation"
-          className="w-full"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEmpty) handleSubmit(onEnter)(e);
-          }}
-        >
-          <LiteTextEditor
-            editable
-            workspaceId={workspaceId}
-            workspaceSlug={workspaceSlug}
-            ref={editorRef}
-            id={comment.id}
-            initialValue={commentHTML ?? ""}
-            value={null}
-            handleEditorReady={setIsEditorReady}
-            onChange={(_comment_json, comment_html) => setValue("comment_html", comment_html)}
-            onEnterKeyPress={(e) => {
-              if (!isEmpty && !isSubmitting) {
-                handleSubmit(onEnter)(e);
-              }
+        }
+        editor={
+          // Scoped to the editor so Enter on Cancel or a toolbar control activates it instead of saving.
+          <div
+            role="presentation"
+            className="w-full"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEmpty) handleSubmit(onEnter)(e);
             }}
-            showSubmitButton={false}
-            uploadFile={async (blockId, file) => {
-              const { asset_id } = await activityOperations.uploadCommentAsset(blockId, file, comment.id);
-              return asset_id;
-            }}
-            duplicateFile={async (assetId: string) => {
-              const { asset_id } = await activityOperations.duplicateCommentAsset(assetId, comment.id);
-              return asset_id;
-            }}
-            projectId={projectId}
-            containerClassName="min-h-min max-h-[200px] overflow-y-auto overscroll-contain"
-            variant="none"
-            parentClassName="w-full rounded-none border-0 p-0"
-            displayConfig={{
-              fontSize: "small-font",
-            }}
-          />
-        </div>
-      }
-    />
+          >
+            <LiteTextEditor
+              editable
+              workspaceId={workspaceId}
+              workspaceSlug={workspaceSlug}
+              ref={editorRef}
+              id={comment.id}
+              initialValue={commentHTML ?? ""}
+              value={null}
+              handleEditorReady={setIsEditorReady}
+              onChange={(_comment_json, comment_html) => setValue("comment_html", comment_html)}
+              onEnterKeyPress={(e) => {
+                if (!isEmpty && !isSubmitting) {
+                  handleSubmit(onEnter)(e);
+                }
+              }}
+              showSubmitButton={false}
+              uploadFile={async (blockId, file) => {
+                const { asset_id } = await activityOperations.uploadCommentAsset(blockId, file, comment.id);
+                return asset_id;
+              }}
+              duplicateFile={async (assetId: string) => {
+                const { asset_id } = await activityOperations.duplicateCommentAsset(assetId, comment.id);
+                return asset_id;
+              }}
+              projectId={projectId}
+              containerClassName="min-h-min max-h-[200px] overflow-y-auto overscroll-contain"
+              variant="none"
+              parentClassName="w-full rounded-none border-0 p-0"
+              displayConfig={{
+                fontSize: "small-font",
+              }}
+            />
+          </div>
+        }
+      />
+      <MarkdownEditModal
+        isOpen={isMarkdownOpen}
+        onClose={() => setIsMarkdownOpen(false)}
+        editorRef={editorRef}
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+      />
+    </>
   );
 });
