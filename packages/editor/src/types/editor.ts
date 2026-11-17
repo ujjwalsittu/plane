@@ -126,6 +126,8 @@ export type CoreEditorRefApi = {
   getDocumentInfo: () => TDocumentInfo;
   getHeadings: () => IMarking[];
   getMarkDown: () => string;
+  /** Converts Markdown to editor HTML with the editor's own Markdown parser (same as paste). */
+  convertMarkdownToHTML: (markdown: string) => string;
   copyMarkdownToClipboard: () => void;
   getSelectedText: () => string | null;
   insertText: (contentHTML: string, insertOnNextLine?: boolean) => void;

@@ -7,9 +7,11 @@
 import { useMemo } from "react";
 import {
   ArchiveOutline,
+  ClipboardOutline,
   CloseCircleOutline,
   CopyOutline,
   DeleteOutline,
+  DownloadOutline,
   EditOutline,
   LinkOutline,
   NewTabOutline,
@@ -20,7 +22,9 @@ import { useTranslation } from "@plane/i18n";
 import { setToast } from "@plane/blocks/toast";
 import type { EIssuesStoreType, TIssue } from "@plane/types";
 import type { TContextMenuItem } from "@plane/blocks/context-menu";
-import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
+import { convertHTMLToMarkdown, copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
+import { useParseEditorContent } from "@/hooks/use-parse-editor-content";
+import { IssueService } from "@/services/issue";
 import { createCopyMenuWithDuplication } from "./copy-menu-helper";
 
 /**
@@ -174,9 +178,34 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
   };
 };
 
+const issueService = new IssueService();
+
+/** The work item (title + description) as Markdown, fetching the description if not loaded. */
+const useWorkItemMarkdown = (props: MenuItemFactoryProps) => {
+  const { issue, workspaceSlug = "", projectIdentifier } = props;
+  const { getEditorMetaData } = useParseEditorContent({ projectId: issue?.project_id ?? undefined, workspaceSlug });
+  const identifier = projectIdentifier ? `${projectIdentifier}-${issue.sequence_id}` : undefined;
+
+  const getMarkdown = async () => {
+    let descriptionHTML = issue.description_html;
+    if (descriptionHTML === undefined && workspaceSlug && issue.project_id) {
+      descriptionHTML = (await issueService.retrieve(workspaceSlug, issue.project_id, issue.id)).description_html;
+    }
+    const html = descriptionHTML || "<p></p>";
+    return convertHTMLToMarkdown({
+      description_html: html,
+      metaData: getEditorMetaData(html),
+      name: identifier ? `${identifier}: ${issue.name}` : issue.name,
+    });
+  };
+
+  return { getMarkdown, fileName: `${identifier ?? issue.name ?? "work-item"}.md` };
+};
+
 export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
   const { t } = useTranslation();
   const actionHandlers = useIssueActionHandlers(props);
+  const workItemMarkdown = useWorkItemMarkdown(props);
 
   const {
     issue,
@@ -242,6 +271,39 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     action: actionHandlers.handleCopyIssueLink,
   });
 
+  const createCopyMarkdownMenuItem = (): TContextMenuItem => ({
+    key: "copy-markdown",
+    title: t("markdown_mode.copy_markdown"),
+    icon: ClipboardOutline,
+    action: () => {
+      workItemMarkdown
+        .getMarkdown()
+        .then((markdown) => navigator.clipboard.writeText(markdown))
+        .then(() => setToast({ type: "success", title: t("markdown_mode.copied") }))
+        .catch(() => setToast({ type: "error", title: t("common.errors.default.title") }));
+    },
+  });
+
+  const createDownloadMarkdownMenuItem = (): TContextMenuItem => ({
+    key: "download-markdown",
+    title: t("markdown_mode.download_markdown"),
+    icon: DownloadOutline,
+    action: () => {
+      workItemMarkdown
+        .getMarkdown()
+        .then((markdown) => {
+          const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = workItemMarkdown.fileName;
+          link.click();
+          URL.revokeObjectURL(url);
+          return setToast({ type: "success", title: t("markdown_mode.downloaded") });
+        })
+        .catch(() => setToast({ type: "error", title: t("common.errors.default.title") }));
+    },
+  });
+
   const createRemoveFromCycleMenuItem = (): TContextMenuItem => ({
     key: "remove-from-cycle",
     title: "Remove from cycle",
@@ -292,6 +354,8 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
     createCopyMenuItem,
     createOpenInNewTabMenuItem,
     createCopyLinkMenuItem,
+    createCopyMarkdownMenuItem,
+    createDownloadMarkdownMenuItem,
     createRemoveFromCycleMenuItem,
     createRemoveFromModuleMenuItem,
     createArchiveMenuItem,
@@ -310,6 +374,8 @@ export const useProjectIssueMenuItems = (props: MenuItemFactoryProps): TContextM
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyMarkdownMenuItem(),
+      factory.createDownloadMarkdownMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -324,6 +390,8 @@ export const useWorkItemDetailMenuItems = (props: MenuItemFactoryProps): TContex
     () => [
       factory.createCopyMenuItem(props.workspaceSlug),
       factory.createOpenInNewTabMenuItem(),
+      factory.createCopyMarkdownMenuItem(),
+      factory.createDownloadMarkdownMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createRestoreMenuItem(),
       factory.createDeleteMenuItem(),
@@ -342,6 +410,8 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyMarkdownMenuItem(),
+      factory.createDownloadMarkdownMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
     ],
@@ -366,6 +436,8 @@ export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMen
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyMarkdownMenuItem(),
+      factory.createDownloadMarkdownMenuItem(),
       factory.createRemoveFromCycleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),
@@ -392,6 +464,8 @@ export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMe
       factory.createCopyMenuItem(),
       factory.createOpenInNewTabMenuItem(),
       factory.createCopyLinkMenuItem(),
+      factory.createCopyMarkdownMenuItem(),
+      factory.createDownloadMarkdownMenuItem(),
       factory.createRemoveFromModuleMenuItem(),
       factory.createArchiveMenuItem(),
       factory.createDeleteMenuItem(),

@@ -9,11 +9,13 @@ import { debounce } from "lodash-es";
 import { observer } from "mobx-react";
 import { Controller, useForm } from "react-hook-form";
 // plane imports
+import { CodeOutline } from "@makeplane/propel/icons";
 import type { EditorRefApi, TExtensions } from "@plane/editor";
 import { useTranslation } from "@plane/i18n";
 import type { EFileAssetType, TNameDescriptionLoader } from "@plane/types";
 import { getDescriptionPlaceholderI18n } from "@plane/utils";
 // components
+import { MarkdownEditModal } from "@/components/editor/markdown/markdown-edit-modal";
 import { RichTextEditor } from "@/components/editor/rich-text";
 // hooks
 import { useEditorAsset } from "@/hooks/store/use-editor-asset";
@@ -128,6 +130,10 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
     description_html: initialValue?.trim() ?? "",
     isMigrationUpdate: false,
   });
+  // Markdown mode needs the editor even when the caller didn't pass a ref
+  const internalEditorRef = useRef<EditorRefApi>(null);
+  const resolvedEditorRef = editorRef ?? internalEditorRef;
+  const [isMarkdownOpen, setIsMarkdownOpen] = useState(false);
   // ref to track if there are unsaved changes
   const hasUnsavedChanges = useRef(false);
   // ref to track last saved content (to skip onChange when content hasn't actually changed)
@@ -225,73 +231,94 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
   if (!localDescription.description_html) return <DescriptionInputLoader />;
 
   return (
-    <Controller
-      name="description_html"
-      control={control}
-      render={({ field: { onChange } }) => (
-        <RichTextEditor
-          key={entityId}
-          editable={!disabled}
-          ref={editorRef}
-          id={entityId}
-          issueSequenceId={issueSequenceId}
-          disabledExtensions={disabledExtensions}
-          initialValue={localDescription.description_html ?? "<p></p>"}
-          value={swrDescription ?? null}
-          workspaceSlug={workspaceSlug}
-          workspaceId={workspaceDetails.id}
-          projectId={projectId}
-          dragDropEnabled
-          onChange={(description_json, description_html, options) => {
-            if (description_html === lastSavedContent.current) return;
-            setIsSubmitting("submitting");
-            onChange(description_html);
-            setValue("isMigrationUpdate", !!options?.isMigrationUpdate);
-            setValue("description_json", description_json);
-            hasUnsavedChanges.current = true;
-            debouncedFormSave();
-          }}
-          placeholder={placeholder ?? ((isFocused, value) => t(getDescriptionPlaceholderI18n(isFocused, value)))}
-          searchMentionCallback={async (payload) =>
-            await workspaceService.searchEntity(workspaceSlug?.toString() ?? "", {
-              ...payload,
-              project_id: projectId,
-            })
-          }
-          containerClassName={containerClassName}
-          uploadFile={async (blockId, file) => {
-            try {
-              const { asset_id } = await uploadEditorAsset({
-                blockId,
-                data: {
-                  entity_identifier: entityId,
-                  entity_type: fileAssetType,
-                },
-                file,
-                projectId,
-                workspaceSlug,
-              });
-              return asset_id;
-            } catch (error) {
-              console.log("Error in uploading asset:", error);
-              throw new Error("Asset upload failed. Please try again later.", { cause: error });
+    <div className="group/description relative">
+      <Controller
+        name="description_html"
+        control={control}
+        render={({ field: { onChange } }) => (
+          <RichTextEditor
+            key={entityId}
+            editable={!disabled}
+            ref={resolvedEditorRef}
+            id={entityId}
+            issueSequenceId={issueSequenceId}
+            disabledExtensions={disabledExtensions}
+            initialValue={localDescription.description_html ?? "<p></p>"}
+            value={swrDescription ?? null}
+            workspaceSlug={workspaceSlug}
+            workspaceId={workspaceDetails.id}
+            projectId={projectId}
+            dragDropEnabled
+            onChange={(description_json, description_html, options) => {
+              if (description_html === lastSavedContent.current) return;
+              setIsSubmitting("submitting");
+              onChange(description_html);
+              setValue("isMigrationUpdate", !!options?.isMigrationUpdate);
+              setValue("description_json", description_json);
+              hasUnsavedChanges.current = true;
+              debouncedFormSave();
+            }}
+            placeholder={placeholder ?? ((isFocused, value) => t(getDescriptionPlaceholderI18n(isFocused, value)))}
+            searchMentionCallback={async (payload) =>
+              await workspaceService.searchEntity(workspaceSlug?.toString() ?? "", {
+                ...payload,
+                project_id: projectId,
+              })
             }
-          }}
-          duplicateFile={async (assetId: string) => {
-            try {
-              const { asset_id } = await duplicateEditorAsset({
-                assetId,
-                entityType: fileAssetType,
-                projectId,
-                workspaceSlug,
-              });
-              return asset_id;
-            } catch {
-              throw new Error("Asset duplication failed. Please try again later.");
-            }
-          }}
-        />
+            containerClassName={containerClassName}
+            uploadFile={async (blockId, file) => {
+              try {
+                const { asset_id } = await uploadEditorAsset({
+                  blockId,
+                  data: {
+                    entity_identifier: entityId,
+                    entity_type: fileAssetType,
+                  },
+                  file,
+                  projectId,
+                  workspaceSlug,
+                });
+                return asset_id;
+              } catch (error) {
+                console.log("Error in uploading asset:", error);
+                throw new Error("Asset upload failed. Please try again later.", { cause: error });
+              }
+            }}
+            duplicateFile={async (assetId: string) => {
+              try {
+                const { asset_id } = await duplicateEditorAsset({
+                  assetId,
+                  entityType: fileAssetType,
+                  projectId,
+                  workspaceSlug,
+                });
+                return asset_id;
+              } catch {
+                throw new Error("Asset duplication failed. Please try again later.");
+              }
+            }}
+          />
+        )}
+      />
+      {!disabled && (
+        <>
+          <button
+            type="button"
+            onClick={() => setIsMarkdownOpen(true)}
+            className="absolute top-0 right-0 z-10 flex items-center gap-1 rounded-sm border border-subtle bg-surface-1 px-1.5 py-0.5 text-caption-sm-medium text-tertiary opacity-0 transition-opacity group-hover/description:opacity-100 hover:text-primary focus-visible:opacity-100"
+          >
+            <CodeOutline className="size-3" />
+            {t("markdown_mode.markdown")}
+          </button>
+          <MarkdownEditModal
+            isOpen={isMarkdownOpen}
+            onClose={() => setIsMarkdownOpen(false)}
+            editorRef={resolvedEditorRef}
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+          />
+        </>
       )}
-    />
+    </div>
   );
 });

@@ -44,6 +44,7 @@ export type TPageActions =
   | "full-screen"
   | "sticky-toolbar"
   | "copy-markdown"
+  | "edit-markdown"
   | "toggle-lock"
   | "toggle-access"
   | "open-in-new-tab"
@@ -69,7 +70,7 @@ export const PageActions = observer(function PageActions(props: Props) {
   const { t } = useTranslation();
   // states
   const [deletePageModal, setDeletePageModal] = useState(false);
-  const [movePageModal, setMovePageModal] = useState(false);
+  const [_movePageModal, setMovePageModal] = useState(false);
   // params
   const { workspaceSlug } = useParams();
   // page flag

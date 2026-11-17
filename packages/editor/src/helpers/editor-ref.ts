@@ -95,6 +95,10 @@ export const getEditorRefHelpers = (args: TArgs): EditorRefApi => {
       });
       return markdown;
     },
+    convertMarkdownToHTML: (markdown) => {
+      const storage = editor?.storage as { markdown?: { parser?: { parse: (content: string) => string } } } | undefined;
+      return storage?.markdown?.parser?.parse(markdown) ?? "";
+    },
     copyMarkdownToClipboard: () => {
       if (!editor) return;
 

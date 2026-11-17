@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 // plane constants
 import type { EIssueCommentAccessSpecifier } from "@plane/constants";
 // plane imports
@@ -15,6 +15,7 @@ import type { MakeOptional } from "@plane/types";
 import { cn, isCommentEmpty } from "@plane/utils";
 // components
 import { EditorMentionsRoot } from "@/components/editor/embeds/mentions";
+import { MarkdownEditModal } from "@/components/editor/markdown/markdown-edit-modal";
 import { IssueCommentToolbar } from "@/components/editor/lite-text/toolbar";
 // hooks
 import { useEditorConfig, useEditorMention } from "@/hooks/editor";
@@ -26,6 +27,10 @@ import { useEditorFlagging } from "@/hooks/use-editor-flagging";
 import { WorkspaceService } from "@/services/workspace.service";
 import { LiteToolbar } from "./lite-toolbar";
 const workspaceService = new WorkspaceService();
+
+function isMutableRefObject<T>(candidate: React.ForwardedRef<T>): candidate is React.MutableRefObject<T | null> {
+  return !!candidate && typeof candidate === "object" && "current" in candidate;
+}
 
 type LiteTextEditorWrapperProps = MakeOptional<
   Omit<ILiteTextEditorProps, "fileHandler" | "mentionHandler" | "extendedEditorProps">,
@@ -88,6 +93,8 @@ export const LiteTextEditor = React.forwardRef(function LiteTextEditor(
   const isFullVariant = variant === "full";
   const [isFocused, setIsFocused] = useState(isFullVariant ? showToolbarInitially : true);
   const [editorRef, setEditorRef] = useState<EditorRefApi | null>(null);
+  const [isMarkdownOpen, setIsMarkdownOpen] = useState(false);
+  const markdownEditorRef = useMemo(() => ({ current: editorRef }), [editorRef]);
   // editor flaggings
   const { liteText: liteTextEditorExtensions } = useEditorFlagging({
     workspaceSlug,
@@ -111,9 +118,6 @@ export const LiteTextEditor = React.forwardRef(function LiteTextEditor(
   });
   // editor config
   const { getEditorFileHandlers } = useEditorConfig();
-  function isMutableRefObject<T>(ref: React.ForwardedRef<T>): ref is React.MutableRefObject<T | null> {
-    return !!ref && typeof ref === "object" && "current" in ref;
-  }
   // derived values
   const isEmpty = isCommentEmpty(props.initialValue);
 
@@ -211,6 +215,7 @@ export const LiteTextEditor = React.forwardRef(function LiteTextEditor(
             }}
             handleAccessChange={handleAccessChange}
             handleSubmit={(e) => rest.onEnterKeyPress?.(e)}
+            onEditMarkdown={editorRef ? () => setIsMarkdownOpen(true) : undefined}
             isCommentEmpty={isEmpty}
             isSubmitting={isSubmitting}
             showAccessSpecifier={showAccessSpecifier}
@@ -219,6 +224,15 @@ export const LiteTextEditor = React.forwardRef(function LiteTextEditor(
             submitButtonText={submitButtonText}
           />
         </div>
+      )}
+      {isFullVariant && editable && (
+        <MarkdownEditModal
+          isOpen={isMarkdownOpen}
+          onClose={() => setIsMarkdownOpen(false)}
+          editorRef={markdownEditorRef}
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+        />
       )}
     </div>
   );

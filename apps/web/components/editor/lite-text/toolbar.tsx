@@ -22,7 +22,7 @@ import {
   ToolbarSeparator,
   ToolbarToggle,
 } from "@makeplane/propel/components/toolbar";
-import { GlobeOutline, LockOutline } from "@makeplane/propel/icons";
+import { CodeOutline, GlobeOutline, LockOutline } from "@makeplane/propel/icons";
 import type { ISvgIcons } from "@plane/blocks/icons";
 import { Tooltip, TooltipProvider } from "@makeplane/propel/components/tooltip";
 // constants
@@ -41,6 +41,8 @@ type Props = {
   showSubmitButton: boolean;
   editorRef: EditorRefApi | null;
   submitButtonText?: string;
+  /** Opens Markdown mode for the comment; the button is hidden when omitted. */
+  onEditMarkdown?: () => void;
 };
 
 type TCommentAccessType = {
@@ -80,6 +82,7 @@ export function IssueCommentToolbar(props: Props) {
     showAccessSpecifier,
     showSubmitButton,
     editorRef,
+    onEditMarkdown,
     submitButtonText = "common.comment",
   } = props;
   // State to manage active states of toolbar items
@@ -172,6 +175,21 @@ export function IssueCommentToolbar(props: Props) {
                 </ToolbarGroup>
               </React.Fragment>
             ))}
+            {onEditMarkdown && (
+              <>
+                <ToolbarSeparator />
+                <ToolbarGroup>
+                  <Tooltip label={t("markdown_mode.edit_as_markdown")}>
+                    <ToolbarButton
+                      aria-label={t("markdown_mode.edit_as_markdown")}
+                      icon={<Icon icon={<CodeOutline />} />}
+                      onMouseDown={preserveEditorFocus}
+                      onClick={onEditMarkdown}
+                    />
+                  </Tooltip>
+                </ToolbarGroup>
+              </>
+            )}
           </Toolbar>
         </div>
         {showSubmitButton && (

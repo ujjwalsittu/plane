@@ -111,5 +111,24 @@
     "save_error": "Couldn't save the overview. Please try again.",
     "tag_error": "Couldn't create the tag.",
     "untitled": "Untitled"
+  },
+  "markdown_mode": {
+    "edit_as_markdown": "Edit as Markdown",
+    "description": "Edit in Markdown on the left; the preview shows the result. Applying replaces the current content.",
+    "markdown": "Markdown",
+    "preview": "Preview",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "empty_preview": "Nothing to preview yet.",
+    "lossy_warning": "Applying removes formatting Markdown can't express: {features}.",
+    "feature_callout": "callouts",
+    "feature_color": "text colors",
+    "feature_alignment": "alignment",
+    "feature_underline": "underline",
+    "collab_warning": "If others are editing this page right now, their unsaved changes will be replaced.",
+    "copy_markdown": "Copy as Markdown",
+    "download_markdown": "Download as Markdown",
+    "copied": "Markdown copied to clipboard",
+    "downloaded": "Markdown file downloaded"
   }
 }

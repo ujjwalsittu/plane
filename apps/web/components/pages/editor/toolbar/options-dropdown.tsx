@@ -6,9 +6,11 @@
 
 import { useMemo, useState } from "react";
 import { observer } from "mobx-react";
-import { ClipboardOutline, ExportOutline, HistoryOutline } from "@makeplane/propel/icons";
+import { useParams } from "next/navigation";
+import { ClipboardOutline, CodeOutline, ExportOutline, HistoryOutline } from "@makeplane/propel/icons";
 // plane imports
 import { setToast } from "@plane/blocks/toast";
+import { useTranslation } from "@plane/i18n";
 import { Switch } from "@makeplane/propel/components/switch";
 // hooks
 import { useAppRouter } from "@/hooks/use-app-router";
@@ -19,6 +21,7 @@ import type { TPageNavigationPaneTab } from "@/components/pages/navigation-pane/
 import type { EPageStoreType } from "@/hooks/store";
 // store
 import type { TPageInstance } from "@/store/pages/base-page";
+import { MarkdownEditModal } from "@/components/editor/markdown/markdown-edit-modal";
 // local imports
 import { PageActions } from "../../dropdowns";
 import { ExportPageModal } from "../../modals/export-page-modal";
@@ -33,6 +36,9 @@ export const PageOptionsDropdown = observer(function PageOptionsDropdown(props: 
   const { page, storeType } = props;
   // states
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isMarkdownModalOpen, setIsMarkdownModalOpen] = useState(false);
+  const { workspaceSlug, projectId } = useParams();
+  const { t } = useTranslation();
   // navigation
   const router = useAppRouter();
   // store values
@@ -41,6 +47,7 @@ export const PageOptionsDropdown = observer(function PageOptionsDropdown(props: 
     isContentEditable,
     editor: { editorRef },
   } = page;
+  const markdownEditorRef = useMemo(() => ({ current: editorRef ?? null }), [editorRef]);
   // page filters
   const { isFullWidth, handleFullWidth, isStickyToolbarEnabled, handleStickyToolbar } = usePageFilters();
   // query params
@@ -87,6 +94,13 @@ export const PageOptionsDropdown = observer(function PageOptionsDropdown(props: 
           shouldRender: true,
         },
         {
+          key: "edit-markdown",
+          action: () => setIsMarkdownModalOpen(true),
+          title: t("markdown_mode.edit_as_markdown"),
+          icon: CodeOutline,
+          shouldRender: isContentEditable && !!editorRef,
+        },
+        {
           key: "version-history",
           action: () => {
             // update query param to show the version history in navigation pane
@@ -120,6 +134,7 @@ export const PageOptionsDropdown = observer(function PageOptionsDropdown(props: 
       updateQueryParams,
       router,
       setIsExportModalOpen,
+      t,
     ]
   );
 
@@ -131,12 +146,23 @@ export const PageOptionsDropdown = observer(function PageOptionsDropdown(props: 
         onClose={() => setIsExportModalOpen(false)}
         pageTitle={name ?? ""}
       />
+      {workspaceSlug && (
+        <MarkdownEditModal
+          isOpen={isMarkdownModalOpen}
+          onClose={() => setIsMarkdownModalOpen(false)}
+          editorRef={markdownEditorRef}
+          workspaceSlug={workspaceSlug.toString()}
+          projectId={projectId?.toString()}
+          isCollaborative
+        />
+      )}
       <PageActions
         extraOptions={EXTRA_MENU_OPTIONS}
         optionsOrder={[
           "full-screen",
           "sticky-toolbar",
           "copy-markdown",
+          "edit-markdown",
           "version-history",
           "make-a-copy",
           "archive-restore",
