@@ -74,6 +74,8 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
     : SPREADSHEET_PROPERTY_LIST.filter((property) => {
         if (property === "cycle" && !currentProjectDetails?.cycle_view) return false;
         if (property === "modules" && !currentProjectDetails?.module_view) return false;
+        if (property === "milestone" && !currentProjectDetails?.milestone_view) return false;
+        if (property === "issue_type" && !currentProjectDetails?.is_issue_type_enabled) return false;
         return true;
       });
 

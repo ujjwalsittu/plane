@@ -21,6 +21,8 @@ export type TIssueGroupByOptions =
   | "assignees"
   | "cycle"
   | "module"
+  | "milestone"
+  | "issue_type"
   | "target_date"
   | "team_project"
   | null;
@@ -43,6 +45,10 @@ export type TIssueOrderByOptions =
   | "-issue_module__module__name"
   | "issue_cycle__cycle__name"
   | "-issue_cycle__cycle__name"
+  | "milestone__target_date"
+  | "-milestone__target_date"
+  | "type__name"
+  | "-type__name"
   | "target_date"
   | "-target_date"
   | "estimate_point__key"
@@ -71,6 +77,7 @@ export type TIssueParams =
   | "labels"
   | "cycle"
   | "module"
+  | "milestone"
   | "start_date"
   | "target_date"
   | "project"
@@ -106,6 +113,8 @@ export const WORK_ITEM_FILTER_PROPERTY_KEYS = [
   "state_id",
   "cycle_id",
   "module_id",
+  "milestone_id",
+  "type_id",
   "project_id",
   "created_at",
   "updated_at",
@@ -135,6 +144,7 @@ export interface IIssueFilterOptions {
   labels?: string[] | null;
   priority?: string[] | null;
   cycle?: string[] | null;
+  milestone?: string[] | null;
   module?: string[] | null;
   project?: string[] | null;
   team_project?: string[] | null;
@@ -175,6 +185,7 @@ export interface IIssueDisplayProperties {
   modules?: boolean;
   cycle?: boolean;
   issue_type?: boolean;
+  milestone?: boolean;
 }
 
 export type TIssueKanbanFilters = {

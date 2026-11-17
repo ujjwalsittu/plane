@@ -298,3 +298,29 @@ def test_unsupported_pql_is_400_with_guidance(api_key_client, workspace, project
     response = api_key_client.get(_url(workspace, project, "work-items/"), {"pql": pql})
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Supported" in response.data["pql"]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_creating_a_milestone_turns_the_feature_on(api_key_client, workspace, project):
+    assert not project.milestone_view
+    api_key_client.post(_url(workspace, project, "milestones"), {"title": "M1"}, format="json")
+    project.refresh_from_db()
+    assert project.milestone_view
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ({"name": "Epic"}, True),
+        ({"name": "epic "}, True),
+        ({"name": "Epic", "is_epic": False}, False),
+        ({"name": "Story"}, False),
+    ],
+)
+def test_type_named_epic_defaults_to_epic(api_key_client, workspace, project, body, expected):
+    created = api_key_client.post(_url(workspace, project, "work-item-types"), body, format="json")
+    assert created.status_code == status.HTTP_201_CREATED, created.data
+    assert created.data["is_epic"] is expected

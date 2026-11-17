@@ -9,6 +9,8 @@ import {
   AtOutline,
   CalendarOutline,
   CyclesOutline,
+  LayerStackOutline,
+  MilestoneOutline,
   DueDateOutline,
   LabelsOutline,
   MembersOutline,
@@ -39,6 +41,8 @@ import {
   getCreatedAtFilterConfig,
   getCreatedByFilterConfig,
   getCycleFilterConfig,
+  getIssueTypeFilterConfig,
+  getMilestoneFilterConfig,
   getFileURL,
   getLabelFilterConfig,
   getMentionFilterConfig,
@@ -57,6 +61,8 @@ import {
 import { useCycle } from "@/hooks/store/use-cycle";
 import { useLabel } from "@/hooks/store/use-label";
 import { useMember } from "@/hooks/store/use-member";
+import { IssueTypeIcon } from "@/components/dropdowns/issue-type/issue-type-select";
+import { useMilestone } from "@/hooks/store/use-milestone";
 import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -131,10 +137,7 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
     [moduleIds, getModuleById]
   );
   const projects = useMemo(
-    () =>
-      projectIds
-        ? (projectIds.map((projectId) => getProjectById(projectId)).filter((project) => project) as IProject[])
-        : [],
+    () => (projectIds ? (projectIds.map((id) => getProjectById(id)).filter((item) => item) as IProject[]) : []),
     [projectIds, getProjectById]
   );
   const areAllConfigsInitialized = useMemo(() => isLoaderReady(projectLoader), [projectLoader]);
@@ -198,6 +201,35 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
         ...operatorConfigs,
       }),
     [isFilterEnabled, project?.cycle_view, cycles, operatorConfigs]
+  );
+
+  // milestone and work item type filter configs (project-scoped)
+  const { getProjectMilestones, getProjectIssueTypes } = useMilestone();
+  const milestones = getProjectMilestones(projectId);
+  const issueTypes = getProjectIssueTypes(projectId);
+  const milestoneFilterConfig = useMemo(
+    () =>
+      getMilestoneFilterConfig<TWorkItemFilterProperty>("milestone_id")({
+        isEnabled: isFilterEnabled("milestone_id") && project?.milestone_view === true && milestones !== undefined,
+        filterIcon: MilestoneOutline,
+        getOptionIcon: () => <MilestoneOutline className="h-3.5 w-3.5 flex-shrink-0" />,
+        milestones: milestones ?? [],
+        ...operatorConfigs,
+      }),
+    [isFilterEnabled, project?.milestone_view, milestones, operatorConfigs]
+  );
+  const issueTypeFilterConfig = useMemo(
+    () =>
+      getIssueTypeFilterConfig<TWorkItemFilterProperty>("type_id")({
+        isEnabled: isFilterEnabled("type_id") && project?.is_issue_type_enabled === true && issueTypes !== undefined,
+        filterIcon: LayerStackOutline,
+        getOptionIcon: (issueType) => (
+          <IssueTypeIcon isEpic={issueType.is_epic} className="h-3.5 w-3.5 flex-shrink-0" />
+        ),
+        issueTypes: issueTypes ?? [],
+        ...operatorConfigs,
+      }),
+    [isFilterEnabled, project?.is_issue_type_enabled, issueTypes, operatorConfigs]
   );
 
   // module filter config
@@ -356,7 +388,7 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
         isEnabled: isFilterEnabled("project_id") && projects !== undefined,
         filterIcon: ProjectsOutline,
         projects: projects,
-        getOptionIcon: (project) => <Logo logo={project.logo_props} size={12} />,
+        getOptionIcon: (item) => <Logo logo={item.logo_props} size={12} />,
         ...operatorConfigs,
       }),
     [isFilterEnabled, projects, operatorConfigs]
@@ -374,6 +406,8 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
       labelFilterConfig,
       cycleFilterConfig,
       moduleFilterConfig,
+      milestoneFilterConfig,
+      issueTypeFilterConfig,
       startDateFilterConfig,
       targetDateFilterConfig,
       createdAtFilterConfig,
@@ -388,6 +422,8 @@ export const useWorkItemFiltersConfig = (props: TUseWorkItemFiltersConfigProps):
       label_id: labelFilterConfig,
       cycle_id: cycleFilterConfig,
       module_id: moduleFilterConfig,
+      milestone_id: milestoneFilterConfig,
+      type_id: issueTypeFilterConfig,
       assignee_id: assigneeFilterConfig,
       mention_id: mentionFilterConfig,
       created_by_id: createdByFilterConfig,

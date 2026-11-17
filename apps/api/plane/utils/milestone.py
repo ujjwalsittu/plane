@@ -100,3 +100,17 @@ def unlink_issue_type(issue_type, project):
         ProjectIssueType.objects.filter(project=project, issue_type=issue_type).delete()
         if not ProjectIssueType.objects.filter(issue_type=issue_type).exists():
             issue_type.delete()
+
+
+def enable_milestones(project):
+    """Creating a milestone turns the feature on, so it shows up in the app."""
+    if not project.milestone_view:
+        project.milestone_view = True
+        project.save(update_fields=["milestone_view"])
+
+
+def default_epic_flag(data):
+    """A type named "Epic" is an epic unless the caller says otherwise."""
+    if "is_epic" not in data and str(data.get("name", "")).strip().lower() == "epic":
+        return {**data, "is_epic": True}
+    return data

@@ -12,6 +12,7 @@ import { Toggle, ToggleLabel } from "@makeplane/propel/elements/toggle";
 import { ISSUE_DISPLAY_PROPERTIES } from "@plane/constants";
 // plane i18n
 import { useTranslation } from "@plane/i18n";
+import { useProject } from "@/hooks/store/use-project";
 // types
 import type { IIssueDisplayProperties } from "@plane/types";
 
@@ -35,6 +36,10 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
   } = props;
   // hooks
   const { t } = useTranslation();
+  const { currentProjectDetails } = useProject();
+  // Milestones and types are per project: hidden outside a project or when the feature is off.
+  const milestoneViewDisabled = !currentProjectDetails?.milestone_view;
+  const issueTypesDisabled = !currentProjectDetails?.is_issue_type_enabled;
 
   // Filter out "cycle" and "module" keys if cycleViewDisabled or moduleViewDisabled is true
   // Also filter out display properties that should not be rendered
@@ -45,15 +50,18 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
         return !cycleViewDisabled;
       case "modules":
         return !moduleViewDisabled;
+      case "milestone":
+        return !milestoneViewDisabled;
+      case "issue_type":
+        return !issueTypesDisabled;
       default:
         return true;
     }
-  }).map((property) => {
-    if (isEpic && property.key === "sub_issue_count") {
-      return { ...property, titleTranslationKey: "issue.display.properties.work_item_count" };
-    }
-    return property;
-  });
+  }).map((property) =>
+    isEpic && property.key === "sub_issue_count"
+      ? Object.assign({}, property, { titleTranslationKey: "issue.display.properties.work_item_count" })
+      : property
+  );
 
   return (
     <MenuGroup>

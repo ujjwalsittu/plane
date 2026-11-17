@@ -24,6 +24,7 @@ import {
   StartDateOutline,
   StateOutline,
   WorkItemsOutline,
+  MilestoneOutline,
 } from "@makeplane/propel/icons";
 // plane types
 import { Avatar } from "@makeplane/propel/components/avatar";
@@ -51,6 +52,7 @@ import { EIssuesStoreType } from "@plane/types";
 
 import { renderFormattedDate, getFileURL } from "@plane/utils";
 // store
+import { IssueTypeIcon } from "@/components/dropdowns/issue-type/issue-type-select";
 import { store } from "@/lib/store-context";
 import { ISSUE_FILTER_DEFAULT_DATA } from "@/store/issue/helpers/base-issues.store";
 import { DEFAULT_DISPLAY_PROPERTIES } from "@/store/issue/issue-details/sub_issues_filter.store";
@@ -66,6 +68,8 @@ import {
   SpreadsheetLabelColumn,
   SpreadsheetModuleColumn,
   SpreadsheetCycleColumn,
+  SpreadsheetMilestoneColumn,
+  SpreadsheetIssueTypeColumn,
   SpreadsheetLinkColumn,
   SpreadsheetPriorityColumn,
   SpreadsheetStartDateColumn,
@@ -146,6 +150,8 @@ export const getGroupByColumns = ({
     project: getProjectColumns,
     cycle: getCycleColumns,
     module: getModuleColumns,
+    milestone: getMilestoneColumns,
+    issue_type: getIssueTypeColumns,
     state: getStateColumns,
     "state_detail.group": getStateGroupColumns,
     priority: getPriorityColumns,
@@ -180,6 +186,44 @@ const getProjectColumns = (): IGroupByColumn[] | undefined => {
       };
     })
     .filter((column) => column !== undefined) as IGroupByColumn[];
+};
+
+const getMilestoneColumns = (): IGroupByColumn[] | undefined => {
+  const { currentProjectDetails } = store.projectRoot.project;
+  if (!currentProjectDetails?.id) return;
+  const milestones = store.milestone.getProjectMilestones(currentProjectDetails.id) ?? [];
+  const columns: IGroupByColumn[] = milestones.map((milestone) => ({
+    id: milestone.id,
+    name: milestone.title,
+    icon: <MilestoneOutline className="h-3.5 w-3.5" />,
+    payload: { milestone_id: milestone.id },
+  }));
+  columns.push({
+    id: "None",
+    name: "None",
+    icon: <MilestoneOutline className="h-3.5 w-3.5" />,
+    payload: { milestone_id: null },
+  });
+  return columns;
+};
+
+const getIssueTypeColumns = (): IGroupByColumn[] | undefined => {
+  const { currentProjectDetails } = store.projectRoot.project;
+  if (!currentProjectDetails?.id) return;
+  const issueTypes = store.milestone.getProjectIssueTypes(currentProjectDetails.id) ?? [];
+  const columns: IGroupByColumn[] = issueTypes.map((issueType) => ({
+    id: issueType.id,
+    name: issueType.name,
+    icon: <IssueTypeIcon isEpic={issueType.is_epic} className="h-3.5 w-3.5" />,
+    payload: { type_id: issueType.id },
+  }));
+  columns.push({
+    id: "None",
+    name: "None",
+    icon: <IssueTypeIcon className="h-3.5 w-3.5" />,
+    payload: { type_id: null },
+  });
+  return columns;
 };
 
 const getCycleColumns = (): IGroupByColumn[] | undefined => {
@@ -860,6 +904,7 @@ export const SpreadSheetPropertyIconMap: Record<string, FC<ISvgIcons>> = {
   Link2: LinkOutline,
   Paperclip: AttachOutline,
   LayersIcon: WorkItemsOutline,
+  MilestoneIcon: MilestoneOutline,
 };
 
 export const SPREADSHEET_COLUMNS: { [key in keyof IIssueDisplayProperties]: TSpreadsheetColumn } = {
@@ -870,6 +915,8 @@ export const SPREADSHEET_COLUMNS: { [key in keyof IIssueDisplayProperties]: TSpr
   labels: SpreadsheetLabelColumn,
   modules: SpreadsheetModuleColumn,
   cycle: SpreadsheetCycleColumn,
+  milestone: SpreadsheetMilestoneColumn,
+  issue_type: SpreadsheetIssueTypeColumn,
   link: SpreadsheetLinkColumn,
   priority: SpreadsheetPriorityColumn,
   start_date: SpreadsheetStartDateColumn,

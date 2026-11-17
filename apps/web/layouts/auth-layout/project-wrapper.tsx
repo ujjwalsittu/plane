@@ -29,6 +29,7 @@ import {
 // hooks
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useMilestone } from "@/hooks/store/use-milestone";
 import { useLabel } from "@/hooks/store/use-label";
 import { useMember } from "@/hooks/store/use-member";
 import { useModule } from "@/hooks/store/use-module";
@@ -54,6 +55,7 @@ export const ProjectAuthWrapper = observer(function ProjectAuthWrapper(props: IP
   const { fetchProjectDetails } = useProject();
   const { joinProject } = useUserPermissions();
   const { fetchAllCycles } = useCycle();
+  const { fetchMilestones, fetchIssueTypes } = useMilestone();
   const { fetchModulesSlim, fetchModules } = useModule();
   const { initGantt } = useTimeLineChart(GANTT_TIMELINE_TYPE.MODULE);
   const { fetchViews } = useProjectView();
@@ -122,6 +124,14 @@ export const ProjectAuthWrapper = observer(function ProjectAuthWrapper(props: IP
     revalidateIfStale: false,
     revalidateOnFocus: false,
   });
+  // fetching project milestones and work item types (they label work item properties)
+  useSWR(
+    projectId && currentProjectRole ? `PROJECT_MILESTONES_AND_TYPES_${projectId}_${currentProjectRole}` : null,
+    async () => {
+      await Promise.all([fetchMilestones(workspaceSlug, projectId), fetchIssueTypes(workspaceSlug, projectId)]);
+    },
+    { revalidateIfStale: false, revalidateOnFocus: false }
+  );
   // fetching project modules
   useSWR(
     PROJECT_MODULES(projectId, currentProjectRole),

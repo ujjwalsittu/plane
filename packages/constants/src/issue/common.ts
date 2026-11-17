@@ -24,6 +24,7 @@ export type TIssueFilterPriorityObject = {
   icon: string;
 };
 
+/* oxlint-disable typescript/no-duplicate-enum-values -- team_project groups by project, like project */
 export enum EIssueGroupByToServerOptions {
   "state" = "state_id",
   "priority" = "priority",
@@ -32,12 +33,14 @@ export enum EIssueGroupByToServerOptions {
   "assignees" = "assignees__id",
   "cycle" = "cycle_id",
   "module" = "issue_module__module_id",
+  "milestone" = "milestone_id",
+  "issue_type" = "type_id",
   "target_date" = "target_date",
   "project" = "project_id",
   "created_by" = "created_by",
-  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   "team_project" = "project_id",
 }
+/* oxlint-enable typescript/no-duplicate-enum-values */
 
 export enum EIssueGroupBYServerToProperty {
   "state_id" = "state_id",
@@ -47,6 +50,8 @@ export enum EIssueGroupBYServerToProperty {
   "assignees__id" = "assignee_ids",
   "cycle_id" = "cycle_id",
   "issue_module__module_id" = "module_ids",
+  "milestone_id" = "milestone_id",
+  "type_id" = "type_id",
   "target_date" = "target_date",
   "project_id" = "project_id",
   "created_by" = "created_by",
@@ -97,6 +102,8 @@ export const DRAG_ALLOWED_GROUPS: TIssueGroupByOptions[] = [
   "labels",
   "module",
   "cycle",
+  "milestone",
+  "issue_type",
 ];
 
 export type TCreateModalStoreTypes =
@@ -121,6 +128,8 @@ export const ISSUE_GROUP_BY_OPTIONS: {
   { key: "project", titleTranslationKey: "common.project" }, // required this on my issues
   { key: "cycle", titleTranslationKey: "common.cycle" }, // required this on my issues
   { key: "module", titleTranslationKey: "common.module" }, // required this on my issues
+  { key: "milestone", titleTranslationKey: "milestones_feature.label" },
+  { key: "issue_type", titleTranslationKey: "issue_types_feature.label" },
   { key: "labels", titleTranslationKey: "common.labels" },
   { key: "assignees", titleTranslationKey: "common.assignees" },
   { key: "created_by", titleTranslationKey: "common.created_by" },
@@ -156,6 +165,7 @@ export const ISSUE_DISPLAY_PROPERTIES_KEYS: (keyof IIssueDisplayProperties)[] = 
   "modules",
   "cycle",
   "issue_type",
+  "milestone",
 ];
 
 export const SUB_ISSUES_DISPLAY_PROPERTIES_KEYS: (keyof IIssueDisplayProperties)[] = [
@@ -208,6 +218,8 @@ export const ISSUE_DISPLAY_PROPERTIES: {
   },
   { key: "modules", titleTranslationKey: "common.module" },
   { key: "cycle", titleTranslationKey: "common.cycle" },
+  { key: "milestone", titleTranslationKey: "milestones_feature.label" },
+  { key: "issue_type", titleTranslationKey: "issue_types_feature.label" },
 ];
 
 export const SPREADSHEET_PROPERTY_LIST: (keyof IIssueDisplayProperties)[] = [
@@ -215,8 +227,10 @@ export const SPREADSHEET_PROPERTY_LIST: (keyof IIssueDisplayProperties)[] = [
   "priority",
   "assignee",
   "labels",
+  "issue_type",
   "modules",
   "cycle",
+  "milestone",
   "start_date",
   "due_date",
   "estimate",
@@ -292,6 +306,22 @@ export const SPREADSHEET_PROPERTY_DETAILS: {
     descendingOrderKey: "-issue_cycle__cycle__name",
     descendingOrderTitle: "Z",
     icon: "ContrastIcon",
+  },
+  milestone: {
+    i18n_title: "milestones_feature.label",
+    ascendingOrderKey: "milestone__target_date",
+    ascendingOrderTitle: "Old",
+    descendingOrderKey: "-milestone__target_date",
+    descendingOrderTitle: "New",
+    icon: "MilestoneIcon",
+  },
+  issue_type: {
+    i18n_title: "issue_types_feature.label",
+    ascendingOrderKey: "type__name",
+    ascendingOrderTitle: "A",
+    descendingOrderKey: "-type__name",
+    descendingOrderTitle: "Z",
+    icon: "LayersIcon",
   },
   priority: {
     i18n_title: "common.priority",

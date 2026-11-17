@@ -21,6 +21,8 @@ from plane.app.serializers import IssueTypeSerializer, MilestoneSerializer
 from plane.db.models import Issue, IssueType, Milestone, Project, ProjectIssueType, Workspace, WorkspaceMember
 from plane.utils.host import base_host
 from plane.utils.milestone import (
+    default_epic_flag,
+    enable_milestones,
     link_issue_type,
     milestone_queryset,
     project_issue_types,
@@ -103,6 +105,7 @@ class MilestoneListCreateAPIEndpoint(BaseAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         milestone = serializer.save(project=project, workspace_id=project.workspace_id)
+        enable_milestones(project)
         return Response(
             MilestoneSerializer(milestone_queryset(slug, project_id).get(pk=milestone.pk)).data,
             status=status.HTTP_201_CREATED,
@@ -228,7 +231,7 @@ class ProjectWorkItemTypeListCreateAPIEndpoint(BaseAPIView):
 
     def post(self, request, slug, project_id):
         project = Project.objects.get(pk=project_id, workspace__slug=slug)
-        serializer = IssueTypeSerializer(data=request.data)
+        serializer = IssueTypeSerializer(data=default_epic_flag(request.data))
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         name = serializer.validated_data["name"]
@@ -311,7 +314,7 @@ class WorkspaceWorkItemTypeListCreateAPIEndpoint(BaseAPIView):
         return Response([_type_payload(t) for t in types], status=status.HTTP_200_OK)
 
     def post(self, request, slug):
-        serializer = IssueTypeSerializer(data=request.data)
+        serializer = IssueTypeSerializer(data=default_epic_flag(request.data))
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         project_ids = request.data.get("project_ids") or []

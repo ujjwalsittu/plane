@@ -12,6 +12,8 @@ import {
   CyclesOutline,
   EstimateOutline,
   LabelsOutline,
+  LayerStackOutline,
+  MilestoneOutline,
   ModuleOutline,
   ParentOutline,
   UpdatedAtOutline,
@@ -23,6 +25,8 @@ import { calculateTimeAgo, cn, renderFormattedDate } from "@plane/utils";
 import { SidebarPropertyListItem } from "@/components/common/layout/sidebar/property-list-item";
 import { EstimateSelect } from "@/components/dropdowns/estimate/estimate-select";
 import { IssueParentSelectRoot } from "@/components/issues/parent-select-root";
+import { IssueTypeSelect } from "@/components/dropdowns/issue-type/issue-type-select";
+import { MilestoneSelect } from "@/components/dropdowns/milestone/milestone-select";
 // hooks
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -71,7 +75,11 @@ export const IssueDetailSidebarSections = observer(function IssueDetailSidebarSe
   const projectDetails = getProjectById(issue.project_id);
   const createdByDetails = getUserDetails(issue.created_by);
   const createdByName = createdByDetails?.display_name?.includes("-intake") ? "Plane" : createdByDetails?.display_name;
-  const hasProjectStructureProperties = !!projectDetails?.cycle_view || !!projectDetails?.module_view;
+  const hasProjectStructureProperties =
+    !!projectDetails?.cycle_view ||
+    !!projectDetails?.module_view ||
+    !!projectDetails?.milestone_view ||
+    !!projectDetails?.is_issue_type_enabled;
 
   const auditRows = [
     createdByName ? { key: "created_by", icon: UserOutline, text: `${t("common.created_by")} ${createdByName}` } : null,
@@ -149,6 +157,40 @@ export const IssueDetailSidebarSections = observer(function IssueDetailSidebarSe
             <div className="w-full border-t border-subtle" />
 
             <IssueDetailSidebarGroup label={t("common.project_structure")}>
+              {projectDetails?.is_issue_type_enabled && (
+                <SidebarPropertyListItem icon={LayerStackOutline} label={t("issue_types_feature.label")}>
+                  <IssueTypeSelect
+                    projectId={projectId}
+                    value={issue.type_id}
+                    onChange={(typeId) => {
+                      if (typeId !== issue.type_id)
+                        void issueOperations.update(workspaceSlug, projectId, issueId, { type_id: typeId });
+                    }}
+                    disabled={disabled}
+                    variant="select-ghost-md"
+                    className="h-8 w-full grow"
+                    tooltip
+                  />
+                </SidebarPropertyListItem>
+              )}
+
+              {projectDetails?.milestone_view && (
+                <SidebarPropertyListItem icon={MilestoneOutline} label={t("milestones_feature.label")}>
+                  <MilestoneSelect
+                    projectId={projectId}
+                    value={issue.milestone_id}
+                    onChange={(milestoneId) => {
+                      if (milestoneId !== (issue.milestone_id ?? null))
+                        void issueOperations.update(workspaceSlug, projectId, issueId, { milestone_id: milestoneId });
+                    }}
+                    disabled={disabled}
+                    variant="select-ghost-md"
+                    className="h-8 w-full grow"
+                    tooltip
+                  />
+                </SidebarPropertyListItem>
+              )}
+
               {projectDetails?.cycle_view && (
                 <SidebarPropertyListItem icon={CyclesOutline} label={t("common.cycle")}>
                   <IssueCycleSelect

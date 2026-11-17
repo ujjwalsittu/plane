@@ -18,3 +18,5 @@ export * from "./sub-issue-column";
 export * from "./updated-on-column";
 export * from "./module-column";
 export * from "./cycle-column";
+export * from "./milestone-column";
+export * from "./issue-type-column";

@@ -14,6 +14,7 @@ import {
   AssigneeOutline,
   AttachOutline,
   CyclesOutline,
+  MilestoneOutline,
   DueDateOutline,
   EstimateOutline,
   LinkOutline,
@@ -46,6 +47,8 @@ import {
 } from "@plane/utils";
 // components
 import { CycleSelect } from "@/components/dropdowns/cycle/cycle-select";
+import { IssueTypeIcon, IssueTypeSelect } from "@/components/dropdowns/issue-type/issue-type-select";
+import { MilestoneSelect } from "@/components/dropdowns/milestone/milestone-select";
 import { EstimateSelect, getEstimatePointDisplayValue } from "@/components/dropdowns/estimate/estimate-select";
 import { MemberSelect } from "@/components/dropdowns/member/member-select";
 import { ModuleSelect } from "@/components/dropdowns/module/module-select";
@@ -55,6 +58,7 @@ import { StateSelect } from "@/components/dropdowns/state/state-select";
 import { useProjectEstimates } from "@/hooks/store/estimates";
 import { useEstimate } from "@/hooks/store/estimates/use-estimate";
 import { useCycle } from "@/hooks/store/use-cycle";
+import { useMilestone } from "@/hooks/store/use-milestone";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useLabel } from "@/hooks/store/use-label";
 import { useProject } from "@/hooks/store/use-project";
@@ -119,6 +123,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     issue.project_id ? currentActiveEstimateIdByProjectId(issue.project_id) : undefined
   );
   const { getCycleNameById } = useCycle();
+  const { getMilestoneById, getIssueTypeById } = useMilestone();
   const { getStateById } = useProjectState();
   const { data: userProfile } = useUserProfile();
   const { isMobile } = usePlatformOS();
@@ -505,6 +510,68 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           preview: cycleName ?? none,
           disabled: isReadOnly,
           editor: ({ onEditorClose }) => renderCycle(getPropertyEditorProps(onEditorClose)),
+        },
+      });
+    }
+
+    // milestone
+    if (projectDetails?.milestone_view && isShown("milestone")) {
+      const milestoneTitle = getMilestoneById(issue.milestone_id)?.title;
+      const renderMilestone = (extra: TPropertyEditorProps) => (
+        <MilestoneSelect
+          projectId={issue?.project_id ?? undefined}
+          value={issue?.milestone_id}
+          onChange={(milestoneId) => {
+            if (updateIssue && milestoneId !== (issue.milestone_id ?? null))
+              void updateIssue(issue.project_id, issue.id, { milestone_id: milestoneId });
+          }}
+          disabled={isReadOnly}
+          variant="pill-md"
+          {...extra}
+        />
+      );
+      entries.push({
+        key: "milestone",
+        hidePriority: getWorkItemPropertyHidePriority("cycle"),
+        measureKey: milestoneTitle ?? issue.milestone_id ?? undefined,
+        chip: chipShell(renderMilestone({ tooltip: true })),
+        menuRow: {
+          icon: <Icon icon={MilestoneOutline} />,
+          label: t("milestones_feature.label"),
+          preview: milestoneTitle ?? none,
+          disabled: isReadOnly,
+          editor: ({ onEditorClose }) => renderMilestone(getPropertyEditorProps(onEditorClose)),
+        },
+      });
+    }
+
+    // work item type
+    if (projectDetails?.is_issue_type_enabled && isShown("issue_type")) {
+      const issueType = getIssueTypeById(issue.type_id);
+      const renderIssueType = (extra: TPropertyEditorProps) => (
+        <IssueTypeSelect
+          projectId={issue?.project_id ?? undefined}
+          value={issue?.type_id}
+          onChange={(typeId) => {
+            if (updateIssue && typeId !== issue.type_id)
+              void updateIssue(issue.project_id, issue.id, { type_id: typeId });
+          }}
+          disabled={isReadOnly}
+          variant="pill-md"
+          {...extra}
+        />
+      );
+      entries.push({
+        key: "issue_type",
+        hidePriority: getWorkItemPropertyHidePriority("cycle"),
+        measureKey: issueType?.name ?? issue.type_id ?? undefined,
+        chip: chipShell(renderIssueType({ tooltip: true })),
+        menuRow: {
+          icon: <IssueTypeIcon isEpic={issueType?.is_epic} className="size-4" />,
+          label: t("issue_types_feature.label"),
+          preview: issueType?.name ?? none,
+          disabled: isReadOnly,
+          editor: ({ onEditorClose }) => renderIssueType(getPropertyEditorProps(onEditorClose)),
         },
       });
     }
