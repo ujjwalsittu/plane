@@ -34,11 +34,12 @@ import { Logo } from "@plane/blocks/emoji-icon-picker";
 import { setPromiseToast, setToast } from "@plane/blocks/toast";
 import { Tooltip } from "@makeplane/propel/components/tooltip";
 import { useProjectTags } from "@/hooks/use-project-tags";
+import { ProjectStatusDot } from "./planning";
 import type { IProject, IUserLite } from "@plane/types";
 import type { TContextMenuItem } from "@plane/blocks/context-menu";
 import { ContextMenu, getRenderableItems, resolveItemVariant } from "@plane/blocks/context-menu";
 import { FavoriteStar } from "@plane/blocks/common";
-import { copyUrlToClipboard, cn, getFileURL } from "@plane/utils";
+import { copyUrlToClipboard, cn, getFileURL, renderFormattedDate } from "@plane/utils";
 // components
 // hooks
 import { useMember } from "@/hooks/store/use-member";
@@ -342,6 +343,14 @@ export const ProjectCard = observer(function ProjectCard(props: Props) {
                   />
                   <span className="truncate text-caption-md-regular text-secondary">{projectLead.display_name}</span>
                 </div>
+              )}
+            </div>
+            {/* status and target date */}
+            <div className="flex items-center gap-1.5 text-caption-md-regular text-tertiary">
+              <ProjectStatusDot status={project.status} />
+              <span className="text-secondary">{t(`project_planning.statuses.${project.status ?? "backlog"}`)}</span>
+              {project.target_date && (
+                <span>· {t("project_planning.due", { date: renderFormattedDate(project.target_date) ?? "" })}</span>
               )}
             </div>
             {/* tags */}

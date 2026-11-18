@@ -11,6 +11,7 @@ from rest_framework import serializers
 import re
 
 # Module imports
+from plane.utils.project_planning import validate_project_dates
 from plane.db.models import Project, ProjectIdentifier, WorkspaceMember, State, Estimate
 
 from plane.utils.content_validator import (
@@ -93,6 +94,10 @@ class ProjectCreateSerializer(BaseSerializer):
             "is_issue_type_enabled",
             "milestone_view",
             "is_time_tracking_enabled",
+            "start_date",
+            "target_date",
+            "priority",
+            "status",
         ]
 
         read_only_fields = [
@@ -106,6 +111,7 @@ class ProjectCreateSerializer(BaseSerializer):
         ]
 
     def validate(self, data):
+        validate_project_dates(data, self.instance)
         project_name = data.get("name", None)
         project_identifier = data.get("identifier", None)
 
@@ -322,5 +328,9 @@ class ProjectLiteSerializer(BaseSerializer):
             "description",
             "cover_image_url",
             "archived_at",
+            "start_date",
+            "target_date",
+            "priority",
+            "status",
         ]
         read_only_fields = fields

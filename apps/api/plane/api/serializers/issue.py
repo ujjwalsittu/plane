@@ -46,6 +46,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
 
+_UNSET = object()
+
+
 class IssueSerializer(BaseSerializer):
     """
     Comprehensive work item serializer with full relationship management.
@@ -84,7 +87,6 @@ class IssueSerializer(BaseSerializer):
             "created_by",
             "updated_by",
             "updated_at",
-            "completed_at",
             "deleted_at",
             "archived_at",
             "sequence_id",
@@ -213,7 +215,17 @@ class IssueSerializer(BaseSerializer):
 
         return data
 
+    @staticmethod
+    def _apply_completed_at(issue, completed_at):
+        """An explicit completed_at (e.g. from an import) wins over the time Issue.save() stamps
+        when the state becomes completed, so write it after the save."""
+        if completed_at is _UNSET:
+            return
+        Issue.objects.filter(pk=issue.pk).update(completed_at=completed_at)
+        issue.completed_at = completed_at
+
     def create(self, validated_data):
+        completed_at = validated_data.pop("completed_at", _UNSET)
         assignees = validated_data.pop("assignees", None)
         labels = validated_data.pop("labels", None)
 
@@ -294,9 +306,11 @@ class IssueSerializer(BaseSerializer):
             except IntegrityError:
                 pass
 
+        self._apply_completed_at(issue, completed_at)
         return issue
 
     def update(self, instance, validated_data):
+        completed_at = validated_data.pop("completed_at", _UNSET)
         assignees = validated_data.pop("assignees", None)
         labels = validated_data.pop("labels", None)
 
@@ -350,7 +364,9 @@ class IssueSerializer(BaseSerializer):
 
         # Time updation occues even when other related models are updated
         instance.updated_at = timezone.now()
-        return super().update(instance, validated_data)
+        issue = super().update(instance, validated_data)
+        self._apply_completed_at(issue, completed_at)
+        return issue
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

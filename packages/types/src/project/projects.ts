@@ -35,6 +35,11 @@ export interface IPartialProject {
   guest_view_all_features?: boolean;
   project_lead?: IUserLite | string | null;
   network?: number;
+  // planning
+  start_date?: string | null;
+  target_date?: string | null;
+  priority?: TProjectPriority;
+  status?: TProjectStatus;
   // Timestamps
   created_at?: Date;
   updated_at?: Date;
@@ -178,3 +183,7 @@ export interface ISearchIssueResponse {
 export type TPartialProject = IPartialProject;
 
 export type TProject = TPartialProject & IProject;
+
+export type TProjectPriority = "urgent" | "high" | "medium" | "low" | "none";
+
+export type TProjectStatus = "backlog" | "planned" | "in_progress" | "paused" | "completed" | "cancelled";

@@ -11,6 +11,7 @@ import { EUserPermissionsLevel, EUserPermissions } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
 import { EmptyStateDetailed } from "@plane/blocks/empty-state";
 import { ContentWrapper } from "@plane/blocks/layout";
+import type { TProjectStatus } from "@plane/types";
 // components
 import { calculateTotalFilters } from "@plane/utils";
 import { ProjectsLoader } from "@/components/ui/loader/projects-loader";
@@ -24,7 +25,8 @@ import { useProjectTags } from "@/hooks/use-project-tags";
 import { useQueryParams } from "@/hooks/use-query-params";
 // local imports
 import { ProjectCard } from "./card";
-import { ProjectTagFilterBar } from "./tag-filter-bar";
+import { ProjectStatusFilterBar, ProjectTagFilterBar } from "./tag-filter-bar";
+import { PROJECT_STATUS_OPTIONS } from "./planning";
 
 type TProjectCardListProps = {
   totalProjectIds?: string[];
@@ -55,6 +57,10 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
   const activeTag = tags.find((tag) => tag.id === searchParams.get("tag"));
   const setActiveTag = (tagId: string | null) =>
     router.push(updateQueryParams(tagId ? { paramsToAdd: { tag: tagId } } : { paramsToRemove: ["tag"] }));
+  const statusParam = searchParams.get("status");
+  const activeStatus = PROJECT_STATUS_OPTIONS.find((option) => option.key === statusParam)?.key ?? null;
+  const setActiveStatus = (status: TProjectStatus | null) =>
+    router.push(updateQueryParams(status ? { paramsToAdd: { status } } : { paramsToRemove: ["status"] }));
 
   // derived values
   const workspaceProjectIds = totalProjectIdsProps ?? storeWorkspaceProjectIds;
@@ -114,9 +120,12 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
       />
     );
 
-  const visibleProjectIds = activeTag
+  const taggedProjectIds = activeTag
     ? filteredProjectIds.filter((projectId) => activeTag.project_ids?.includes(projectId))
     : filteredProjectIds;
+  const visibleProjectIds = activeStatus
+    ? taggedProjectIds.filter((projectId) => (getProjectById(projectId)?.status ?? "backlog") === activeStatus)
+    : taggedProjectIds;
 
   return (
     <ContentWrapper>
@@ -126,6 +135,13 @@ export const ProjectCardList = observer(function ProjectCardList(props: TProject
           activeTagId={activeTag?.id ?? null}
           projectIds={filteredProjectIds}
           onChange={setActiveTag}
+        />
+      )}
+      {filteredProjectIds.length > 0 && (
+        <ProjectStatusFilterBar
+          activeStatus={activeStatus}
+          statuses={taggedProjectIds.map((projectId) => getProjectById(projectId)?.status)}
+          onChange={setActiveStatus}
         />
       )}
       {visibleProjectIds.length === 0 && (

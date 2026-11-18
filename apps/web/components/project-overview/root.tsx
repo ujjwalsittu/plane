@@ -25,7 +25,7 @@ import { Logo } from "@plane/blocks/emoji-icon-picker";
 import { setToast } from "@plane/blocks/toast";
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
-import type { TNameDescriptionLoader, TProjectOverviewUpdate } from "@plane/types";
+import type { TNameDescriptionLoader, TProject, TProjectOverviewUpdate } from "@plane/types";
 import { EFileAssetType } from "@plane/types";
 import { cn } from "@plane/utils";
 import { DescriptionInput } from "@/components/editor/rich-text/description-input/root";
@@ -33,6 +33,7 @@ import { getMilestoneProgress, MilestoneStatusIcon } from "@/components/mileston
 import { useMilestone } from "@/hooks/store/use-milestone";
 import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
+import { ProjectDateSelect, ProjectPrioritySelect, ProjectStatusSelect } from "@/components/project/planning";
 import { useUserPermissions } from "@/hooks/store/user";
 import { MilestoneService } from "@/services/milestone.service";
 import { getProjectTagsKey } from "@/hooks/use-project-tags";
@@ -62,7 +63,7 @@ function Panel(props: { title: string; icon: React.ReactNode; action?: React.Rea
 export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: Props) {
   const { workspaceSlug, projectId } = props;
   const { t } = useTranslation();
-  const { getProjectById } = useProject();
+  const { getProjectById, updateProject } = useProject();
   const { getProjectMilestones } = useMilestone();
   const { getProjectModuleDetails } = useModule();
   const { allowPermissions } = useUserPermissions();
@@ -100,6 +101,12 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
   const linkedIds = new Set(overview.overview_page_ids);
   const linkablePages = (pages ?? []).filter((page) => page.id && !linkedIds.has(page.id) && !page.archived_at);
 
+  const updatePlanning = (data: Partial<TProject>) => {
+    updateProject(workspaceSlug, projectId, data).catch(() =>
+      setToast({ type: "error", title: t("project_planning.save_error") })
+    );
+  };
+
   const toggleTag = (tagId: string) => {
     const next = tagIds.has(tagId) ? [...tagIds].filter((id) => id !== tagId) : [...tagIds, tagId];
     // The workspace tag list carries project ids, so refresh it for the projects page.
@@ -128,6 +135,33 @@ export const ProjectOverviewRoot = observer(function ProjectOverviewRoot(props: 
         <div className="min-w-0">
           <h1 className="truncate text-h4-semibold text-primary">{project.name}</h1>
           <p className="text-body-xs-regular text-tertiary">{project.identifier}</p>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:order-last">
+          <ProjectStatusSelect
+            value={project.status}
+            onChange={(value) => updatePlanning({ status: value })}
+            disabled={!canEdit}
+          />
+          <ProjectPrioritySelect
+            value={project.priority}
+            onChange={(value) => updatePlanning({ priority: value })}
+            disabled={!canEdit}
+          />
+          <ProjectDateSelect
+            value={project.start_date}
+            onChange={(value) => updatePlanning({ start_date: value })}
+            placeholder={t("project_planning.start_date")}
+            maxDate={project.target_date}
+            disabled={!canEdit}
+          />
+          <span className="text-tertiary">→</span>
+          <ProjectDateSelect
+            value={project.target_date}
+            onChange={(value) => updatePlanning({ target_date: value })}
+            placeholder={t("project_planning.target_date")}
+            minDate={project.start_date}
+            disabled={!canEdit}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
           {overview.tags.map((tag) => (

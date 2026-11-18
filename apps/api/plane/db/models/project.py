@@ -65,6 +65,24 @@ def get_default_preferences():
     return {"pages": {"block_display": True}, "navigation": {"default_tab": "work_items", "hide_in_more_menu": []}}
 
 
+PROJECT_PRIORITY_CHOICES = (
+    ("urgent", "Urgent"),
+    ("high", "High"),
+    ("medium", "Medium"),
+    ("low", "Low"),
+    ("none", "None"),
+)
+
+PROJECT_STATUS_CHOICES = (
+    ("backlog", "Backlog"),
+    ("planned", "Planned"),
+    ("in_progress", "In progress"),
+    ("paused", "Paused"),
+    ("completed", "Completed"),
+    ("cancelled", "Cancelled"),
+)
+
+
 class Project(ChangeTrackerMixin, BaseModel):
     TRACKED_FIELDS = ["timezone"]
 
@@ -77,6 +95,11 @@ class Project(ChangeTrackerMixin, BaseModel):
     overview_html = models.TextField(blank=True, default="<p></p>")
     overview_page_ids = models.JSONField(default=list, blank=True)
     tags = models.ManyToManyField("db.ProjectTag", blank=True, related_name="projects")
+    # Planning fields (as on Linear projects): dates, priority and lifecycle status.
+    start_date = models.DateField(null=True, blank=True)
+    target_date = models.DateField(null=True, blank=True)
+    priority = models.CharField(max_length=30, choices=PROJECT_PRIORITY_CHOICES, default="none")
+    status = models.CharField(max_length=30, choices=PROJECT_STATUS_CHOICES, default="backlog")
     network = models.PositiveSmallIntegerField(default=2, choices=NETWORK_CHOICES)
     workspace = models.ForeignKey("db.WorkSpace", on_delete=models.CASCADE, related_name="workspace_project")
     identifier = models.CharField(max_length=12, verbose_name="Project Identifier", db_index=True)

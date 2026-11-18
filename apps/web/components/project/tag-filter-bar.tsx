@@ -5,8 +5,9 @@
  */
 
 import { useTranslation } from "@plane/i18n";
-import type { TProjectTag } from "@plane/types";
+import type { TProjectStatus, TProjectTag } from "@plane/types";
 import { cn } from "@plane/utils";
+import { PROJECT_STATUS_OPTIONS } from "./planning";
 
 type Props = {
   tags: TProjectTag[];
@@ -60,6 +61,55 @@ export function ProjectTagFilterBar({ tags, activeTagId, projectIds, onChange }:
           </button>
         );
       })}
+    </div>
+  );
+}
+
+type StatusProps = {
+  activeStatus: TProjectStatus | null;
+  /** Status of each project shown before the status filter, for the counts. */
+  statuses: (TProjectStatus | undefined)[];
+  onChange: (status: TProjectStatus | null) => void;
+};
+
+/** One-tap filter for the projects page by project status; only statuses in use get a chip. */
+export function ProjectStatusFilterBar({ activeStatus, statuses, onChange }: StatusProps) {
+  const { t } = useTranslation();
+  const counts = new Map<TProjectStatus, number>();
+  for (const status of statuses) counts.set(status ?? "backlog", (counts.get(status ?? "backlog") ?? 0) + 1);
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={t("project_planning.filter_by_status")}
+      className="horizontal-scrollbar mb-6 scrollbar-sm flex items-center gap-2 overflow-x-auto pb-1"
+    >
+      <button
+        type="button"
+        aria-pressed={!activeStatus}
+        className={chipClass(!activeStatus)}
+        onClick={() => onChange(null)}
+      >
+        {t("project_planning.all_statuses")}
+      </button>
+      {PROJECT_STATUS_OPTIONS.filter((option) => counts.has(option.key) || option.key === activeStatus).map(
+        (option) => {
+          const active = option.key === activeStatus;
+          return (
+            <button
+              key={option.key}
+              type="button"
+              aria-pressed={active}
+              className={chipClass(active)}
+              onClick={() => onChange(active ? null : option.key)}
+            >
+              <span className="size-2 rounded-full" style={{ backgroundColor: option.color }} />
+              {t(`project_planning.statuses.${option.key}`)}
+              <span className="text-tertiary">{counts.get(option.key) ?? 0}</span>
+            </button>
+          );
+        }
+      )}
     </div>
   );
 }

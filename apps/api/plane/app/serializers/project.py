@@ -11,6 +11,7 @@ import re
 # Module imports
 from .base import BaseSerializer, DynamicBaseSerializer
 from django.db.models import Max
+from plane.utils.project_planning import validate_project_dates
 from plane.app.serializers.workspace import WorkspaceLiteSerializer
 from plane.app.serializers.user import UserLiteSerializer, UserAdminLiteSerializer
 from plane.db.models import (
@@ -78,6 +79,7 @@ class ProjectSerializer(BaseSerializer):
         return identifier
 
     def validate(self, data):
+        validate_project_dates(data, self.instance)
         # project_lead / default_assignee must be active members of the workspace
         for field in ("project_lead", "default_assignee"):
             user = data.get(field)

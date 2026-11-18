@@ -142,5 +142,30 @@
     "untitled": "Untitled",
     "link_error": "Couldn't link the page.",
     "unlink_error": "Couldn't unlink the page."
+  },
+  "project_planning": {
+    "status": "Status",
+    "priority": "Priority",
+    "start_date": "Start date",
+    "target_date": "Target date",
+    "statuses": {
+      "backlog": "Backlog",
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "paused": "Paused",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "priorities": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "none": "No priority"
+    },
+    "filter_by_status": "Filter projects by status",
+    "all_statuses": "Any status",
+    "due": "Due {date}",
+    "save_error": "Couldn't update the project."
   }
 }
