@@ -65,8 +65,38 @@ jobs:
           if [ "$MATRIX" = "[]" ]; then echo "No matching images for '$REQUESTED'" >&2; exit 1; fi
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
+  # Unit tests for the editor and web app; images are only built when they pass.
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+
+      - name: Enable Corepack and pnpm
+        run: corepack enable pnpm
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Unit tests (editor, web)
+        run: pnpm turbo run test --filter=@plane/editor --filter=web
+
   build:
-    needs: setup
+    needs: [setup, test]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
