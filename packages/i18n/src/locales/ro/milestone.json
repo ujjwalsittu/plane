@@ -235,5 +235,26 @@
       "toggle_title": "Enable time tracking",
       "toggle_description": "Show a Log time button and a work log on work items."
     }
+  },
+  "wiki": {
+    "title": "Wiki",
+    "all_pages": "All pages",
+    "unfiled": "Not in a collection",
+    "archived": "Archived",
+    "collections": "Collections",
+    "new_collection": "New collection",
+    "private": "Private (only you and people you add)",
+    "new_page": "New page",
+    "untitled": "Untitled",
+    "empty": "No pages here yet.",
+    "save_error": "Couldn't save.",
+    "not_found": "This page doesn't exist or you can't see it.",
+    "remove_from_collection": "Remove from collection",
+    "restore": "Restore",
+    "archive": "Archive",
+    "page_title": "Page title",
+    "body_placeholder": "Write here. Markdown and ```mermaid blocks work.",
+    "delete_title": "Delete page",
+    "delete_description": "Delete \"{name}\" for good?"
   }
 }

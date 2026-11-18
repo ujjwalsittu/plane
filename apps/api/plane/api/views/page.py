@@ -27,7 +27,7 @@ from rest_framework.response import Response
 
 # Module imports
 from plane.api.views.base import BaseAPIView
-from plane.app.permissions import ProjectEntityPermission, ProjectPagePermission, WorkspaceEntityPermission
+from plane.app.permissions import ProjectEntityPermission, ProjectPagePermission
 from plane.app.serializers import PageSerializer
 from plane.app.views.page.base import unarchive_archive_page_and_descendants
 from plane.bgtasks.page_transaction_task import page_transaction
@@ -39,10 +39,6 @@ from plane.utils.work_item_pages import WorkItemPageError, create_link, link_pay
 ADMIN = 20
 
 _UPDATABLE = ("name", "access", "color", "is_locked", "logo_props", "view_props", "external_id", "external_source")
-
-WORKSPACE_PAGES_UNAVAILABLE = (
-    "Workspace pages are not available on this Plane edition. Pass project_id to work with project pages."
-)
 
 
 def page_payload(page):
@@ -132,7 +128,10 @@ class ProjectPageListCreateAPIEndpoint(BaseAPIView):
         if not str(data.get("name") or "").strip():
             return Response({"name": "Name is required"}, status=status.HTTP_400_BAD_REQUEST)
         if data.get("collection_id"):
-            return Response({"collection_id": WORKSPACE_PAGES_UNAVAILABLE}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"collection_id": "Collections hold workspace pages only; omit project_id to create one"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         html, error = _clean_html(data)
         if error:
             return error
@@ -264,16 +263,6 @@ class ProjectPageArchiveAPIEndpoint(BaseAPIView):
             page.save(update_fields=["parent"])
         unarchive_archive_page_and_descendants(page_id, None)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class WorkspacePagesUnavailableAPIEndpoint(BaseAPIView):
-    permission_classes = [WorkspaceEntityPermission]
-    model = Page
-
-    def _refuse(self, *args, **kwargs):
-        return Response({"error": WORKSPACE_PAGES_UNAVAILABLE}, status=status.HTTP_400_BAD_REQUEST)
-
-    get = post = put = delete = _refuse
 
 
 def _work_item(slug, project_id, issue_id):

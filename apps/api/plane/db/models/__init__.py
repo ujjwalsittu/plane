@@ -85,6 +85,7 @@ from .issue_type import IssueType, ProjectIssueType
 from .milestone import Milestone
 from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
+from .page_collection import PageCollection, PageCollectionMember, PageCollectionPage
 from .issue_relation_definition import IssueCustomRelation, IssueRelationDefinition
 from .issue_property import IssueProperty, IssuePropertyOption, IssuePropertyValue, IssueTypeProperty
 

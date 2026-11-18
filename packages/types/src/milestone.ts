@@ -166,3 +166,25 @@ export type TWorkLog = {
   logged_by: string;
   created_at: string | null;
 };
+
+export type TWikiCollection = {
+  id: string;
+  name: string;
+  access: 0 | 1;
+  current_user_access: 0 | 1 | 2;
+  has_pages: boolean;
+  owned_by_id: string;
+};
+
+export type TWikiPage = {
+  id: string;
+  name: string;
+  description_html: string;
+  access: 0 | 1;
+  owned_by: string;
+  archived_at: string | null;
+  parent_id: string | null;
+  collection_id: string | null;
+  page_collection_id: string | null;
+  updated_at: string | null;
+};

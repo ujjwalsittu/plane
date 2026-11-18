@@ -5,13 +5,24 @@
 from django.urls import path
 
 from plane.api.views.inline_asset import InlineAssetUploadAPIEndpoint
+from plane.api.views.workspace_page import (
+    CollectionDetailAPIEndpoint,
+    CollectionListCreateAPIEndpoint,
+    CollectionMemberDetailAPIEndpoint,
+    CollectionMemberListAddAPIEndpoint,
+    CollectionPageDetailAPIEndpoint,
+    CollectionPageListAddAPIEndpoint,
+    CollectionPageSearchAPIEndpoint,
+    WorkspacePageArchiveAPIEndpoint,
+    WorkspacePageDetailAPIEndpoint,
+    WorkspacePageListCreateAPIEndpoint,
+)
 from plane.api.views.page import (
     ProjectPageArchiveAPIEndpoint,
     ProjectPageDetailAPIEndpoint,
     ProjectPageListCreateAPIEndpoint,
     WorkItemPageDetailAPIEndpoint,
     WorkItemPageListCreateAPIEndpoint,
-    WorkspacePagesUnavailableAPIEndpoint,
 )
 
 _WORKSPACE = "workspaces/<str:slug>"
@@ -28,18 +39,55 @@ _routes = [
         ["post", "delete"],
         "project-page-archive",
     ),
-    (f"{_WORKSPACE}/pages", WorkspacePagesUnavailableAPIEndpoint, ["get", "post"], "workspace-page-list"),
+    (f"{_WORKSPACE}/pages", WorkspacePageListCreateAPIEndpoint, ["get", "post"], "workspace-page-list"),
     (
         f"{_WORKSPACE}/pages/<uuid:page_id>",
-        WorkspacePagesUnavailableAPIEndpoint,
-        ["get", "put", "delete"],
+        WorkspacePageDetailAPIEndpoint,
+        ["get", "put", "patch", "delete"],
         "workspace-page-detail",
     ),
     (
         f"{_WORKSPACE}/pages/<uuid:page_id>/archive",
-        WorkspacePagesUnavailableAPIEndpoint,
+        WorkspacePageArchiveAPIEndpoint,
         ["post", "delete"],
         "workspace-page-archive",
+    ),
+    (f"{_WORKSPACE}/collections", CollectionListCreateAPIEndpoint, ["get", "post"], "collection-list"),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>",
+        CollectionDetailAPIEndpoint,
+        ["get", "patch", "delete"],
+        "collection-detail",
+    ),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>/pages",
+        CollectionPageListAddAPIEndpoint,
+        ["get", "post"],
+        "collection-pages",
+    ),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>/pages-search",
+        CollectionPageSearchAPIEndpoint,
+        ["get"],
+        "collection-pages-search",
+    ),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>/pages/<uuid:page_collection_id>",
+        CollectionPageDetailAPIEndpoint,
+        ["patch", "delete"],
+        "collection-page",
+    ),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>/members",
+        CollectionMemberListAddAPIEndpoint,
+        ["get", "post"],
+        "collection-members",
+    ),
+    (
+        f"{_WORKSPACE}/collections/<uuid:collection_id>/members/<uuid:member_id>",
+        CollectionMemberDetailAPIEndpoint,
+        ["patch", "delete"],
+        "collection-member",
     ),
     (f"{_WORK_ITEM}/pages", WorkItemPageListCreateAPIEndpoint, ["get", "post"], "work-item-page-list"),
     (

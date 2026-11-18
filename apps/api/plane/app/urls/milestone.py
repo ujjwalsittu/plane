@@ -15,6 +15,15 @@ from plane.app.views.issue.work_log import (
     IssueWorkLogEndpoint,
     ProjectWorkLogSummaryEndpoint,
 )
+from plane.app.views.page.workspace_page import (
+    WikiCollectionDetailEndpoint,
+    WikiCollectionListEndpoint,
+    WikiCollectionPageEndpoint,
+    WikiCollectionPagesEndpoint,
+    WikiPageArchiveEndpoint,
+    WikiPageDetailEndpoint,
+    WikiPageListEndpoint,
+)
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -93,6 +102,29 @@ urlpatterns = [
         name="issue-work-log",
     ),
     path(f"{_PROJECT}/work-log-summary/", ProjectWorkLogSummaryEndpoint.as_view(), name="project-work-log-summary"),
+    path("workspaces/<str:slug>/wiki/pages/", WikiPageListEndpoint.as_view(), name="wiki-pages"),
+    path("workspaces/<str:slug>/wiki/pages/<uuid:page_id>/", WikiPageDetailEndpoint.as_view(), name="wiki-page"),
+    path(
+        "workspaces/<str:slug>/wiki/pages/<uuid:page_id>/archive/",
+        WikiPageArchiveEndpoint.as_view(),
+        name="wiki-page-archive",
+    ),
+    path("workspaces/<str:slug>/wiki/collections/", WikiCollectionListEndpoint.as_view(), name="wiki-collections"),
+    path(
+        "workspaces/<str:slug>/wiki/collections/<uuid:collection_id>/",
+        WikiCollectionDetailEndpoint.as_view(),
+        name="wiki-collection",
+    ),
+    path(
+        "workspaces/<str:slug>/wiki/collections/<uuid:collection_id>/pages/",
+        WikiCollectionPagesEndpoint.as_view(),
+        name="wiki-collection-pages",
+    ),
+    path(
+        "workspaces/<str:slug>/wiki/collections/<uuid:collection_id>/pages/<uuid:page_collection_id>/",
+        WikiCollectionPageEndpoint.as_view(),
+        name="wiki-collection-page",
+    ),
     path(f"{_PROJECT}/issue-properties/", IssuePropertyEndpoint.as_view(), name="issue-properties"),
     path(f"{_PROJECT}/issue-properties/<uuid:pk>/", IssuePropertyDetailEndpoint.as_view(), name="issue-property"),
     path(
