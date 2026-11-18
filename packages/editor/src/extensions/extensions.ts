@@ -10,7 +10,6 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { TaskList } from "@tiptap/extension-task-list";
 import { Underline } from "@tiptap/extension-underline";
 import { CharacterCount } from "@tiptap/extensions";
-import { Markdown } from "tiptap-markdown";
 // extensions
 import {
   CustomCalloutExtension,
@@ -37,6 +36,7 @@ import { CoreEditorAdditionalExtensions } from "@/extensions/core";
 // types
 import type { IEditorProps } from "@/types";
 // local imports
+import { PlaneMarkdown } from "./markdown";
 import { CustomImageExtension } from "./custom-image/extension";
 import { EmojiExtension } from "./emoji/extension";
 import { CustomPlaceholderExtension } from "./placeholder";
@@ -105,7 +105,7 @@ export const CoreEditorExtensions = (args: TArguments): Extensions => {
     }),
     CustomCodeBlockExtension,
     CustomCodeInlineExtension,
-    Markdown.configure({
+    PlaneMarkdown.configure({
       html: true,
       transformCopiedText: false,
       transformPastedText: true,
