@@ -123,6 +123,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 COPY --from=installer /app/apps/web/build/client /usr/share/caddy/html
 
+# Build identity for deploy verification (deployments/coolify/deploy-plane.sh polls /version.json).
+# Last layer, so changing the SHA doesn't invalidate the cached build above.
+ARG BUILD_SHA=unknown
+RUN printf '{"sha":"%s"}\n' "$BUILD_SHA" > /usr/share/caddy/html/version.json
+
 EXPOSE 3000
 
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
