@@ -14,6 +14,7 @@ import { useTimeLineRelationOptions } from "@/components/relations";
 // local imports
 import { AttachmentsCollapsible } from "./attachments";
 import { LinksCollapsible } from "./links";
+import { CustomRelationsCollapsible } from "./custom-relations";
 import { WorkItemPagesCollapsible } from "./pages";
 import { RelationsCollapsible } from "./relations";
 import { SubIssuesCollapsible } from "./sub-issues";
@@ -79,6 +80,12 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
           issueServiceType={issueServiceType}
         />
       )}
+      <CustomRelationsCollapsible
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+        issueId={issueId}
+        disabled={disabled}
+      />
       <WorkItemPagesCollapsible
         workspaceSlug={workspaceSlug}
         projectId={projectId}

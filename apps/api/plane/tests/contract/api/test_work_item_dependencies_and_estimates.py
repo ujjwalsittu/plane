@@ -231,14 +231,80 @@ def test_built_in_definitions_are_listed(api_key_client, workspace):
 
 @pytest.mark.contract
 @pytest.mark.django_db
-def test_custom_definitions_cannot_be_written(api_key_client, workspace):
+def test_custom_definitions_crud(api_key_client, workspace):
     base = f"/api/v1/workspaces/{workspace.slug}/work-item-relation-definitions/"
-    created = api_key_client.post(base, {"name": "Causes"}, format="json")
-    assert created.status_code == status.HTTP_400_BAD_REQUEST
-    assert "not available" in created.data["error"]
-    definition_id = _definitions(api_key_client, workspace).data["results"][0]["id"]
-    assert api_key_client.patch(f"{base}{definition_id}/", {"name": "x"}, format="json").status_code == 400
-    assert api_key_client.delete(f"{base}{definition_id}/").status_code == 400
+    created = api_key_client.post(
+        base,
+        {"name": "Implements", "outward": "implements", "inward": "implemented by", "color": "#5E6AD2"},
+        format="json",
+    )
+    assert created.status_code == status.HTTP_201_CREATED, created.data
+    assert created.data["is_default"] is False and created.data["is_active"] is True
+    custom_id = created.data["id"]
+
+    assert api_key_client.post(base, {"name": "implements"}, format="json").status_code == 400
+    assert api_key_client.post(base, {"name": "Dupe", "outward": "duplicates"}, format="json").status_code == 400
+    assert api_key_client.post(base, {}, format="json").status_code == 400
+
+    listed = _definitions(api_key_client, workspace).data["results"]
+    assert {d["name"] for d in listed} == {"Relates to", "Duplicate", "Implements"}
+    assert [d["name"] for d in _definitions(api_key_client, workspace, is_default="false").data["results"]] == [
+        "Implements"
+    ]
+
+    patched = api_key_client.patch(f"{base}{custom_id}/", {"inward": "is implemented by"}, format="json")
+    assert patched.status_code == 200 and patched.data["inward"] == "is implemented by"
+    built_in = next(d["id"] for d in listed if d["is_default"])
+    assert api_key_client.patch(f"{base}{built_in}/", {"name": "x"}, format="json").status_code == 400
+    assert api_key_client.delete(f"{base}{built_in}/").status_code == 400
+    assert api_key_client.delete(f"{base}{custom_id}/").status_code == 204
+    assert api_key_client.get(f"{base}{custom_id}/").status_code == 404
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_custom_relation_between_work_items(api_key_client, workspace, project, a, b):
+    from plane.db.models import IssueCustomRelation
+
+    base = f"/api/v1/workspaces/{workspace.slug}/work-item-relation-definitions/"
+    definition = api_key_client.post(
+        base, {"name": "Implements", "outward": "implements", "inward": "implemented by"}, format="json"
+    ).data
+    created = api_key_client.post(
+        f"{_base(workspace, project, a)}/work-item-relations/",
+        {
+            "relation_definition_id": definition["id"],
+            "relation_definition_type": "implemented by",
+            "work_item_ids": [str(b.id)],
+        },
+        format="json",
+    )
+    assert created.status_code == status.HTTP_201_CREATED, created.data
+    assert _ids(created.data) == {str(b.id)}
+    # "a implemented by b" is stored as b -> a.
+    assert IssueCustomRelation.objects.filter(issue=b, related_issue=a).exists()
+    assert _ids(api_key_client.get(f"{_base(workspace, project, a)}/work-item-relations/").data["implemented by"]) == {
+        str(b.id)
+    }
+    assert _ids(api_key_client.get(f"{_base(workspace, project, b)}/work-item-relations/").data["implements"]) == {
+        str(a.id)
+    }
+    assert IssueRelation.objects.filter(Q(issue=a) | Q(related_issue=a)).count() == 0
+
+    wrong = api_key_client.post(
+        f"{_base(workspace, project, a)}/work-item-relations/",
+        {
+            "relation_definition_id": definition["id"],
+            "relation_definition_type": "relates to",
+            "work_item_ids": [str(b.id)],
+        },
+        format="json",
+    )
+    assert wrong.status_code == 400
+
+    removed = api_key_client.delete(f"{_base(workspace, project, a)}/work-item-relations/{b.id}/")
+    assert removed.status_code == status.HTTP_204_NO_CONTENT
+    assert not IssueCustomRelation.objects.filter(issue=b, related_issue=a).exists()
 
 
 def _definition(client, workspace, outward):
@@ -369,3 +435,29 @@ def test_link_estimate_to_project_and_set_point_on_work_item(api_key_client, wor
     assert updated.status_code == status.HTTP_200_OK, updated.data
     a.refresh_from_db()
     assert a.estimate_point_id == point.id
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_custom_relations_app_api(session_client, workspace, project, a, b):
+    definitions = f"/api/workspaces/{workspace.slug}/relation-definitions/"
+    definition = session_client.post(
+        definitions, {"name": "Tests", "outward": "tests", "inward": "tested by"}, format="json"
+    )
+    assert definition.status_code == 201, definition.data
+    assert {d["name"] for d in session_client.get(definitions).data["results"]} >= {"Tests", "Relates to"}
+
+    base = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{a.id}/custom-relations/"
+    created = session_client.post(
+        base,
+        {
+            "relation_definition_id": definition.data["id"],
+            "relation_definition_type": "tests",
+            "work_item_ids": [str(b.id)],
+        },
+        format="json",
+    )
+    assert created.status_code == 201, created.data
+    assert [str(i["id"]) for i in session_client.get(base).data["tests"]] == [str(b.id)]
+    assert session_client.delete(f"{base}{b.id}/").status_code == 204
+    assert session_client.delete(f"{definitions}{definition.data['id']}/").status_code == 204

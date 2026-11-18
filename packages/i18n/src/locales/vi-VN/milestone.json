@@ -199,5 +199,23 @@
       "EMAIL": "Email",
       "FILE": "File"
     }
+  },
+  "custom_relations": {
+    "title": "Custom relations",
+    "add": "Add custom relation",
+    "remove": "Remove",
+    "save_error": "Couldn't save the relation.",
+    "settings_title": "Relation types",
+    "settings_description": "Workspace-wide ways to relate work items, on top of the built-in ones. Each has a label for both directions, e.g. implements / implemented by.",
+    "built_in": "Built-in",
+    "name": "Name",
+    "name_placeholder": "Name, e.g. Implements",
+    "outward": "Label from this item",
+    "outward_placeholder": "Outward label, e.g. implements",
+    "inward": "Label from the other item",
+    "inward_placeholder": "Inward label, e.g. implemented by",
+    "add_type": "Add relation type",
+    "delete_title": "Delete relation type",
+    "delete_description": "Delete \"{name}\"? Every relation of this type between work items is removed too."
   }
 }

@@ -26,6 +26,7 @@ import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
 // local imports
 import { IssueAttachmentActionButton } from "./attachments";
 import { IssueLinksActionButton } from "./links";
+import { CustomRelationActionButton } from "./custom-relations";
 import { WorkItemPagesActionButton } from "./pages";
 import { RelationActionButton } from "./relations";
 import { SubIssuesActionButton } from "./sub-issues";
@@ -80,6 +81,20 @@ export function IssueDetailWidgetActionButtons(props: Props) {
               disabled={disabled}
               issueServiceType={issueServiceType}
             />
+            {!disabled && (
+              <CustomRelationActionButton
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                tooltip={t("custom_relations.add")}
+                customButton={
+                  <EntityDetailWidgetToolbarIconButton
+                    icon={<RelationsOutline className="size-3.5 shrink-0" />}
+                    aria-label={t("custom_relations.add")}
+                  />
+                }
+              />
+            )}
           </EntityDetailWidgetToolbarGroup>
         )}
         {(showLinks || showAttachments) && (

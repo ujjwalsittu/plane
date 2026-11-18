@@ -21,6 +21,7 @@ import type { Route } from "./+types/page";
 import { FeaturesIssueTypesProjectSettingsHeader } from "./header";
 import { SettingsHeading } from "@/components/settings/heading";
 import { IssuePropertiesSettings } from "@/components/issue-types/properties-settings";
+import { RelationDefinitionsSettings } from "@/components/issue-types/relation-definitions-settings";
 import { IssueTypesSettingsRoot } from "@/components/issue-types/settings-root";
 import { useMilestone } from "@/hooks/store/use-milestone";
 
@@ -72,6 +73,9 @@ function FeaturesIssueTypesSettingsPage({ params }: Route.ComponentProps) {
             projectId={projectId}
             issueTypes={currentProjectDetails?.is_issue_type_enabled ? (getProjectIssueTypes(projectId) ?? []) : []}
           />
+        </div>
+        <div className="mt-10">
+          <RelationDefinitionsSettings workspaceSlug={workspaceSlug} />
         </div>
       </section>
     </SettingsContentWrapper>

@@ -139,3 +139,21 @@ export type TIssuePropertyValueRow = {
   property: TIssueProperty;
   values: (string | number | boolean | null)[];
 };
+
+export type TRelationDefinition = {
+  id: string;
+  name: string;
+  outward: string;
+  inward: string;
+  color: string | null;
+  is_default: boolean;
+  is_active: boolean;
+};
+
+export type TCustomRelationItem = {
+  id: string;
+  name: string;
+  sequence_id: number;
+  project_id: string;
+  relation_type: string;
+};

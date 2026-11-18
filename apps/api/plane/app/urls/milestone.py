@@ -4,6 +4,12 @@
 
 from django.urls import path
 
+from plane.app.views.issue.relation_definition import (
+    IssueCustomRelationDetailEndpoint,
+    IssueCustomRelationListEndpoint,
+    RelationDefinitionDetailEndpoint,
+    RelationDefinitionListEndpoint,
+)
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -55,6 +61,26 @@ urlpatterns = [
     ),
     path(f"{_PROJECT}/overview/", ProjectOverviewEndpoint.as_view(), name="project-overview"),
     path(f"{_PROJECT}/issues/<uuid:issue_id>/pages/", IssuePageLinkEndpoint.as_view(), name="issue-page-links"),
+    path(
+        "workspaces/<str:slug>/relation-definitions/",
+        RelationDefinitionListEndpoint.as_view(),
+        name="relation-definitions",
+    ),
+    path(
+        "workspaces/<str:slug>/relation-definitions/<uuid:definition_id>/",
+        RelationDefinitionDetailEndpoint.as_view(),
+        name="relation-definition",
+    ),
+    path(
+        f"{_PROJECT}/issues/<uuid:issue_id>/custom-relations/",
+        IssueCustomRelationListEndpoint.as_view(),
+        name="issue-custom-relations",
+    ),
+    path(
+        f"{_PROJECT}/issues/<uuid:issue_id>/custom-relations/<uuid:related_issue_id>/",
+        IssueCustomRelationDetailEndpoint.as_view(),
+        name="issue-custom-relation",
+    ),
     path(f"{_PROJECT}/issue-properties/", IssuePropertyEndpoint.as_view(), name="issue-properties"),
     path(f"{_PROJECT}/issue-properties/<uuid:pk>/", IssuePropertyDetailEndpoint.as_view(), name="issue-property"),
     path(

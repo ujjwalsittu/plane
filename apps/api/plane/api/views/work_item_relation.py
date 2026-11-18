@@ -41,7 +41,7 @@ from plane.api.views.issue import guest_cannot_view_issue, visible_issue_q
 from plane.app.permissions import ProjectEntityPermission, WorkspaceEntityPermission
 from plane.api.serializers import IssueRelationSerializer
 from plane.bgtasks.issue_activities_task import issue_activity
-from plane.db.models import Issue, IssueRelation, Project
+from plane.db.models import Issue, IssueCustomRelation, IssueRelation, IssueRelationDefinition, Project, Workspace
 from plane.utils.host import base_host
 from plane.utils.issue_relation_mapper import get_actual_relation
 
@@ -89,14 +89,6 @@ BUILT_IN_DEFINITIONS = {
     },
 }
 _DEFINITIONS_BY_ID = {d["id"]: (relation_type, d) for relation_type, d in BUILT_IN_DEFINITIONS.items()}
-
-_READ_ONLY_DEFINITIONS_ERROR = (
-    "Custom relation definitions are not available on this Plane edition. "
-    "Use a built-in definition from GET work-item-relation-definitions/ "
-    "('relates to', 'duplicates' / 'duplicated by'), or the dependencies/ "
-    "endpoint for blocking, blocked_by, start_before, start_after, "
-    "finish_before and finish_after."
-)
 
 _WORK_ITEM_FIELDS = (
     "id",
@@ -330,8 +322,72 @@ class WorkItemDependencyDetailAPIEndpoint(BaseAPIView):
         return _remove(request, slug, project_id, issue_id, related_issue_id, DEPENDENCY_DB_TYPES)
 
 
+def _custom_definition(slug, definition_id):
+    return IssueRelationDefinition.objects.filter(workspace__slug=slug, pk=definition_id).first()
+
+
+def _custom_definition_payload(definition):
+    return {
+        "id": str(definition.id),
+        "name": definition.name,
+        "outward": definition.outward,
+        "inward": definition.inward,
+        "color": definition.color,
+        "sort_order": definition.sort_order,
+        "is_default": False,
+        "is_active": definition.is_active,
+        "workspace": str(definition.workspace_id),
+        "created_at": definition.created_at.isoformat() if definition.created_at else None,
+        "updated_at": definition.updated_at.isoformat() if definition.updated_at else None,
+    }
+
+
+def _labels_taken(slug, exclude_id=None):
+    """Names and labels already used, lower-cased (built-in ones included)."""
+    taken = set()
+    for definition in BUILT_IN_DEFINITIONS.values():
+        taken.update({definition["name"].lower(), definition["outward"].lower(), definition["inward"].lower()})
+    customs = IssueRelationDefinition.objects.filter(workspace__slug=slug)
+    if exclude_id:
+        customs = customs.exclude(pk=exclude_id)
+    for definition in customs:
+        taken.update({definition.name.lower(), definition.outward.lower(), definition.inward.lower()})
+    return taken
+
+
+def _clean_definition(slug, data, instance=None):
+    """Validated definition fields, or raises ValueError with a message."""
+    clean = {}
+    name = str(data.get("name", instance.name if instance else "") or "").strip()
+    if not name:
+        raise ValueError("name is required")
+    outward = str(data.get("outward", instance.outward if instance else "") or "").strip() or name.lower()
+    inward = str(data.get("inward", instance.inward if instance else "") or "").strip() or outward
+    taken = _labels_taken(slug, exclude_id=instance.id if instance else None)
+    for value in {name.lower(), outward.lower(), inward.lower()}:
+        if value in taken:
+            raise ValueError(f"'{value}' is already used by another relation definition")
+    clean.update({"name": name[:255], "outward": outward[:255], "inward": inward[:255]})
+    if "color" in data:
+        clean["color"] = str(data.get("color") or "")[:32]
+    if "sort_order" in data and data["sort_order"] is not None:
+        clean["sort_order"] = float(data["sort_order"])
+    if "is_active" in data and data["is_active"] is not None:
+        clean["is_active"] = bool(data["is_active"])
+    return clean
+
+
+def _custom_relations_of(slug, issue_id, user):
+    visible = Issue.objects.filter(visible_issue_q(user)).values("id")
+    return (
+        IssueCustomRelation.objects.filter(workspace__slug=slug, definition__is_active=True)
+        .filter(Q(issue_id=issue_id, related_issue_id__in=visible) | Q(related_issue_id=issue_id, issue_id__in=visible))
+        .select_related("definition")
+    )
+
+
 class WorkItemCustomRelationListCreateAPIEndpoint(BaseAPIView):
-    """List and create relations typed by a built-in definition."""
+    """List and create relations typed by a definition (built-in or workspace-defined)."""
 
     permission_classes = [ProjectEntityPermission]
     model = IssueRelation
@@ -340,15 +396,23 @@ class WorkItemCustomRelationListCreateAPIEndpoint(BaseAPIView):
         _get_issue(request, slug, project_id, issue_id, include_archived=True)
         issue_id = str(issue_id)
         grouped = {}
-        for rel in _relations_of(slug, issue_id, request.user, CUSTOM_DB_TYPES):
-            definition = BUILT_IN_DEFINITIONS[rel["relation_type"]]
-            if str(rel["issue_id"]) == issue_id:
-                label, other = definition["outward"], rel["related_issue_id"]
-            else:
-                label, other = definition["inward"], rel["issue_id"]
+
+        def add(label, other):
             ids = grouped.setdefault(label, [])
             if other not in ids:
                 ids.append(other)
+
+        for rel in _relations_of(slug, issue_id, request.user, CUSTOM_DB_TYPES):
+            definition = BUILT_IN_DEFINITIONS[rel["relation_type"]]
+            if str(rel["issue_id"]) == issue_id:
+                add(definition["outward"], rel["related_issue_id"])
+            else:
+                add(definition["inward"], rel["issue_id"])
+        for rel in _custom_relations_of(slug, issue_id, request.user):
+            if str(rel.issue_id) == issue_id:
+                add(rel.definition.outward, rel.related_issue_id)
+            else:
+                add(rel.definition.inward, rel.issue_id)
         return Response(
             {label: _work_items(ids, label) for label, ids in grouped.items()},
             status=status.HTTP_200_OK,
@@ -357,43 +421,71 @@ class WorkItemCustomRelationListCreateAPIEndpoint(BaseAPIView):
     def post(self, request, slug, project_id, issue_id):
         definition_id = str(request.data.get("relation_definition_id") or "")
         label = request.data.get("relation_definition_type")
-        if definition_id not in _DEFINITIONS_BY_ID:
-            return Response(
-                {"error": "Unknown relation_definition_id. " + _READ_ONLY_DEFINITIONS_ERROR},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        db_type, definition = _DEFINITIONS_BY_ID[definition_id]
-        if label not in (definition["outward"], definition["inward"]):
+        custom = None
+        if definition_id in _DEFINITIONS_BY_ID:
+            db_type, definition = _DEFINITIONS_BY_ID[definition_id]
+            outward, inward = definition["outward"], definition["inward"]
+        else:
+            try:
+                custom = _custom_definition(slug, uuid.UUID(definition_id))
+            except ValueError:
+                custom = None
+            if custom is None or not custom.is_active:
+                return Response(
+                    {"error": "Unknown relation_definition_id; list them with GET work-item-relation-definitions/"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            outward, inward = custom.outward, custom.inward
+        if label not in (outward, inward):
             return Response(
                 {
                     "error": "relation_definition_type must be the definition's outward or inward label: "
-                    f"'{definition['outward']}' or '{definition['inward']}'"
+                    f"'{outward}' or '{inward}'"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        _get_issue(request, slug, project_id, issue_id, include_archived=False)
+        issue = _get_issue(request, slug, project_id, issue_id, include_archived=False)
         targets, error = _validate_targets(request, slug, issue_id)
         if error:
             return error
         # Outward: the URL work item is the stored ``issue``.
-        reverse = label != definition["outward"]
-        _create(request, slug, project_id, issue_id, db_type, reverse, targets)
-        _log_created(request, project_id, issue_id, db_type, targets)
-
-        linked = IssueRelation.objects.filter(relation_type=db_type).filter(
-            Q(issue_id=issue_id, related_issue_id__in=targets) | Q(related_issue_id=issue_id, issue_id__in=targets)
-        )
+        reverse = label != outward
+        if custom is None:
+            _create(request, slug, project_id, issue_id, db_type, reverse, targets)
+            _log_created(request, project_id, issue_id, db_type, targets)
+            linked = IssueRelation.objects.filter(relation_type=db_type).filter(
+                Q(issue_id=issue_id, related_issue_id__in=targets) | Q(related_issue_id=issue_id, issue_id__in=targets)
+            )
+        else:
+            for target in targets:
+                IssueCustomRelation.objects.get_or_create(
+                    workspace_id=issue.workspace_id,
+                    definition=custom,
+                    issue_id=(target if reverse else issue.id),
+                    related_issue_id=(issue.id if reverse else target),
+                )
+            linked = IssueCustomRelation.objects.filter(definition=custom).filter(
+                Q(issue_id=issue_id, related_issue_id__in=targets) | Q(related_issue_id=issue_id, issue_id__in=targets)
+            )
         linked_ids = {rel.related_issue_id if str(rel.issue_id) == str(issue_id) else rel.issue_id for rel in linked}
         return Response(_work_items(list(linked_ids), label), status=status.HTTP_201_CREATED)
 
 
 class WorkItemCustomRelationDetailAPIEndpoint(BaseAPIView):
-    """Remove a built-in-definition relation between two work items."""
+    """Remove a definition-typed relation (built-in or workspace-defined) between two work items."""
 
     permission_classes = [ProjectEntityPermission]
     model = IssueRelation
 
     def delete(self, request, slug, project_id, issue_id, related_issue_id):
+        custom = IssueCustomRelation.objects.filter(workspace__slug=slug).filter(
+            Q(issue_id=issue_id, related_issue_id=related_issue_id)
+            | Q(issue_id=related_issue_id, related_issue_id=issue_id)
+        )
+        if custom.exists():
+            _get_issue(request, slug, project_id, issue_id, include_archived=False)
+            custom.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return _remove(request, slug, project_id, issue_id, related_issue_id, CUSTOM_DB_TYPES)
 
 
@@ -408,7 +500,7 @@ def _parse_bool(value):
 
 
 class WorkItemRelationDefinitionListAPIEndpoint(BaseAPIView):
-    """Built-in relation definitions; custom ones are not supported."""
+    """Built-in relation definitions (default) and the workspace's own."""
 
     permission_classes = [WorkspaceEntityPermission]
     model = IssueRelation
@@ -416,12 +508,14 @@ class WorkItemRelationDefinitionListAPIEndpoint(BaseAPIView):
     def get(self, request, slug):
         is_default = _parse_bool(request.query_params.get("is_default"))
         is_active = _parse_bool(request.query_params.get("is_active"))
-        # Every built-in definition is default and active.
-        results = (
-            []
-            if is_default is False or is_active is False
-            else [_definition_payload(slug, d) for d in BUILT_IN_DEFINITIONS.values()]
-        )
+        results = []
+        if is_default is not False and is_active is not False:
+            results += [_definition_payload(slug, d) for d in BUILT_IN_DEFINITIONS.values()]
+        if is_default is not True:
+            customs = IssueRelationDefinition.objects.filter(workspace__slug=slug)
+            if is_active is not None:
+                customs = customs.filter(is_active=is_active)
+            results += [_custom_definition_payload(d) for d in customs]
         return Response(
             {
                 "grouped_by": None,
@@ -441,7 +535,17 @@ class WorkItemRelationDefinitionListAPIEndpoint(BaseAPIView):
         )
 
     def post(self, request, slug):
-        return Response({"error": _READ_ONLY_DEFINITIONS_ERROR}, status=status.HTTP_400_BAD_REQUEST)
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            clean = _clean_definition(slug, data)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        workspace = Workspace.objects.get(slug=slug)
+        definition = IssueRelationDefinition.objects.create(workspace=workspace, **clean)
+        return Response(_custom_definition_payload(definition), status=status.HTTP_201_CREATED)
+
+
+_BUILT_IN_READ_ONLY = "Built-in relation definitions can't be changed or deleted"
 
 
 class WorkItemRelationDefinitionDetailAPIEndpoint(BaseAPIView):
@@ -450,12 +554,34 @@ class WorkItemRelationDefinitionDetailAPIEndpoint(BaseAPIView):
 
     def get(self, request, slug, definition_id):
         match = _DEFINITIONS_BY_ID.get(str(definition_id))
-        if match is None:
+        if match is not None:
+            return Response(_definition_payload(slug, match[1]), status=status.HTTP_200_OK)
+        custom = _custom_definition(slug, definition_id)
+        if custom is None:
             return Response({"error": "Relation definition not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(_definition_payload(slug, match[1]), status=status.HTTP_200_OK)
+        return Response(_custom_definition_payload(custom), status=status.HTTP_200_OK)
 
     def patch(self, request, slug, definition_id):
-        return Response({"error": _READ_ONLY_DEFINITIONS_ERROR}, status=status.HTTP_400_BAD_REQUEST)
+        if str(definition_id) in _DEFINITIONS_BY_ID:
+            return Response({"error": _BUILT_IN_READ_ONLY}, status=status.HTTP_400_BAD_REQUEST)
+        custom = _custom_definition(slug, definition_id)
+        if custom is None:
+            return Response({"error": "Relation definition not found"}, status=status.HTTP_404_NOT_FOUND)
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            clean = _clean_definition(slug, data, instance=custom)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        for field, value in clean.items():
+            setattr(custom, field, value)
+        custom.save()
+        return Response(_custom_definition_payload(custom), status=status.HTTP_200_OK)
 
     def delete(self, request, slug, definition_id):
-        return Response({"error": _READ_ONLY_DEFINITIONS_ERROR}, status=status.HTTP_400_BAD_REQUEST)
+        if str(definition_id) in _DEFINITIONS_BY_ID:
+            return Response({"error": _BUILT_IN_READ_ONLY}, status=status.HTTP_400_BAD_REQUEST)
+        custom = _custom_definition(slug, definition_id)
+        if custom is None:
+            return Response({"error": "Relation definition not found"}, status=status.HTTP_404_NOT_FOUND)
+        custom.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
