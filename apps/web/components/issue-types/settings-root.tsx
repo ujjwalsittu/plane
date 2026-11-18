@@ -18,6 +18,7 @@ import { setToast } from "@plane/blocks/toast";
 import { useTranslation } from "@plane/i18n";
 import type { TIssueType } from "@plane/types";
 import { useMilestone } from "@/hooks/store/use-milestone";
+import { IssuePropertiesSettings } from "./properties-settings";
 
 type Props = {
   workspaceSlug: string;
@@ -178,6 +179,8 @@ export const IssueTypesSettingsRoot = observer(function IssueTypesSettingsRoot(p
         )}
       </form>
       <p className="text-body-xs-regular text-tertiary">{t("issue_types_feature.default_help")}</p>
+
+      <IssuePropertiesSettings workspaceSlug={workspaceSlug} projectId={projectId} issueTypes={issueTypes} />
 
       <ConfirmDialog
         isOpen={!!toDelete}

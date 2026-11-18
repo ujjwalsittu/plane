@@ -5,6 +5,13 @@
 from django.urls import path
 
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
+from plane.app.views.issue.property import (
+    IssuePropertyDetailEndpoint,
+    IssuePropertyEndpoint,
+    IssuePropertyOptionDetailEndpoint,
+    IssuePropertyOptionEndpoint,
+    IssuePropertyValuesEndpoint,
+)
 
 from plane.app.views.project.overview import (
     ProjectOverviewEndpoint,
@@ -48,6 +55,23 @@ urlpatterns = [
     ),
     path(f"{_PROJECT}/overview/", ProjectOverviewEndpoint.as_view(), name="project-overview"),
     path(f"{_PROJECT}/issues/<uuid:issue_id>/pages/", IssuePageLinkEndpoint.as_view(), name="issue-page-links"),
+    path(f"{_PROJECT}/issue-properties/", IssuePropertyEndpoint.as_view(), name="issue-properties"),
+    path(f"{_PROJECT}/issue-properties/<uuid:pk>/", IssuePropertyDetailEndpoint.as_view(), name="issue-property"),
+    path(
+        f"{_PROJECT}/issue-properties/<uuid:property_id>/options/",
+        IssuePropertyOptionEndpoint.as_view(),
+        name="issue-property-options",
+    ),
+    path(
+        f"{_PROJECT}/issue-properties/<uuid:property_id>/options/<uuid:pk>/",
+        IssuePropertyOptionDetailEndpoint.as_view(),
+        name="issue-property-option",
+    ),
+    path(
+        f"{_PROJECT}/issues/<uuid:issue_id>/property-values/",
+        IssuePropertyValuesEndpoint.as_view(),
+        name="issue-property-values",
+    ),
     path(
         f"{_PROJECT}/issues/<uuid:issue_id>/pages/<uuid:pk>/",
         IssuePageLinkDetailEndpoint.as_view(),

@@ -167,5 +167,37 @@
     "all_statuses": "Any status",
     "due": "Due {date}",
     "save_error": "Couldn't update the project."
+  },
+  "work_item_properties": {
+    "title": "Properties",
+    "description": "Custom fields on work items. Add them for every work item in this project, or only for one work item type.",
+    "empty": "No custom properties yet.",
+    "name": "Property name",
+    "kind": "Kind",
+    "relation_to": "Relation to",
+    "relation_user": "Member",
+    "relation_issue": "Work item",
+    "applies_to": "Applies to",
+    "all_work_items": "All work items",
+    "options": "Options",
+    "options_placeholder": "Options, comma separated",
+    "multi": "Multiple values",
+    "add": "Add property",
+    "save_error": "Couldn't save the property.",
+    "delete_title": "Delete property",
+    "delete_description": "Delete \"{name}\"? Its values on every work item are deleted too.",
+    "empty_value": "Empty",
+    "linked_items": "{count} linked",
+    "types": {
+      "TEXT": "Text",
+      "DECIMAL": "Number",
+      "BOOLEAN": "Checkbox",
+      "DATETIME": "Date",
+      "OPTION": "Select",
+      "RELATION": "Relation",
+      "URL": "URL",
+      "EMAIL": "Email",
+      "FILE": "File"
+    }
   }
 }

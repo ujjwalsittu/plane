@@ -10,6 +10,9 @@ Supported, joined with AND:
 * ``milestone = "<uuid>"`` / ``milestone IN (...)``
 * ``parent = "<uuid>"``
 * ``childOf("<PROJECT>-<N>")`` -- direct children of a work item
+* ``cf["<property id>"] = <value>`` / ``cf["<property id>"] IN ("<value>", ...)`` -- custom
+  property values: option or record ids for OPTION/RELATION, true/false, numbers, dates
+  (YYYY-MM-DD) or text
 
 Anything else raises :class:`UnsupportedPQL`, which the view turns into a 400
 naming what is supported.
@@ -23,17 +26,18 @@ import uuid
 from django.db.models import Q
 
 # Module imports
-from plane.db.models import Issue
+from plane.db.models import Issue, IssueProperty, IssuePropertyValue
 
 SUPPORTED = (
     'type = "<id>", type IN ("<id>", ...), milestone = "<id>", milestone IN (...), '
-    'parent = "<id>" and childOf("<PROJECT>-<N>"), joined with AND'
+    'parent = "<id>", childOf("<PROJECT>-<N>") and cf["<property id>"] = <value> / IN (...), joined with AND'
 )
 
 _FIELDS = {"type": "type_id", "milestone": "milestone_id", "parent": "parent_id"}
 _COMPARISON = re.compile(r"^(?P<field>\w+)\s*(?P<op>=|IN)\s*(?P<value>.+)$", re.IGNORECASE)
 _CHILD_OF = re.compile(r'^childOf\(\s*"(?P<identifier>[^"]+)"\s*\)$', re.IGNORECASE)
 _STRING = re.compile(r'"([^"]*)"')
+_CUSTOM = re.compile(r'^cf\[\s*"(?P<id>[^"]+)"\s*\]\s*(?P<op>=|IN)\s*(?P<value>.+)$', re.IGNORECASE)
 
 
 class UnsupportedPQL(ValueError):
@@ -77,6 +81,57 @@ def _split_and(pql):
     return [p for p in parts if p]
 
 
+def _custom_values(raw, op):
+    """The literal(s) of a cf[] comparison: quoted strings, or a bare true/false/number for =."""
+    strings = _STRING.findall(raw)
+    if op == "IN":
+        if not strings:
+            raise UnsupportedPQL(f"IN takes quoted values: {raw}")
+        return strings
+    if strings:
+        return [strings[0]]
+    bare = raw.strip()
+    if bare.lower() in ("true", "false"):
+        return [bare.lower() == "true"]
+    try:
+        return [float(bare)]
+    except ValueError:
+        raise UnsupportedPQL(f"Expected a quoted value, true/false or a number: {raw}") from None
+
+
+def _custom_q(match, slug):
+    try:
+        property_id = uuid.UUID(match.group("id"))
+    except ValueError as exc:
+        raise UnsupportedPQL(f"Not a valid property id: {match.group('id')}") from exc
+    prop = IssueProperty.objects.filter(workspace__slug=slug, pk=property_id).first()
+    if prop is None:
+        raise UnsupportedPQL(f"Unknown property: {property_id}")
+    values = _custom_values(match.group("value"), match.group("op").upper())
+    rows = IssuePropertyValue.objects.filter(property=prop)
+    kind = prop.property_type
+    try:
+        if kind == "OPTION":
+            rows = rows.filter(value_option_id__in=[uuid.UUID(str(v)) for v in values])
+        elif kind == "RELATION":
+            rows = rows.filter(value_uuid__in=[uuid.UUID(str(v)) for v in values])
+        elif kind == "BOOLEAN":
+            flags = [v if isinstance(v, bool) else str(v).lower() == "true" for v in values]
+            rows = rows.filter(value_boolean__in=flags)
+        elif kind == "DECIMAL":
+            rows = rows.filter(value_decimal__in=[float(v) for v in values])
+        elif kind == "DATETIME":
+            rows = rows.filter(value_datetime__date__in=[str(v)[:10] for v in values])
+        else:
+            text = Q()
+            for value in values:
+                text |= Q(value_text__iexact=str(value))
+            rows = rows.filter(text)
+    except ValueError as exc:
+        raise UnsupportedPQL(f"Value doesn't match the property's type: {match.group('value')}") from exc
+    return Q(pk__in=rows.values("issue_id"))
+
+
 def pql_to_q(pql, slug):
     """Translate ``pql`` into a Q for Issue querysets of workspace ``slug``."""
     q = Q()
@@ -94,6 +149,11 @@ def pql_to_q(pql, slug):
             ).first()
             # An unknown parent matches nothing rather than everything.
             q &= Q(parent_id=parent.id) if parent else Q(pk__in=[])
+            continue
+
+        custom = _CUSTOM.match(clause)
+        if custom:
+            q &= _custom_q(custom, slug)
             continue
 
         comparison = _COMPARISON.match(clause)

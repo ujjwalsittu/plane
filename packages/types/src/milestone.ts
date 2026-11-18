@@ -90,3 +90,52 @@ export type TWorkItemPageLink = {
   project: string;
   created_at: string | null;
 };
+
+export type TIssuePropertyType =
+  | "TEXT"
+  | "DATETIME"
+  | "DECIMAL"
+  | "BOOLEAN"
+  | "OPTION"
+  | "RELATION"
+  | "URL"
+  | "EMAIL"
+  | "FILE";
+
+export type TIssuePropertyOption = {
+  id: string;
+  name: string;
+  logo_props: { color?: string } | null;
+  is_default: boolean;
+  sort_order: number;
+};
+
+export type TIssueProperty = {
+  id: string;
+  display_name: string;
+  description: string;
+  property_type: TIssuePropertyType;
+  relation_type: "ISSUE" | "USER" | null;
+  is_required: boolean;
+  is_multi: boolean;
+  is_active: boolean;
+  settings: { display_format?: string };
+  project: string | null;
+  issue_type: string | null;
+  options: TIssuePropertyOption[];
+};
+
+export type TIssuePropertyCreate = {
+  display_name: string;
+  property_type: TIssuePropertyType;
+  relation_type?: "ISSUE" | "USER";
+  is_multi?: boolean;
+  issue_type_id?: string | null;
+  options?: string[];
+};
+
+/** A property that applies to a work item, with its current values (strings, numbers or booleans). */
+export type TIssuePropertyValueRow = {
+  property: TIssueProperty;
+  values: (string | number | boolean | null)[];
+};

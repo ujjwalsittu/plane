@@ -37,6 +37,7 @@ import { IssueCycleSelect } from "./cycle-select";
 import { IssueLabel } from "./label";
 import { IssueModuleSelect } from "./module-select";
 import type { TIssueOperations } from "./root";
+import { IssueCustomProperties } from "./custom-properties";
 import { IssueDetailSidebarGroup } from "./sidebar-group";
 
 type Props = {
@@ -219,6 +220,14 @@ export const IssueDetailSidebarSections = observer(function IssueDetailSidebarSe
             </IssueDetailSidebarGroup>
           </>
         )}
+
+        <IssueCustomProperties
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          issueId={issueId}
+          typeId={issue.type_id}
+          disabled={disabled}
+        />
       </div>
 
       {auditRows.length > 0 && (
