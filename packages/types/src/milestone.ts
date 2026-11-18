@@ -157,3 +157,12 @@ export type TCustomRelationItem = {
   project_id: string;
   relation_type: string;
 };
+
+export type TWorkLog = {
+  id: string;
+  issue_id: string;
+  duration: number;
+  description: string;
+  logged_by: string;
+  created_at: string | null;
+};

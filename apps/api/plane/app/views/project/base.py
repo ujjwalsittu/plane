@@ -186,6 +186,7 @@ class ProjectViewSet(BaseViewSet):
             "cycle_view",
             "milestone_view",
             "is_issue_type_enabled",
+            "is_time_tracking_enabled",
             "issue_views_view",
             "module_view",
             "page_view",

@@ -19,6 +19,7 @@ from .work_item_relation import urlpatterns as work_item_relation_patterns
 from .milestone import urlpatterns as milestone_patterns
 from .page import urlpatterns as page_patterns
 from .issue_property import urlpatterns as issue_property_patterns
+from .work_log import urlpatterns as work_log_patterns
 
 urlpatterns = [
     *asset_patterns,
@@ -38,4 +39,5 @@ urlpatterns = [
     *milestone_patterns,
     *page_patterns,
     *issue_property_patterns,
+    *work_log_patterns,
 ]

@@ -217,5 +217,23 @@
     "add_type": "Add relation type",
     "delete_title": "Delete relation type",
     "delete_description": "Delete \"{name}\"? Every relation of this type between work items is removed too."
+  },
+  "work_logs": {
+    "title": "Work log",
+    "log_time": "Log time",
+    "duration": "Time spent",
+    "duration_placeholder": "Time spent, e.g. 1h 30m or 45m",
+    "duration_invalid": "Use hours and minutes, e.g. 1h 30m, 90m or 1.5h",
+    "duration_preview": "Logs {duration}",
+    "description": "Note",
+    "description_placeholder": "What was done (optional)",
+    "save_error": "Couldn't save the time entry.",
+    "settings": {
+      "short_title": "Time tracking",
+      "title": "Time tracking",
+      "description": "Log time spent on work items and see totals per work item.",
+      "toggle_title": "Enable time tracking",
+      "toggle_description": "Show a Log time button and a work log on work items."
+    }
   }
 }

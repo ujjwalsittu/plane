@@ -35,6 +35,7 @@ export interface IPartialProject {
   guest_view_all_features?: boolean;
   project_lead?: IUserLite | string | null;
   network?: number;
+  is_time_tracking_enabled?: boolean;
   // planning
   start_date?: string | null;
   target_date?: string | null;

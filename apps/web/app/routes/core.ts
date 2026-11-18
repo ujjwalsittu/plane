@@ -332,6 +332,10 @@ export const coreRoutes: RouteConfigEntry[] = [
               "./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/features/milestones/page.tsx"
             ),
             route(
+              ":workspaceSlug/settings/projects/:projectId/features/time-tracking",
+              "./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/features/time-tracking/page.tsx"
+            ),
+            route(
               ":workspaceSlug/settings/projects/:projectId/features/work-item-types",
               "./(all)/[workspaceSlug]/(settings)/settings/projects/[projectId]/features/work-item-types/page.tsx"
             ),

@@ -8,6 +8,7 @@ import React from "react";
 import { TooltipProvider } from "@makeplane/propel/components/tooltip";
 import {
   AttachOutline,
+  ClockOutline,
   LinkOutline,
   PagesOutline,
   RelationsOutline,
@@ -28,6 +29,7 @@ import { IssueAttachmentActionButton } from "./attachments";
 import { IssueLinksActionButton } from "./links";
 import { CustomRelationActionButton } from "./custom-relations";
 import { WorkItemPagesActionButton } from "./pages";
+import { WorkLogActionButton } from "./work-logs";
 import { RelationActionButton } from "./relations";
 import { SubIssuesActionButton } from "./sub-issues";
 
@@ -122,6 +124,20 @@ export function IssueDetailWidgetActionButtons(props: Props) {
                   <EntityDetailWidgetToolbarIconButton
                     icon={<PagesOutline className="size-3.5 shrink-0" />}
                     aria-label={t("work_item_pages.link_page")}
+                  />
+                }
+              />
+            )}
+            {!disabled && (
+              <WorkLogActionButton
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                tooltip={t("work_logs.log_time")}
+                customButton={
+                  <EntityDetailWidgetToolbarIconButton
+                    icon={<ClockOutline className="size-3.5 shrink-0" />}
+                    aria-label={t("work_logs.log_time")}
                   />
                 }
               />

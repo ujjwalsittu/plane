@@ -18,6 +18,7 @@ import {
   StateOutline,
   TriggerOutline,
   ViewsOutline,
+  ClockOutline,
 } from "@makeplane/propel/icons";
 // plane imports
 import type { ISvgIcons } from "@plane/blocks/icons";
@@ -30,6 +31,7 @@ export const PROJECT_SETTINGS_ICONS: Record<TProjectSettingsTabs, IconGlyph | Re
   members: MembersOutline,
   features_cycles: CyclesOutline,
   features_milestones: MilestoneOutline,
+  features_time_tracking: ClockOutline,
   features_issue_types: LayerStackOutline,
   features_modules: ModuleOutline,
   features_views: ViewsOutline,

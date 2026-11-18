@@ -10,6 +10,11 @@ from plane.app.views.issue.relation_definition import (
     RelationDefinitionDetailEndpoint,
     RelationDefinitionListEndpoint,
 )
+from plane.app.views.issue.work_log import (
+    IssueWorkLogDetailEndpoint,
+    IssueWorkLogEndpoint,
+    ProjectWorkLogSummaryEndpoint,
+)
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -81,6 +86,13 @@ urlpatterns = [
         IssueCustomRelationDetailEndpoint.as_view(),
         name="issue-custom-relation",
     ),
+    path(f"{_PROJECT}/issues/<uuid:issue_id>/work-logs/", IssueWorkLogEndpoint.as_view(), name="issue-work-logs"),
+    path(
+        f"{_PROJECT}/issues/<uuid:issue_id>/work-logs/<uuid:work_log_id>/",
+        IssueWorkLogDetailEndpoint.as_view(),
+        name="issue-work-log",
+    ),
+    path(f"{_PROJECT}/work-log-summary/", ProjectWorkLogSummaryEndpoint.as_view(), name="project-work-log-summary"),
     path(f"{_PROJECT}/issue-properties/", IssuePropertyEndpoint.as_view(), name="issue-properties"),
     path(f"{_PROJECT}/issue-properties/<uuid:pk>/", IssuePropertyDetailEndpoint.as_view(), name="issue-property"),
     path(

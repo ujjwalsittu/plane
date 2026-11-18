@@ -16,6 +16,7 @@ import { AttachmentsCollapsible } from "./attachments";
 import { LinksCollapsible } from "./links";
 import { CustomRelationsCollapsible } from "./custom-relations";
 import { WorkItemPagesCollapsible } from "./pages";
+import { WorkLogsCollapsible } from "./work-logs";
 import { RelationsCollapsible } from "./relations";
 import { SubIssuesCollapsible } from "./sub-issues";
 
@@ -86,6 +87,7 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
         issueId={issueId}
         disabled={disabled}
       />
+      <WorkLogsCollapsible workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       <WorkItemPagesCollapsible
         workspaceSlug={workspaceSlug}
         projectId={projectId}

@@ -28,6 +28,7 @@ export type TProjectSettingsTabs =
   | "features_pages"
   | "features_intake"
   | "features_milestones"
+  | "features_time_tracking"
   | "features_issue_types"
   | "states"
   | "labels"
