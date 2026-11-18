@@ -20,7 +20,9 @@ import { useUserPermissions } from "@/hooks/store/user";
 import type { Route } from "./+types/page";
 import { FeaturesIssueTypesProjectSettingsHeader } from "./header";
 import { SettingsHeading } from "@/components/settings/heading";
+import { IssuePropertiesSettings } from "@/components/issue-types/properties-settings";
 import { IssueTypesSettingsRoot } from "@/components/issue-types/settings-root";
+import { useMilestone } from "@/hooks/store/use-milestone";
 
 function FeaturesIssueTypesSettingsPage({ params }: Route.ComponentProps) {
   const { workspaceSlug, projectId } = params;
@@ -29,6 +31,7 @@ function FeaturesIssueTypesSettingsPage({ params }: Route.ComponentProps) {
   const { currentProjectDetails } = useProject();
   // translation
   const { t } = useTranslation();
+  const { getProjectIssueTypes } = useMilestone();
   // derived values
   const pageTitle = currentProjectDetails?.name
     ? `${currentProjectDetails?.name} settings - ${t("issue_types_feature.settings.short_title")}`
@@ -62,6 +65,14 @@ function FeaturesIssueTypesSettingsPage({ params }: Route.ComponentProps) {
             <IssueTypesSettingsRoot workspaceSlug={workspaceSlug} projectId={projectId} />
           </div>
         )}
+        {/* Properties don't need types: without them they apply to every work item. */}
+        <div className="mt-10">
+          <IssuePropertiesSettings
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueTypes={currentProjectDetails?.is_issue_type_enabled ? (getProjectIssueTypes(projectId) ?? []) : []}
+          />
+        </div>
       </section>
     </SettingsContentWrapper>
   );

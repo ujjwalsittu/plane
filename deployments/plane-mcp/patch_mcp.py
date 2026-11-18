@@ -7,6 +7,7 @@
 - project create/update: start_date, target_date, priority, status
 - milestone create/update: description
 - workitem create/update: completed_at (for imports)
+- workitem_property options: color
 
 The SDK's request models drop unknown fields (extra="ignore"); the patched ones allow them, and the
 tools pass the new arguments through. Every replacement must find its anchor, so a new MCP version
@@ -43,6 +44,8 @@ def allow_extra(path: pathlib.Path, *classes: str) -> None:
 allow_extra(SITE / "projects.py", "CreateProject", "UpdateProject")
 allow_extra(SITE / "milestones.py", "CreateMilestone", "UpdateMilestone")
 allow_extra(SITE / "work_items.py", "CreateWorkItem", "UpdateWorkItem")
+# Property options: the tool passes color, which the server stores in logo_props.
+allow_extra(SITE / "work_item_properties.py", "CreateWorkItemPropertyOption", "UpdateWorkItemPropertyOption")
 
 # --- project tool -------------------------------------------------------------------------------
 project = TOOLS / "project.py"
