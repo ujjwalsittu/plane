@@ -9,7 +9,8 @@ from plane.api.views.page import (
     ProjectPageArchiveAPIEndpoint,
     ProjectPageDetailAPIEndpoint,
     ProjectPageListCreateAPIEndpoint,
-    WorkItemPagesUnavailableAPIEndpoint,
+    WorkItemPageDetailAPIEndpoint,
+    WorkItemPageListCreateAPIEndpoint,
     WorkspacePagesUnavailableAPIEndpoint,
 )
 
@@ -40,10 +41,10 @@ _routes = [
         ["post", "delete"],
         "workspace-page-archive",
     ),
-    (f"{_WORK_ITEM}/pages", WorkItemPagesUnavailableAPIEndpoint, ["get", "post"], "work-item-page-list"),
+    (f"{_WORK_ITEM}/pages", WorkItemPageListCreateAPIEndpoint, ["get", "post"], "work-item-page-list"),
     (
         f"{_WORK_ITEM}/pages/<uuid:work_item_page_id>",
-        WorkItemPagesUnavailableAPIEndpoint,
+        WorkItemPageDetailAPIEndpoint,
         ["get", "delete"],
         "work-item-page-detail",
     ),

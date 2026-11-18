@@ -76,3 +76,17 @@ export type TProjectOverviewUpdate = Partial<{
   overview_page_ids: string[];
   tag_ids: string[];
 }>;
+
+export type TWorkItemPageLink = {
+  id: string;
+  page: {
+    id: string;
+    name: string;
+    logo_props: Record<string, unknown> | null;
+    access: number;
+    archived_at: string | null;
+  };
+  issue: string;
+  project: string;
+  created_at: string | null;
+};

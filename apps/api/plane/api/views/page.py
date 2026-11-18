@@ -27,13 +27,14 @@ from rest_framework.response import Response
 
 # Module imports
 from plane.api.views.base import BaseAPIView
-from plane.app.permissions import ProjectPagePermission, WorkspaceEntityPermission
+from plane.app.permissions import ProjectEntityPermission, ProjectPagePermission, WorkspaceEntityPermission
 from plane.app.serializers import PageSerializer
 from plane.app.views.page.base import unarchive_archive_page_and_descendants
 from plane.bgtasks.page_transaction_task import page_transaction
-from plane.db.models import Page, ProjectMember, UserFavorite
+from plane.db.models import Issue, Page, ProjectMember, UserFavorite
 from plane.utils.content_validator import validate_html_content
 from plane.utils.markdown import looks_like_markdown, to_html
+from plane.utils.work_item_pages import WorkItemPageError, create_link, link_payload, links_for
 
 ADMIN = 20
 
@@ -41,10 +42,6 @@ _UPDATABLE = ("name", "access", "color", "is_locked", "logo_props", "view_props"
 
 WORKSPACE_PAGES_UNAVAILABLE = (
     "Workspace pages are not available on this Plane edition. Pass project_id to work with project pages."
-)
-WORK_ITEM_PAGES_UNAVAILABLE = (
-    "Linking pages to work items is not available on this Plane edition. "
-    "Mention the work item in the page, or add the page URL as a work item link."
 )
 
 
@@ -279,11 +276,50 @@ class WorkspacePagesUnavailableAPIEndpoint(BaseAPIView):
     get = post = put = delete = _refuse
 
 
-class WorkItemPagesUnavailableAPIEndpoint(BaseAPIView):
-    permission_classes = [ProjectPagePermission]
+def _work_item(slug, project_id, issue_id):
+    return Issue.issue_objects.filter(workspace__slug=slug, project_id=project_id, pk=issue_id).first()
+
+
+class WorkItemPageListCreateAPIEndpoint(BaseAPIView):
+    """Pages linked to a work item (SDK: client.work_items.pages)."""
+
+    permission_classes = [ProjectEntityPermission]
     model = Page
 
-    def _refuse(self, *args, **kwargs):
-        return Response({"error": WORK_ITEM_PAGES_UNAVAILABLE}, status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request, slug, project_id, issue_id):
+        if not _work_item(slug, project_id, issue_id):
+            return Response({"error": "Work item not found"}, status=status.HTTP_404_NOT_FOUND)
+        return self.paginate(
+            request=request,
+            queryset=links_for(request.user, project_id, issue_id),
+            on_results=lambda links: [link_payload(link) for link in links],
+        )
 
-    get = post = delete = _refuse
+    def post(self, request, slug, project_id, issue_id):
+        issue = _work_item(slug, project_id, issue_id)
+        if not issue:
+            return Response({"error": "Work item not found"}, status=status.HTTP_404_NOT_FOUND)
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            link, created = create_link(request.user, issue, data.get("page_id"))
+        except WorkItemPageError as exc:
+            return Response({exc.field: exc.message, "error": exc.message}, status=exc.status_code)
+        return Response(link_payload(link), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class WorkItemPageDetailAPIEndpoint(BaseAPIView):
+    permission_classes = [ProjectEntityPermission]
+    model = Page
+
+    def get(self, request, slug, project_id, issue_id, work_item_page_id):
+        link = links_for(request.user, project_id, issue_id).filter(pk=work_item_page_id).first()
+        if not link:
+            return Response({"error": "Page link not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(link_payload(link), status=status.HTTP_200_OK)
+
+    def delete(self, request, slug, project_id, issue_id, work_item_page_id):
+        link = links_for(request.user, project_id, issue_id).filter(pk=work_item_page_id).first()
+        if not link:
+            return Response({"error": "Page link not found"}, status=status.HTTP_404_NOT_FOUND)
+        link.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

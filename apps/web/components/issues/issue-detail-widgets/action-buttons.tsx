@@ -6,7 +6,13 @@
 
 import React from "react";
 import { TooltipProvider } from "@makeplane/propel/components/tooltip";
-import { AttachOutline, LinkOutline, RelationsOutline, SubWorkItemsOutline } from "@makeplane/propel/icons";
+import {
+  AttachOutline,
+  LinkOutline,
+  PagesOutline,
+  RelationsOutline,
+  SubWorkItemsOutline,
+} from "@makeplane/propel/icons";
 // plane imports
 import {
   EntityDetailWidgetToolbar,
@@ -20,6 +26,7 @@ import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
 // local imports
 import { IssueAttachmentActionButton } from "./attachments";
 import { IssueLinksActionButton } from "./links";
+import { WorkItemPagesActionButton } from "./pages";
 import { RelationActionButton } from "./relations";
 import { SubIssuesActionButton } from "./sub-issues";
 
@@ -88,6 +95,20 @@ export function IssueDetailWidgetActionButtons(props: Props) {
                 }
                 disabled={disabled}
                 issueServiceType={issueServiceType}
+              />
+            )}
+            {!disabled && (
+              <WorkItemPagesActionButton
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                tooltip={t("work_item_pages.link_page")}
+                customButton={
+                  <EntityDetailWidgetToolbarIconButton
+                    icon={<PagesOutline className="size-3.5 shrink-0" />}
+                    aria-label={t("work_item_pages.link_page")}
+                  />
+                }
               />
             )}
             {showAttachments && (

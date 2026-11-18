@@ -14,6 +14,7 @@ import { useTimeLineRelationOptions } from "@/components/relations";
 // local imports
 import { AttachmentsCollapsible } from "./attachments";
 import { LinksCollapsible } from "./links";
+import { WorkItemPagesCollapsible } from "./pages";
 import { RelationsCollapsible } from "./relations";
 import { SubIssuesCollapsible } from "./sub-issues";
 
@@ -78,6 +79,12 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
           issueServiceType={issueServiceType}
         />
       )}
+      <WorkItemPagesCollapsible
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+        issueId={issueId}
+        disabled={disabled}
+      />
       {shouldRenderAttachments && (
         <AttachmentsCollapsible
           workspaceSlug={workspaceSlug}

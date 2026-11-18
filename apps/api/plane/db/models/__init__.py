@@ -83,6 +83,7 @@ from .favorite import UserFavorite
 from .issue_type import IssueType, ProjectIssueType
 
 from .milestone import Milestone
+from .work_item_page import IssuePage
 
 from .recent_visit import UserRecentVisit
 

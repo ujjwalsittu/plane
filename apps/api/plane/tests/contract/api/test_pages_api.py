@@ -172,13 +172,6 @@ def test_parent_page_must_be_in_the_project(api_key_client, workspace, project, 
 @pytest.mark.contract
 @pytest.mark.django_db
 def test_unavailable_routes_explain_themselves(api_key_client, workspace, project, create_user):
-    from plane.db.models import Issue
-
     workspace_pages = api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/pages")
     assert workspace_pages.status_code == status.HTTP_400_BAD_REQUEST
     assert "project_id" in workspace_pages.data["error"]
-    issue = Issue.objects.create(name="I", project=project, workspace=workspace)
-    work_item_pages = api_key_client.get(
-        f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/work-items/{issue.id}/pages"
-    )
-    assert work_item_pages.status_code == status.HTTP_400_BAD_REQUEST

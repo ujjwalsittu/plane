@@ -14,6 +14,7 @@ import type {
   TProjectOverview,
   TProjectOverviewUpdate,
   TProjectTag,
+  TWorkItemPageLink,
 } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
@@ -167,6 +168,38 @@ export class MilestoneService extends APIService {
   async createProjectTag(workspaceSlug: string, data: Partial<TProjectTag>): Promise<TProjectTag> {
     return this.post(`/api/workspaces/${workspaceSlug}/project-tags/`, data)
       .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  // pages linked to a work item
+  async listWorkItemPages(workspaceSlug: string, projectId: string, issueId: string): Promise<TWorkItemPageLink[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/pages/`)
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async linkWorkItemPage(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    pageId: string
+  ): Promise<TWorkItemPageLink> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/pages/`, {
+      page_id: pageId,
+    })
+      .then((res) => res?.data)
+      .catch((err) => {
+        throw err?.response?.data;
+      });
+  }
+
+  async unlinkWorkItemPage(workspaceSlug: string, projectId: string, issueId: string, linkId: string): Promise<void> {
+    return this.delete(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/pages/${linkId}/`)
+      .then(() => undefined)
       .catch((err) => {
         throw err?.response?.data;
       });

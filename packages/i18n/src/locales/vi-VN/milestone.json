@@ -133,5 +133,14 @@
     "download_markdown": "Download as Markdown",
     "copied": "Markdown copied to clipboard",
     "downloaded": "Markdown file downloaded"
+  },
+  "work_item_pages": {
+    "title": "Pages",
+    "link_page": "Link page",
+    "unlink": "Unlink",
+    "no_pages_to_link": "No pages to link",
+    "untitled": "Untitled",
+    "link_error": "Couldn't link the page.",
+    "unlink_error": "Couldn't unlink the page."
   }
 }
