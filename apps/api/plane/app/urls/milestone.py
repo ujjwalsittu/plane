@@ -24,6 +24,16 @@ from plane.app.views.page.workspace_page import (
     WikiPageDetailEndpoint,
     WikiPageListEndpoint,
 )
+from plane.app.views.github_app import (
+    GitHubInstallationDetailEndpoint,
+    GitHubInstallationRepositoriesEndpoint,
+    GitHubInstallUrlEndpoint,
+    GitHubIntegrationEndpoint,
+    GitHubRepositoryLinkDetailEndpoint,
+    GitHubRepositoryLinkListEndpoint,
+    GitHubSetupCallbackView,
+    GitHubWebhookView,
+)
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -150,5 +160,26 @@ urlpatterns = [
     path("workspaces/<str:slug>/project-tags/", ProjectTagEndpoint.as_view(), name="project-tags"),
     path(
         "workspaces/<str:slug>/project-tags/<uuid:pk>/", ProjectTagDetailEndpoint.as_view(), name="project-tag-detail"
+    ),
+    # GitHub App integration
+    path("integrations/github/webhook/", GitHubWebhookView.as_view(), name="github-webhook"),
+    path("integrations/github/setup/", GitHubSetupCallbackView.as_view(), name="github-setup"),
+    path("workspaces/<str:slug>/github/", GitHubIntegrationEndpoint.as_view(), name="github-integration"),
+    path("workspaces/<str:slug>/github/install-url/", GitHubInstallUrlEndpoint.as_view(), name="github-install-url"),
+    path(
+        "workspaces/<str:slug>/github/installations/<uuid:pk>/",
+        GitHubInstallationDetailEndpoint.as_view(),
+        name="github-installation",
+    ),
+    path(
+        "workspaces/<str:slug>/github/installations/<uuid:pk>/repositories/",
+        GitHubInstallationRepositoriesEndpoint.as_view(),
+        name="github-installation-repositories",
+    ),
+    path("workspaces/<str:slug>/github/links/", GitHubRepositoryLinkListEndpoint.as_view(), name="github-links"),
+    path(
+        "workspaces/<str:slug>/github/links/<uuid:pk>/",
+        GitHubRepositoryLinkDetailEndpoint.as_view(),
+        name="github-link",
     ),
 ]

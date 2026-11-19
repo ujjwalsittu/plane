@@ -256,5 +256,38 @@
     "body_placeholder": "Write here. Markdown and ```mermaid blocks work.",
     "delete_title": "Delete page",
     "delete_description": "Delete \"{name}\" for good?"
+  },
+  "github_app": {
+    "settings": {
+      "short_title": "GitHub",
+      "title": "GitHub",
+      "description": "Connect GitHub accounts and link repositories to projects, so branches, pull requests and commits that mention a work item show up on it."
+    },
+    "connect": "Connect GitHub",
+    "connected": "GitHub connected",
+    "connect_error": "Couldn't connect GitHub",
+    "save_error": "Couldn't save the GitHub settings.",
+    "not_configured_title": "GitHub isn't set up on this server",
+    "not_configured_description": "A server admin needs to create a GitHub App and set GITHUB_APP_ID, GITHUB_APP_SLUG, GITHUB_APP_PRIVATE_KEY and GITHUB_APP_WEBHOOK_SECRET for the API and worker.",
+    "accounts_title": "Connected accounts",
+    "accounts_description": "GitHub users or organizations where the app is installed. Choose which repositories it can see on GitHub.",
+    "no_accounts": "No GitHub account connected yet.",
+    "organization": "Organization",
+    "personal_account": "Personal account",
+    "all_repositories": "All repositories",
+    "selected_repositories": "Selected repositories",
+    "suspended": "Suspended",
+    "manage_on_github": "Manage on GitHub",
+    "disconnect": "Disconnect",
+    "disconnect_title": "Disconnect GitHub account",
+    "disconnect_description": "Plane stops using {account} and unlinks its repositories. The app stays installed on GitHub until you uninstall it there.",
+    "links_title": "Linked repositories",
+    "links_description": "Work item identifiers mentioned in a linked repository's branches, pull requests and commits are linked to the work item.",
+    "choose_repository": "Choose a repository",
+    "choose_project": "Choose a project",
+    "link": "Link",
+    "unlink": "Unlink",
+    "private": "Private",
+    "repositories_error": "Couldn't load repositories from GitHub."
   }
 }

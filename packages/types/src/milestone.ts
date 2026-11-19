@@ -188,3 +188,42 @@ export type TWikiPage = {
   page_collection_id: string | null;
   updated_at: string | null;
 };
+
+export type TGitHubInstallation = {
+  id: string;
+  installation_id: number;
+  account_login: string;
+  account_type: string;
+  account_avatar_url: string;
+  repository_selection: string;
+  suspended_at: string | null;
+  manage_url: string;
+  created_at: string | null;
+};
+
+export type TGitHubRepositoryLink = {
+  id: string;
+  installation: string;
+  project: string;
+  repository_id: number;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  is_private: boolean;
+  created_at: string | null;
+};
+
+export type TGitHubRepository = {
+  id: number;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  private: boolean;
+};
+
+export type TGitHubIntegration = {
+  configured: boolean;
+  app_slug: string | null;
+  installations: TGitHubInstallation[];
+  links: TGitHubRepositoryLink[];
+};

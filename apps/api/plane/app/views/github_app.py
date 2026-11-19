@@ -1,0 +1,179 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
+"""GitHub App integration endpoints: workspace settings (connect accounts, link repositories),
+the post-install callback GitHub redirects to, and the webhook receiver."""
+
+# Python imports
+import json
+import logging
+from urllib.parse import urlencode
+
+# Django imports
+from django.conf import settings
+from django.core import signing
+from django.db import transaction
+from django.http import HttpResponse, HttpResponseRedirect
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+
+# Third party imports
+from rest_framework import status
+from rest_framework.response import Response
+
+# Module imports
+from plane.app.permissions import ROLE, allow_permission
+from plane.app.views.base import BaseAPIView
+from plane.bgtasks.github_webhook_task import process_github_delivery
+from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Workspace, WorkspaceMember
+from plane.utils import github_app
+from plane.utils.github_integration import (
+    GitHubIntegrationError,
+    claim_installation,
+    installation_payload,
+    link_payload,
+    link_repository,
+    record_delivery,
+    remove_installation,
+)
+
+logger = logging.getLogger("plane.api")
+
+
+def _error(exc):
+    return Response({"error": exc.message}, status=exc.status_code)
+
+
+class GitHubIntegrationEndpoint(BaseAPIView):
+    """The workspace's GitHub connection: whether the server has an app, installations, links."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug):
+        installations = GitHubInstallation.objects.filter(workspace__slug=slug)
+        links = GitHubRepositoryLink.objects.filter(workspace__slug=slug, project__archived_at__isnull=True)
+        return Response(
+            {
+                "configured": github_app.is_configured(),
+                "app_slug": settings.GITHUB_APP_SLUG or None,
+                "installations": [installation_payload(i) for i in installations],
+                "links": [link_payload(link) for link in links],
+            }
+        )
+
+
+class GitHubInstallUrlEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def post(self, request, slug):
+        if not github_app.is_configured():
+            return Response({"error": "The GitHub App is not configured on this server"}, status=400)
+        workspace = Workspace.objects.get(slug=slug)
+        state = github_app.make_install_state(workspace.id, request.user.id)
+        return Response({"url": github_app.install_url(state)})
+
+
+class GitHubInstallationDetailEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def delete(self, request, slug, pk):
+        installation = GitHubInstallation.objects.filter(workspace__slug=slug, pk=pk).first()
+        if not installation:
+            return Response({"error": "Installation not found"}, status=status.HTTP_404_NOT_FOUND)
+        remove_installation(installation)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GitHubInstallationRepositoriesEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug, pk):
+        installation = GitHubInstallation.objects.filter(workspace__slug=slug, pk=pk).first()
+        if not installation:
+            return Response({"error": "Installation not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            repos = github_app.installation_repositories(installation.installation_id)
+        except github_app.GitHubAppError as exc:
+            return _error(exc)
+        return Response([github_app.repository_summary(repo) for repo in repos])
+
+
+class GitHubRepositoryLinkListEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def post(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        try:
+            link = link_repository(workspace, request.data)
+        except (GitHubIntegrationError, github_app.GitHubAppError) as exc:
+            return _error(exc)
+        return Response(link_payload(link), status=status.HTTP_201_CREATED)
+
+
+class GitHubRepositoryLinkDetailEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def delete(self, request, slug, pk):
+        link = GitHubRepositoryLink.objects.filter(workspace__slug=slug, pk=pk).first()
+        if not link:
+            return Response({"error": "Link not found"}, status=status.HTTP_404_NOT_FOUND)
+        link.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _settings_redirect(slug, **params):
+    query = f"?{urlencode(params)}" if params else ""
+    return HttpResponseRedirect(f"/{slug}/settings/github/{query}")
+
+
+class GitHubSetupCallbackView(View):
+    """GitHub's "Setup URL": the browser lands here after installing or updating the app."""
+
+    def get(self, request):
+        state = request.GET.get("state", "")
+        installation_id = request.GET.get("installation_id", "")
+        try:
+            workspace_id, user_id = github_app.read_install_state(state)
+        except signing.BadSignature:
+            # Installed or reconfigured from GitHub directly; nothing to tie it to.
+            return HttpResponseRedirect("/")
+        workspace = Workspace.objects.filter(id=workspace_id).first()
+        if not workspace:
+            return HttpResponseRedirect("/")
+        user = request.user
+        if not user.is_authenticated or str(user.id) != user_id:
+            return _settings_redirect(workspace.slug, github_error="Sign in as the user who started the connection")
+        if not WorkspaceMember.objects.filter(
+            workspace=workspace, member=user, role=ROLE.ADMIN.value, is_active=True
+        ).exists():
+            return _settings_redirect(workspace.slug, github_error="Only workspace admins can connect GitHub")
+        if not installation_id:
+            # e.g. setup_action=request: an org owner has to approve the installation first.
+            return _settings_redirect(workspace.slug, github_error="GitHub did not report an installation yet")
+        try:
+            claim_installation(workspace, installation_id)
+        except (GitHubIntegrationError, github_app.GitHubAppError) as exc:
+            return _settings_redirect(workspace.slug, github_error=exc.message)
+        return _settings_redirect(workspace.slug, github_connected="1")
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class GitHubWebhookView(View):
+    """Receives GitHub App webhooks: checks the signature, stores the delivery once, and hands it
+    to the worker. Answers quickly; GitHub gives up after 10 seconds."""
+
+    def post(self, request):
+        if not github_app.is_configured():
+            return HttpResponse("GitHub App not configured", status=503)
+        if not github_app.verify_signature(request.body, request.headers.get("X-Hub-Signature-256", "")):
+            return HttpResponse("Invalid signature", status=401)
+        delivery_id = request.headers.get("X-GitHub-Delivery", "")
+        event = request.headers.get("X-GitHub-Event", "")
+        if not delivery_id or not event:
+            return HttpResponse("Missing delivery headers", status=400)
+        try:
+            payload = json.loads(request.body or b"{}")
+        except ValueError:
+            return HttpResponse("Body is not JSON", status=400)
+        if not isinstance(payload, dict):
+            return HttpResponse("Body is not a JSON object", status=400)
+        delivery, queue = record_delivery(delivery_id[:100], event[:100], payload)
+        if queue:
+            transaction.on_commit(lambda: process_github_delivery.delay(delivery.pk))
+        return HttpResponse(status=202 if queue else 200)
