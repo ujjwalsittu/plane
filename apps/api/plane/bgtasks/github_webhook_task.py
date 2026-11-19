@@ -16,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 
 # Module imports
-from plane.db.models import GitHubRepositoryLink, GitHubWebhookDelivery
+from plane.db.models import GitHubRepositoryLink, GitHubWebhookDelivery, Issue
 from plane.utils.exception_logger import log_exception
 from plane.utils.github_integration import process_delivery
 from plane.utils.github_sync import backfill_repository
@@ -78,3 +78,42 @@ def backfill_github_repository(self, link_id):
             return
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
     logger.info("Backfilled %s open pull requests for %s", count, link.full_name)
+
+
+@shared_task(bind=True, max_retries=5)
+def push_github_issue(self, issue_id):
+    """Send a work item's changes and comments to its GitHub issue."""
+    from plane.utils.github_issue_sync import push_issue
+
+    issue = Issue.issue_objects.filter(pk=issue_id).select_related("state").first()
+    if not issue:
+        return
+    try:
+        push_issue(issue)
+    except Exception as exc:  # noqa: BLE001 - retried, then logged
+        if self.request.retries >= self.max_retries:
+            log_exception(exc)
+            return
+        raise self.retry(exc=exc, countdown=30 * 2**self.request.retries)
+
+
+@shared_task(bind=True, max_retries=3)
+def import_github_issues(self, link_id):
+    """Import a repository's open issues as work items when issue sync is turned on."""
+    from plane.utils.github_issue_sync import import_open_issues
+
+    link = (
+        GitHubRepositoryLink.objects.filter(pk=link_id, issue_sync=True)
+        .select_related("project", "installation")
+        .first()
+    )
+    if not link:
+        return
+    try:
+        count = import_open_issues(link)
+    except Exception as exc:  # noqa: BLE001 - retried, then logged
+        if self.request.retries >= self.max_retries:
+            log_exception(exc)
+            return
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+    logger.info("Imported %s open GitHub issues for %s", count, link.full_name)

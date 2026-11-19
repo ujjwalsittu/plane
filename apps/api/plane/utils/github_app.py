@@ -215,3 +215,74 @@ def repository_pull_requests(installation_id, full_name, limit=300):
             break
         page += 1
     return pulls[:limit]
+
+
+# --- issues ---------------------------------------------------------------------------------------
+
+
+def repository_open_issues(installation_id, full_name, limit=500):
+    """Open issues of a repository (pull requests excluded), oldest first."""
+    issues, page = [], 1
+    while len(issues) < limit:
+        batch = (
+            _installation_request(
+                installation_id,
+                "GET",
+                f"/repos/{full_name}/issues",
+                params={"state": "open", "per_page": 100, "page": page, "sort": "created", "direction": "asc"},
+            )
+            or []
+        )
+        issues.extend(item for item in batch if "pull_request" not in item)
+        if len(batch) < 100:
+            break
+        page += 1
+    return issues[:limit]
+
+
+def issue_comments(installation_id, full_name, number, limit=300):
+    comments, page = [], 1
+    while len(comments) < limit:
+        batch = (
+            _installation_request(
+                installation_id,
+                "GET",
+                f"/repos/{full_name}/issues/{int(number)}/comments",
+                params={"per_page": 100, "page": page},
+            )
+            or []
+        )
+        comments.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return comments[:limit]
+
+
+def create_issue(installation_id, full_name, data):
+    return _installation_request(installation_id, "POST", f"/repos/{full_name}/issues", json=data)
+
+
+def update_issue(installation_id, full_name, number, data):
+    return _installation_request(installation_id, "PATCH", f"/repos/{full_name}/issues/{int(number)}", json=data)
+
+
+def create_issue_comment(installation_id, full_name, number, body):
+    return _installation_request(
+        installation_id, "POST", f"/repos/{full_name}/issues/{int(number)}/comments", json={"body": body}
+    )
+
+
+def update_issue_comment(installation_id, full_name, comment_id, body):
+    return _installation_request(
+        installation_id, "PATCH", f"/repos/{full_name}/issues/comments/{int(comment_id)}", json={"body": body}
+    )
+
+
+def delete_issue_comment(installation_id, full_name, comment_id):
+    return _installation_request(installation_id, "DELETE", f"/repos/{full_name}/issues/comments/{int(comment_id)}")
+
+
+def app_bot_login():
+    """The login GitHub shows for changes the app makes, e.g. "tmv-planer[bot]"."""
+    return f"{settings.GITHUB_APP_SLUG}[bot]"

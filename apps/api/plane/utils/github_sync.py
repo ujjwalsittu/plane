@@ -390,7 +390,10 @@ def work_item_payload(issue):
                     "committed_at": link.github_created_at.isoformat() if link.github_created_at else None,
                 }
             )
+    from plane.utils.github_issue_sync import issue_link_payload
+
     return {
+        "issue": issue_link_payload(issue),
         "enabled": GitHubRepositoryLink.objects.filter(project_id=issue.project_id).exists(),
         "branch_name": branch_name(issue),
         "pull_requests": pull_requests,

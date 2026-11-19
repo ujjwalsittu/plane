@@ -10,6 +10,7 @@ import type {
   TGitHubAvailableInstallation,
   TGitHubInstallation,
   TGitHubIntegration,
+  TGitHubPerson,
   TGitHubRepository,
   TGitHubRepositoryLink,
   TWorkItemGitHub,
@@ -88,5 +89,17 @@ export class GitHubAppService extends APIService {
     data: Partial<TGitHubAutomation>
   ): Promise<TGitHubAutomation> {
     return this.call(this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/github/automation/`, data));
+  }
+
+  setIssueSync(workspaceSlug: string, linkId: string, issueSync: boolean): Promise<TGitHubRepositoryLink> {
+    return this.call(this.patch(`${this.base(workspaceSlug)}/links/${linkId}/`, { issue_sync: issueSync }));
+  }
+
+  listPeople(workspaceSlug: string): Promise<TGitHubPerson[]> {
+    return this.call(this.get(`${this.base(workspaceSlug)}/people/`));
+  }
+
+  setPerson(workspaceSlug: string, userId: string, githubLogin: string): Promise<TGitHubPerson[]> {
+    return this.call(this.put(`${this.base(workspaceSlug)}/people/`, { user: userId, github_login: githubLogin }));
   }
 }

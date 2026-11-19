@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { Badge } from "@makeplane/propel/components/badge";
 import { Button } from "@makeplane/propel/components/button";
+import { Switch } from "@makeplane/propel/components/switch";
 import { ConfirmDialog } from "@plane/blocks/dialog";
 import { Select } from "@plane/blocks/select";
 import { setToast } from "@plane/blocks/toast";
@@ -26,6 +27,7 @@ import { useProject } from "@/hooks/store/use-project";
 import { GitHubAppService } from "@/services/github-app.service";
 import { GitHubAutomations } from "./automations";
 import { GitHubMarkIcon } from "./github-mark-icon";
+import { GitHubPeople } from "./people";
 
 const service = new GitHubAppService();
 
@@ -163,6 +165,8 @@ export const GitHubIntegrationRoot = observer(function GitHubIntegrationRoot({
           onChange={() => void mutate()}
         />
       )}
+
+      {data.links.some((link) => link.issue_sync) && <GitHubPeople workspaceSlug={workspaceSlug} />}
 
       {data.links.length > 0 && (
         <GitHubAutomations
@@ -307,6 +311,16 @@ const RepositoryLinks = observer(function RepositoryLinks(props: {
     }
   };
 
+  const handleIssueSync = async (link: TGitHubRepositoryLink, value: boolean) => {
+    try {
+      await service.setIssueSync(workspaceSlug, link.id, value);
+      if (value) setToast({ type: "success", title: t("github_app.sync_issues_on"), message: link.full_name });
+      onChange();
+    } catch (error) {
+      setToast({ type: "error", title: errorMessage(error) ?? t("github_app.save_error") });
+    }
+  };
+
   const handleSync = async (link: TGitHubRepositoryLink) => {
     try {
       await service.syncRepository(workspaceSlug, link.id);
@@ -352,6 +366,15 @@ const RepositoryLinks = observer(function RepositoryLinks(props: {
                   {linkedProject ? `${linkedProject.name} (${linkedProject.identifier})` : link.project}
                 </span>
                 <div className="ml-auto flex items-center gap-1">
+                  <span className="text-caption-md-regular text-tertiary" title={t("github_app.sync_issues_hint")}>
+                    {t("github_app.sync_issues")}
+                  </span>
+                  <Switch
+                    size="sm"
+                    checked={link.issue_sync}
+                    onCheckedChange={(checked) => void handleIssueSync(link, checked)}
+                    aria-label={t("github_app.sync_issues_hint")}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"

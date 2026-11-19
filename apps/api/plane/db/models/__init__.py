@@ -86,10 +86,13 @@ from .milestone import Milestone
 from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
 from .github_app import (
+    GitHubCommentLink,
     GitHubInstallation,
+    GitHubIssueLink,
     GitHubProjectAutomation,
     GitHubPullRequest,
     GitHubRepositoryLink,
+    GitHubUserMapping,
     GitHubWebhookDelivery,
     GitHubWorkItemLink,
 )

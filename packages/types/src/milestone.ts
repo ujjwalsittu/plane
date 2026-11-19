@@ -210,6 +210,8 @@ export type TGitHubRepositoryLink = {
   html_url: string;
   default_branch: string;
   is_private: boolean;
+  issue_sync: boolean;
+  issue_sync_imported_at: string | null;
   created_at: string | null;
 };
 
@@ -240,6 +242,7 @@ export type TGitHubIntegration = {
 export type TGitHubPullRequestStatus = "open" | "draft" | "merged" | "closed";
 
 export type TWorkItemGitHub = {
+  issue: { repository: string; number: number; url: string } | null;
   enabled: boolean;
   branch_name: string;
   pull_requests: {
@@ -276,3 +279,5 @@ export type TGitHubAutomation = {
   close_keywords: boolean;
   is_default: boolean;
 } & Record<TGitHubAutomationRule, string | null>;
+
+export type TGitHubPerson = { user: string; github_login: string };

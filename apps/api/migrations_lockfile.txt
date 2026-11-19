@@ -4,6 +4,6 @@
 # A merge conflict here means another PR added a migration to the same app first:
 # merge preview, delete your migration, and run makemigrations again.
 
-db: 0136_github_project_automations
+db: 0137_github_issue_sync
 
 license: 0006_instance_is_current_version_deprecated

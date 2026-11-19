@@ -28,9 +28,13 @@ from plane.app.permissions import ROLE, allow_permission
 from plane.app.views.base import BaseAPIView
 from plane.api.views.github import WorkItemGitHubAPIEndpoint
 from plane.authentication.session import BaseSessionAuthentication
-from plane.bgtasks.github_webhook_task import backfill_github_repository, process_github_delivery
+from plane.bgtasks.github_webhook_task import (
+    backfill_github_repository,
+    import_github_issues,
+    process_github_delivery,
+)
 from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Project, Workspace, WorkspaceMember
-from plane.utils import github_app
+from plane.utils import github_app, github_issue_sync
 from plane.utils.github_automation import GitHubAutomationError, rules_for, rules_payload, update_rules
 from plane.utils.github_integration import (
     GitHubIntegrationError,
@@ -134,6 +138,24 @@ class GitHubRepositoryLinkListEndpoint(BaseAPIView):
 
 class GitHubRepositoryLinkDetailEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def patch(self, request, slug, pk):
+        """Turn two-way issue sync on or off; turning it on imports the open issues."""
+        link = GitHubRepositoryLink.objects.filter(workspace__slug=slug, pk=pk).first()
+        if not link:
+            return Response({"error": "Link not found"}, status=status.HTTP_404_NOT_FOUND)
+        value = request.data.get("issue_sync") if isinstance(request.data, dict) else None
+        if not isinstance(value, bool):
+            return Response({"error": "issue_sync must be true or false"}, status=status.HTTP_400_BAD_REQUEST)
+        if value and link.installation.suspended_at:
+            return Response({"error": "That installation is suspended on GitHub"}, status=status.HTTP_400_BAD_REQUEST)
+        turned_on = value and not link.issue_sync
+        link.issue_sync = value
+        link.save(update_fields=["issue_sync", "updated_at"])
+        if turned_on:
+            transaction.on_commit(lambda: import_github_issues.delay(str(link.id)))
+        return Response(link_payload(link))
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
     def delete(self, request, slug, pk):
         link = GitHubRepositoryLink.objects.filter(workspace__slug=slug, pk=pk).first()
         if not link:
@@ -188,6 +210,27 @@ class GitHubAutomationDetailEndpoint(BaseAPIView):
         except GitHubAutomationError as exc:
             return _error(exc)
         return Response(rules_payload(rules))
+
+
+class GitHubUserMappingEndpoint(BaseAPIView):
+    """GitHub logins of workspace members, used to sync assignees."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        return Response(github_issue_sync.mappings_payload(workspace.id))
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def put(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        data = request.data if isinstance(request.data, dict) else {}
+        user_id = data.get("user")
+        if not WorkspaceMember.objects.filter(workspace=workspace, member_id=user_id, is_active=True).exists():
+            return Response(
+                {"error": "That user is not a member of this workspace"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        github_issue_sync.set_mapping(workspace, user_id, data.get("github_login"))
+        return Response(github_issue_sync.mappings_payload(workspace.id))
 
 
 def _settings_redirect(slug, **params):

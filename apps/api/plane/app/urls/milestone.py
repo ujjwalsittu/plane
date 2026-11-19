@@ -36,6 +36,7 @@ from plane.app.views.github_app import (
     GitHubRepositoryLinkListEndpoint,
     GitHubRepositoryLinkSyncEndpoint,
     GitHubSetupCallbackView,
+    GitHubUserMappingEndpoint,
     GitHubWebhookView,
     IssueGitHubEndpoint,
 )
@@ -190,6 +191,7 @@ urlpatterns = [
     path(
         "workspaces/<str:slug>/github/automations/", GitHubAutomationListEndpoint.as_view(), name="github-automations"
     ),
+    path("workspaces/<str:slug>/github/people/", GitHubUserMappingEndpoint.as_view(), name="github-people"),
     path(
         f"{_PROJECT}/github/automation/",
         GitHubAutomationDetailEndpoint.as_view(),

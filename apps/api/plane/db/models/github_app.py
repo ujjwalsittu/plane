@@ -54,6 +54,9 @@ class GitHubRepositoryLink(ProjectBaseModel):
     html_url = models.URLField(max_length=1000, blank=True, default="")
     default_branch = models.CharField(max_length=255, blank=True, default="")
     is_private = models.BooleanField(default=False)
+    # Two-way sync of GitHub issues with the project's work items (opt-in).
+    issue_sync = models.BooleanField(default=False)
+    issue_sync_imported_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "GitHub Repository Link"
@@ -194,4 +197,79 @@ class GitHubProjectAutomation(ProjectBaseModel):
                 condition=Q(deleted_at__isnull=True),
                 name="github_project_automation_unique_project_when_deleted_at_null",
             )
+        ]
+
+
+class GitHubIssueLink(ProjectBaseModel):
+    """A work item kept in sync with a GitHub issue."""
+
+    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="github_issue_links")
+    repository_link = models.ForeignKey("db.GitHubRepositoryLink", on_delete=models.CASCADE, related_name="issue_links")
+    github_issue_id = models.BigIntegerField()
+    number = models.PositiveIntegerField()
+    html_url = models.URLField(max_length=1000, blank=True, default="")
+    # Hash of the synced fields as last written to or read from GitHub; equal hashes mean nothing to push.
+    synced_hash = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        verbose_name = "GitHub Issue Link"
+        verbose_name_plural = "GitHub Issue Links"
+        db_table = "github_issue_links"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_issue_link_unique_issue_when_deleted_at_null",
+            ),
+            models.UniqueConstraint(
+                fields=["repository_link", "number"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_issue_link_unique_number_when_deleted_at_null",
+            ),
+        ]
+
+
+class GitHubCommentLink(ProjectBaseModel):
+    """A work item comment kept in sync with a GitHub issue comment."""
+
+    issue_link = models.ForeignKey("db.GitHubIssueLink", on_delete=models.CASCADE, related_name="comment_links")
+    comment = models.ForeignKey("db.IssueComment", on_delete=models.CASCADE, related_name="github_comment_links")
+    github_comment_id = models.BigIntegerField()
+    synced_hash = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        verbose_name = "GitHub Comment Link"
+        verbose_name_plural = "GitHub Comment Links"
+        db_table = "github_comment_links"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue_link", "github_comment_id"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_comment_link_unique_comment_when_deleted_at_null",
+            )
+        ]
+
+
+class GitHubUserMapping(BaseModel):
+    """A GitHub login and the workspace member it is, for syncing assignees."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="github_user_mappings")
+    github_login = models.CharField(max_length=255)
+    user = models.ForeignKey("db.User", on_delete=models.CASCADE, related_name="github_user_mappings")
+
+    class Meta:
+        verbose_name = "GitHub User Mapping"
+        verbose_name_plural = "GitHub User Mappings"
+        db_table = "github_user_mappings"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "github_login"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_user_mapping_unique_login_when_deleted_at_null",
+            ),
+            models.UniqueConstraint(
+                fields=["workspace", "user"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_user_mapping_unique_user_when_deleted_at_null",
+            ),
         ]

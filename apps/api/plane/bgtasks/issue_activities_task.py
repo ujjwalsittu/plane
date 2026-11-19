@@ -1709,6 +1709,17 @@ def issue_activity(
         # Save all the values to database
         issue_activities_created = IssueActivity.objects.bulk_create(issue_activities)
 
+        # Two-way GitHub issue sync: push changes made in Plane (never the GitHub bot's own).
+        try:
+            from plane.utils.github_issue_sync import wants_push
+
+            if issue_id and wants_push(type, issue_id, project_id, actor_id):
+                from plane.bgtasks.github_webhook_task import push_github_issue
+
+                push_github_issue.delay(str(issue_id))
+        except Exception as e:  # noqa: BLE001 - must never break activity tracking
+            log_exception(e)
+
         if notification:
             notifications.delay(
                 type=type,

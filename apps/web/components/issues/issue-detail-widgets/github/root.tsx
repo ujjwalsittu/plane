@@ -51,7 +51,7 @@ export function GitHubCollapsible({ workspaceSlug, projectId, issueId }: Props) 
 
   if (!data) return null;
   const count = data.pull_requests.length + data.branches.length + data.commits.length;
-  if (!data.enabled && count === 0) return null;
+  if (!data.enabled && count === 0 && !data.issue) return null;
 
   // Open pull requests that need attention.
   const active = data.pull_requests.filter((pr) => pr.status === "open" || pr.status === "draft");
@@ -89,7 +89,18 @@ export function GitHubCollapsible({ workspaceSlug, projectId, issueId }: Props) 
       }
     >
       <div className="flex flex-col gap-0.5 py-1">
-        {count === 0 && (
+        {data.issue && (
+          <a
+            href={data.issue.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-body-xs-regular text-secondary hover:bg-layer-1"
+          >
+            <GitHubMarkIcon className="size-3.5 shrink-0" />
+            {t("github_app.work_item.synced_issue", { issue: `${data.issue.repository}#${data.issue.number}` })}
+          </a>
+        )}
+        {count === 0 && !data.issue && (
           <p className="px-2 py-1.5 text-body-xs-regular text-tertiary">
             {t("github_app.work_item.empty", { branch: data.branch_name })}
           </p>

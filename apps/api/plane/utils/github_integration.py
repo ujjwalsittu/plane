@@ -12,7 +12,7 @@ from django.utils import timezone
 
 # Module imports
 from plane.db.models import GitHubInstallation, GitHubRepositoryLink, GitHubWebhookDelivery, Project
-from plane.utils import github_app, github_sync
+from plane.utils import github_app, github_issue_sync, github_sync
 
 
 class GitHubIntegrationError(ValueError):
@@ -58,6 +58,8 @@ def link_payload(link):
         "html_url": link.html_url,
         "default_branch": link.default_branch,
         "is_private": link.is_private,
+        "issue_sync": link.issue_sync,
+        "issue_sync_imported_at": _iso(link.issue_sync_imported_at),
         "created_at": _iso(link.created_at),
     }
 
@@ -213,6 +215,7 @@ EVENT_HANDLERS = {
     "installation_repositories": _installation_repositories_event,
     "repository": _repository_event,
     **github_sync.EVENT_HANDLERS,
+    **github_issue_sync.EVENT_HANDLERS,
 }
 
 

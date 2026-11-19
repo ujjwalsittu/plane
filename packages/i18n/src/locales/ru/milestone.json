@@ -312,7 +312,8 @@
         "failure": "Checks failed"
       },
       "flag_checks": "Checks failing",
-      "flag_changes": "Changes requested"
+      "flag_changes": "Changes requested",
+      "synced_issue": "Synced with {issue}"
     },
     "sync": "Sync",
     "sync_started": "Syncing open pull requests",
@@ -328,6 +329,15 @@
         "review_requested_state": "Review requested",
         "merge_state": "Merged into the default branch"
       }
+    },
+    "sync_issues": "Sync issues",
+    "sync_issues_on": "Issue sync turned on; importing open issues",
+    "sync_issues_hint": "Two-way sync of this repository's issues with the project's work items",
+    "people": {
+      "title": "People",
+      "description": "GitHub usernames of workspace members, used to sync assignees between GitHub issues and work items.",
+      "placeholder": "GitHub username",
+      "login": "GitHub username for {name}"
     }
   }
 }
