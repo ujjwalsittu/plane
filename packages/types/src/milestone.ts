@@ -267,3 +267,12 @@ export type TWorkItemGitHub = {
     committed_at: string | null;
   }[];
 };
+
+export type TGitHubAutomationRule = "draft_state" | "open_state" | "review_requested_state" | "merge_state";
+
+export type TGitHubAutomation = {
+  project: string;
+  enabled: boolean;
+  close_keywords: boolean;
+  is_default: boolean;
+} & Record<TGitHubAutomationRule, string | null>;

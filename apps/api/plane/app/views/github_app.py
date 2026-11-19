@@ -29,8 +29,9 @@ from plane.app.views.base import BaseAPIView
 from plane.api.views.github import WorkItemGitHubAPIEndpoint
 from plane.authentication.session import BaseSessionAuthentication
 from plane.bgtasks.github_webhook_task import backfill_github_repository, process_github_delivery
-from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Workspace, WorkspaceMember
+from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Project, Workspace, WorkspaceMember
 from plane.utils import github_app
+from plane.utils.github_automation import GitHubAutomationError, rules_for, rules_payload, update_rules
 from plane.utils.github_integration import (
     GitHubIntegrationError,
     available_installations,
@@ -160,6 +161,33 @@ class IssueGitHubEndpoint(WorkItemGitHubAPIEndpoint):
 
     def get_throttles(self):
         return []
+
+
+class GitHubAutomationListEndpoint(BaseAPIView):
+    """Pull request automation rules for each project that has a linked repository."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug):
+        project_ids = (
+            GitHubRepositoryLink.objects.filter(workspace__slug=slug, project__archived_at__isnull=True)
+            .values_list("project_id", flat=True)
+            .distinct()
+        )
+        projects = Project.objects.filter(pk__in=list(project_ids)).order_by("name")
+        return Response([rules_payload(rules_for(project)) for project in projects])
+
+
+class GitHubAutomationDetailEndpoint(BaseAPIView):
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def patch(self, request, slug, project_id):
+        project = Project.objects.filter(workspace__slug=slug, pk=project_id).first()
+        if not project:
+            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            rules = update_rules(project, request.data if isinstance(request.data, dict) else {})
+        except GitHubAutomationError as exc:
+            return _error(exc)
+        return Response(rules_payload(rules))
 
 
 def _settings_redirect(slug, **params):

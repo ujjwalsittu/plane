@@ -6,6 +6,7 @@
 
 import { API_BASE_URL } from "@plane/constants";
 import type {
+  TGitHubAutomation,
   TGitHubAvailableInstallation,
   TGitHubInstallation,
   TGitHubIntegration,
@@ -75,5 +76,17 @@ export class GitHubAppService extends APIService {
 
   getWorkItemGitHub(workspaceSlug: string, projectId: string, issueId: string): Promise<TWorkItemGitHub> {
     return this.call(this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/github/`));
+  }
+
+  listAutomations(workspaceSlug: string): Promise<TGitHubAutomation[]> {
+    return this.call(this.get(`${this.base(workspaceSlug)}/automations/`));
+  }
+
+  updateAutomation(
+    workspaceSlug: string,
+    projectId: string,
+    data: Partial<TGitHubAutomation>
+  ): Promise<TGitHubAutomation> {
+    return this.call(this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/github/automation/`, data));
   }
 }

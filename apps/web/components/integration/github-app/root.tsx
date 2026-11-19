@@ -24,6 +24,7 @@ import type {
 } from "@plane/types";
 import { useProject } from "@/hooks/store/use-project";
 import { GitHubAppService } from "@/services/github-app.service";
+import { GitHubAutomations } from "./automations";
 import { GitHubMarkIcon } from "./github-mark-icon";
 
 const service = new GitHubAppService();
@@ -160,6 +161,13 @@ export const GitHubIntegrationRoot = observer(function GitHubIntegrationRoot({
           installations={data.installations}
           links={data.links}
           onChange={() => void mutate()}
+        />
+      )}
+
+      {data.links.length > 0 && (
+        <GitHubAutomations
+          workspaceSlug={workspaceSlug}
+          refreshKey={data.links.map((link) => link.project).join(",")}
         />
       )}
 

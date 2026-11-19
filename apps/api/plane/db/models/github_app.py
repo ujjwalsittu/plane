@@ -168,3 +168,30 @@ class GitHubWorkItemLink(ProjectBaseModel):
                 name="github_work_item_link_unique_ref_when_deleted_at_null",
             )
         ]
+
+
+class GitHubProjectAutomation(ProjectBaseModel):
+    """How pull request events move a project's work items. Projects without a row use defaults
+    derived from their states (see plane.utils.github_automation)."""
+
+    enabled = models.BooleanField(default=True)
+    # Complete items named after "Fixes/Closes/Resolves" in a PR body when it merges.
+    close_keywords = models.BooleanField(default=True)
+    draft_state = models.ForeignKey("db.State", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    open_state = models.ForeignKey("db.State", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    review_requested_state = models.ForeignKey(
+        "db.State", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    merge_state = models.ForeignKey("db.State", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "GitHub Project Automation"
+        verbose_name_plural = "GitHub Project Automations"
+        db_table = "github_project_automations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_project_automation_unique_project_when_deleted_at_null",
+            )
+        ]

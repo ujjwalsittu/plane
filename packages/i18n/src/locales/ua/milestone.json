@@ -310,9 +310,24 @@
         "pending": "Checks running",
         "success": "Checks passed",
         "failure": "Checks failed"
-      }
+      },
+      "flag_checks": "Checks failing",
+      "flag_changes": "Changes requested"
     },
     "sync": "Sync",
-    "sync_started": "Syncing open pull requests"
+    "sync_started": "Syncing open pull requests",
+    "automations": {
+      "title": "Automations",
+      "description": "Move work items when their pull requests change. Items named in a PR's title or branch, or after Fixes/Closes/Resolves in its body, move forward only and never leave Done or Cancelled.",
+      "enabled": "On",
+      "no_change": "No change",
+      "close_keywords": "Complete items named after Fixes, Closes or Resolves when the PR merges",
+      "rules": {
+        "draft_state": "Draft PR opened",
+        "open_state": "PR opened or ready for review",
+        "review_requested_state": "Review requested",
+        "merge_state": "Merged into the default branch"
+      }
+    }
   }
 }

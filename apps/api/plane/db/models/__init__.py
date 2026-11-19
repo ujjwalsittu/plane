@@ -87,6 +87,7 @@ from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
 from .github_app import (
     GitHubInstallation,
+    GitHubProjectAutomation,
     GitHubPullRequest,
     GitHubRepositoryLink,
     GitHubWebhookDelivery,

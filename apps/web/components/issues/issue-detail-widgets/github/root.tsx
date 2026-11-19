@@ -53,6 +53,11 @@ export function GitHubCollapsible({ workspaceSlug, projectId, issueId }: Props) 
   const count = data.pull_requests.length + data.branches.length + data.commits.length;
   if (!data.enabled && count === 0) return null;
 
+  // Open pull requests that need attention.
+  const active = data.pull_requests.filter((pr) => pr.status === "open" || pr.status === "draft");
+  const checksFailing = active.some((pr) => pr.checks_state === "failure");
+  const changesRequested = active.some((pr) => pr.review_state === "changes_requested");
+
   const copyBranch = async () => {
     await copyTextToClipboard(data.branch_name);
     setToast({ type: "success", title: t("github_app.work_item.branch_copied"), message: data.branch_name });
@@ -64,6 +69,14 @@ export function GitHubCollapsible({ workspaceSlug, projectId, issueId }: Props) 
       count={count}
       isOpen={isOpen}
       onToggle={() => setIsOpen((value) => !value)}
+      titleAccessory={
+        checksFailing || changesRequested ? (
+          <span className="flex items-center gap-1">
+            {checksFailing && <Badge variant="danger" size="sm" label={t("github_app.work_item.flag_checks")} />}
+            {changesRequested && <Badge variant="warning" size="sm" label={t("github_app.work_item.flag_changes")} />}
+          </span>
+        ) : undefined
+      }
       actions={
         <Button
           variant="ghost"

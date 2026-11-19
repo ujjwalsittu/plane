@@ -25,6 +25,8 @@ from plane.app.views.page.workspace_page import (
     WikiPageListEndpoint,
 )
 from plane.app.views.github_app import (
+    GitHubAutomationDetailEndpoint,
+    GitHubAutomationListEndpoint,
     GitHubInstallationDetailEndpoint,
     GitHubInstallationListEndpoint,
     GitHubInstallationRepositoriesEndpoint,
@@ -185,6 +187,14 @@ urlpatterns = [
         name="github-installation-repositories",
     ),
     path("workspaces/<str:slug>/github/links/", GitHubRepositoryLinkListEndpoint.as_view(), name="github-links"),
+    path(
+        "workspaces/<str:slug>/github/automations/", GitHubAutomationListEndpoint.as_view(), name="github-automations"
+    ),
+    path(
+        f"{_PROJECT}/github/automation/",
+        GitHubAutomationDetailEndpoint.as_view(),
+        name="github-automation",
+    ),
     path(
         "workspaces/<str:slug>/github/links/<uuid:pk>/sync/",
         GitHubRepositoryLinkSyncEndpoint.as_view(),

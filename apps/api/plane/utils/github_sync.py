@@ -177,6 +177,9 @@ def handle_pull_request(delivery, payload):
     installation, repository, projects = context
     pull_request = upsert_pull_request(installation.workspace_id, repository, payload["pull_request"])
     link_pull_request(pull_request, projects, payload["pull_request"])
+    from plane.utils.github_automation import apply_pull_request_event
+
+    apply_pull_request_event(delivery.action, payload["pull_request"], repository, projects)
 
 
 def handle_pull_request_review(delivery, payload):
