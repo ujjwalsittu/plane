@@ -449,7 +449,7 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
         "wiki": False,
         "pi": False,
         "work_item_types": False,
-        "releases": False,
+        "releases": True,
         "states_owned_by_workspace": False,
     }
 

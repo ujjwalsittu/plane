@@ -312,3 +312,43 @@ export type TInitiative = {
   created_at: string | null;
   updated_at: string | null;
 };
+
+export type TReleaseStatus = "unreleased" | "released" | "cancelled";
+
+export type TReleaseTag = {
+  id: string;
+  version: string;
+  description: string;
+  commit_hash: string;
+  git_tag: string;
+  created_at: string | null;
+};
+
+export type TReleaseLabel = { id: string; name: string; color: string; sort_order: number };
+
+export type TRelease = {
+  id: string;
+  name: string;
+  description_html: string;
+  status: TReleaseStatus;
+  release_date: string | null;
+  target_date: string | null;
+  lead: string | null;
+  tag: string | null;
+  tag_version: string | null;
+  is_latest: boolean;
+  is_prerelease: boolean;
+  label_ids: string[];
+  progress: { total: number; completed: number; cancelled: number; percent: number };
+  created_at: string | null;
+};
+
+export type TReleaseWorkItem = {
+  id: string;
+  name: string;
+  project_id: string;
+  project_identifier: string;
+  sequence_id: number;
+  state_group: string | null;
+  state_name: string | null;
+};

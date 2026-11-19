@@ -375,5 +375,46 @@
       "COMPLETED": "Completed",
       "CLOSED": "Closed"
     }
+  },
+  "releases": {
+    "title": "Releases",
+    "new": "New release",
+    "name_placeholder": "Release name, e.g. Spring 2027",
+    "empty_title": "No releases yet",
+    "empty_description": "Collect the work items that ship together, tag a version and write the release notes.",
+    "status": {
+      "unreleased": "Unreleased",
+      "released": "Released",
+      "cancelled": "Cancelled"
+    },
+    "latest": "Latest",
+    "prerelease": "Pre-release",
+    "release_date": "Release date",
+    "tag": "Version tag",
+    "no_tag": "No tag",
+    "lead": "Lead",
+    "no_lead": "No lead",
+    "labels": "Labels",
+    "description": "Description",
+    "changelog": "Release notes",
+    "changelog_placeholder": "What's new, fixed and changed in this release",
+    "work_items": "Work items",
+    "add_work_items": "Add work items",
+    "no_work_items": "No work items yet.",
+    "remove": "Remove",
+    "delete": "Delete release",
+    "delete_description": "The work items stay as they are; only the release and its links are removed.",
+    "save_error": "Couldn't save the release.",
+    "not_found": "Release not found.",
+    "palette_title": "Tags and labels",
+    "palette_description": "Version tags and labels shared by every release in the workspace.",
+    "new_tag": "New tag, e.g. v1.2.0",
+    "add_tag": "Add tag",
+    "new_label": "New label",
+    "add_label": "Add label",
+    "no_tags": "No tags yet.",
+    "no_labels": "No labels yet.",
+    "delete_tag": "Delete tag",
+    "delete_label": "Delete label"
   }
 }

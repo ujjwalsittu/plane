@@ -46,6 +46,7 @@ from plane.app.views.initiative import (
     InitiativeProjectEndpoint,
     InitiativeWorkItemEndpoint,
 )
+from plane.app.views import release as release_views
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -230,5 +231,45 @@ urlpatterns = [
         "workspaces/<str:slug>/initiatives/<uuid:initiative_id>/work-items/",
         InitiativeWorkItemEndpoint.as_view(),
         name="app-initiative-work-items",
+    ),
+    # Releases
+    path(
+        "workspaces/<str:slug>/releases/tags/", release_views.ReleaseTagListEndpoint.as_view(), name="app-release-tags"
+    ),
+    path(
+        "workspaces/<str:slug>/releases/tags/<uuid:tag_id>/",
+        release_views.ReleaseTagEndpoint.as_view(),
+        name="app-release-tag",
+    ),
+    path(
+        "workspaces/<str:slug>/releases/labels/",
+        release_views.ReleaseLabelListEndpoint.as_view(),
+        name="app-release-labels",
+    ),
+    path(
+        "workspaces/<str:slug>/releases/labels/<uuid:label_id>/",
+        release_views.ReleaseLabelEndpoint.as_view(),
+        name="app-release-label",
+    ),
+    path("workspaces/<str:slug>/releases/", release_views.ReleaseListEndpoint.as_view(), name="app-releases"),
+    path(
+        "workspaces/<str:slug>/releases/<uuid:release_id>/",
+        release_views.ReleaseEndpoint.as_view(),
+        name="app-release",
+    ),
+    path(
+        "workspaces/<str:slug>/releases/<uuid:release_id>/changelog/",
+        release_views.ReleaseChangelogEndpoint.as_view(),
+        name="app-release-changelog",
+    ),
+    path(
+        "workspaces/<str:slug>/releases/<uuid:release_id>/work-items/",
+        release_views.ReleaseWorkItemEndpoint.as_view(),
+        name="app-release-work-items",
+    ),
+    path(
+        "workspaces/<str:slug>/releases/<uuid:release_id>/labels/",
+        release_views.ReleaseItemLabelEndpoint.as_view(),
+        name="app-release-item-labels",
     ),
 ]

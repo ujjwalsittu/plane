@@ -22,6 +22,7 @@ from .issue_property import urlpatterns as issue_property_patterns
 from .work_log import urlpatterns as work_log_patterns
 from .github import urlpatterns as github_patterns
 from .initiative import urlpatterns as initiative_patterns
+from .release import urlpatterns as release_patterns
 
 urlpatterns = [
     *asset_patterns,
@@ -44,4 +45,5 @@ urlpatterns = [
     *work_log_patterns,
     *github_patterns,
     *initiative_patterns,
+    *release_patterns,
 ]
