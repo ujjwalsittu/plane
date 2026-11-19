@@ -13,7 +13,7 @@ from django.db.models import Count, Q
 
 # Module imports
 from plane.db.models import Initiative, InitiativeProject, InitiativeWorkItem, Issue, Project, WorkspaceMember
-from plane.utils.html_processor import strip_tags
+from plane.utils.html_processor import html_to_plain_text
 
 
 class InitiativeError(ValueError):
@@ -105,7 +105,7 @@ def _apply(initiative, data, partial):
     if "description_html" in data:
         html = data.get("description_html") or "<p></p>"
         initiative.description_html = html
-        initiative.description_stripped = strip_tags(html).strip()
+        initiative.description_stripped = html_to_plain_text(html)
     for field in ("start_date", "end_date"):
         if field in data:
             setattr(initiative, field, _date(data, field))

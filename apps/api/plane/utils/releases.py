@@ -23,7 +23,7 @@ from plane.db.models import (
     ReleaseWorkItem,
     WorkspaceMember,
 )
-from plane.utils.html_processor import strip_tags
+from plane.utils.html_processor import html_to_plain_text
 
 
 class ReleaseError(ValueError):
@@ -182,7 +182,7 @@ def _apply(release, data, partial):
         release.name = name[:255]
     if data.get("description_html") is not None:
         release.description_html = data["description_html"] or "<p></p>"
-        release.description_stripped = strip_tags(release.description_html).strip()
+        release.description_stripped = html_to_plain_text(release.description_html)
         release.description_json = data.get("description_json") or {}
     if data.get("status"):
         status = str(data["status"]).lower()
@@ -243,7 +243,7 @@ def changelog_payload(release):
         "changelog": {
             "description_html": release.changelog_html,
             "description_json": release.changelog_json or None,
-            "description_stripped": strip_tags(release.changelog_html or "").strip(),
+            "description_stripped": html_to_plain_text(release.changelog_html),
         },
         "created_at": _iso(release.created_at),
         "updated_at": _iso(release.changelog_updated_at or release.created_at),

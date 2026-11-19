@@ -78,8 +78,12 @@ def test_release_lifecycle(api_key_client, workspace, project, create_user):
     # Changelog: created empty with the release.
     changelog = api_key_client.get(f"{one}/changelog/")
     assert changelog.status_code == 200 and changelog.data["changelog"]["description_html"] == "<p></p>"
-    saved = api_key_client.patch(f"{one}/changelog/", {"description_html": "<ul><li>Fixed X</li></ul>"}, format="json")
-    assert saved.data["changelog"]["description_stripped"] == "Fixed X"
+    saved = api_key_client.patch(
+        f"{one}/changelog/",
+        {"description_html": "<ul><li>Fixed X</li><li>Added Y</li></ul><p>a<br/>b</p>"},
+        format="json",
+    )
+    assert saved.data["changelog"]["description_stripped"] == "Fixed X\nAdded Y\na\nb"
 
     # Labels attached to the release.
     assert api_key_client.post(f"{one}/labels/", {"label_ids": [label["id"]]}, format="json").status_code == 201
