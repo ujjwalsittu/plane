@@ -72,10 +72,10 @@ export function InitiativeProgressBar({ progress, label }: { progress: TInitiati
         />
       </div>
       <span
-        className="w-24 shrink-0 text-right text-caption-md-regular text-tertiary"
+        className="w-14 shrink-0 text-right text-caption-md-regular text-tertiary"
         title={t("initiatives.progress_detail", { completed: progress.completed, total: progress.total })}
       >
-        {progress.percent}% · {progress.completed}/{progress.total - progress.cancelled}
+        {progress.completed}/{progress.total - progress.cancelled}
       </span>
     </div>
   );

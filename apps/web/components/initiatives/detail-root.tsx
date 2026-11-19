@@ -20,6 +20,7 @@ import { useTranslation } from "@plane/i18n";
 import type { TInitiative, TProject } from "@plane/types";
 import { EFileAssetType } from "@plane/types";
 import { ExistingIssuesListModal } from "@/components/core/modals/existing-issues-list-modal";
+import { PageHead } from "@/components/core/page-title";
 import { DescriptionInput } from "@/components/editor/rich-text/description-input/root";
 import { ProjectDateSelect } from "@/components/project/planning";
 import { useMember } from "@/hooks/store/use-member";
@@ -106,6 +107,7 @@ export const InitiativeDetail = observer(function InitiativeDetail(props: {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-6">
+      <PageHead title={`${initiative.name} - ${t("initiatives.title")}`} />
       <section className="flex flex-col gap-3">
         <InputField
           size="xl"
@@ -261,7 +263,8 @@ export const InitiativeDetail = observer(function InitiativeDetail(props: {
         ) : (
           <div className="divide-y divide-subtle rounded-lg border border-subtle">
             {workItems.map((item) => {
-              const project = getProjectById(item.project_id);
+              // The external API's work item payload names the project "project".
+              const project = getProjectById(item.project_id ?? (item as unknown as { project?: string }).project);
               const identifier = project ? `${project.identifier}-${item.sequence_id}` : `#${item.sequence_id}`;
               return (
                 <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
