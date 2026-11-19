@@ -93,6 +93,27 @@ def claim_installation(workspace, installation_id):
     return installation
 
 
+def available_installations():
+    """Installations of the app on GitHub that no workspace has connected yet."""
+    claimed = set(GitHubInstallation.objects.values_list("installation_id", flat=True))
+    available = []
+    for data in github_app.app_installations():
+        if data.get("id") in claimed:
+            continue
+        account = data.get("account") or {}
+        available.append(
+            {
+                "installation_id": data.get("id"),
+                "account_login": account.get("login") or "",
+                "account_type": account.get("type") or "",
+                "account_avatar_url": account.get("avatar_url") or "",
+                "repository_selection": data.get("repository_selection") or "",
+                "suspended_at": data.get("suspended_at"),
+            }
+        )
+    return available
+
+
 @transaction.atomic
 def remove_installation(installation):
     # Soft deletion doesn't cascade right away; drop the links now.

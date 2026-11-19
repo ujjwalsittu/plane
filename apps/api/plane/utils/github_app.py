@@ -123,6 +123,19 @@ def get_installation(installation_id):
     return _request("GET", f"/app/installations/{int(installation_id)}", app_jwt())
 
 
+def app_installations(limit=500):
+    """Every installation of the app, as GitHub lists them to the app itself."""
+    require_configured()
+    installations, page = [], 1
+    while len(installations) < limit:
+        batch = _request("GET", "/app/installations", app_jwt(), params={"per_page": 100, "page": page}) or []
+        installations.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return installations[:limit]
+
+
 def _token_cache_key(installation_id):
     return f"github:installation-token:{int(installation_id)}"
 

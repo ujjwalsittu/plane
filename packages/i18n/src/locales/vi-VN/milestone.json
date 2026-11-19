@@ -288,6 +288,9 @@
     "link": "Link",
     "unlink": "Unlink",
     "private": "Private",
-    "repositories_error": "Couldn't load repositories from GitHub."
+    "repositories_error": "Couldn't load repositories from GitHub.",
+    "available_title": "Installed on GitHub, not connected yet",
+    "available_description": "The app is installed on these accounts. Connect one to use its repositories in this workspace.",
+    "connect_account": "Connect"
   }
 }

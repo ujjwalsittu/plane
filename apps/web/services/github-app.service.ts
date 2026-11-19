@@ -5,7 +5,13 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TGitHubIntegration, TGitHubRepository, TGitHubRepositoryLink } from "@plane/types";
+import type {
+  TGitHubAvailableInstallation,
+  TGitHubInstallation,
+  TGitHubIntegration,
+  TGitHubRepository,
+  TGitHubRepositoryLink,
+} from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 /** The workspace's GitHub App connection: installations and repository links. */
@@ -33,6 +39,14 @@ export class GitHubAppService extends APIService {
 
   getInstallUrl(workspaceSlug: string): Promise<{ url: string }> {
     return this.call(this.post(`${this.base(workspaceSlug)}/install-url/`));
+  }
+
+  listAvailableInstallations(workspaceSlug: string): Promise<TGitHubAvailableInstallation[]> {
+    return this.call(this.get(`${this.base(workspaceSlug)}/installations/`));
+  }
+
+  connectInstallation(workspaceSlug: string, installationId: number): Promise<TGitHubInstallation> {
+    return this.call(this.post(`${this.base(workspaceSlug)}/installations/`, { installation_id: installationId }));
   }
 
   disconnect(workspaceSlug: string, installationId: string): Promise<void> {

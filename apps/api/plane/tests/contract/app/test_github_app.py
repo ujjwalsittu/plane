@@ -394,3 +394,27 @@ def test_github_errors_are_reported_with_their_message(
     response = session_client.get(f"{_base(workspace)}/installations/{installation.id}/repositories/")
     assert response.status_code == 424
     assert "Resource not accessible" in response.data["error"]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_connect_an_existing_installation(session_client, workspace, app_settings, github, monkeypatch):
+    other = {**github["installations"][77], "id": 99, "account": {"login": "someone", "type": "User"}}
+    monkeypatch.setattr(github_app, "app_installations", lambda: [github["installations"][77], other])
+    github["installations"][99] = other
+    GitHubInstallation.objects.create(
+        workspace=Workspace.objects.create(name="Other", slug="other-ws", owner=workspace.owner),
+        installation_id=99,
+        account_login="someone",
+    )
+
+    available = session_client.get(f"{_base(workspace)}/installations/")
+    assert available.status_code == 200
+    assert [i["installation_id"] for i in available.data] == [77]  # 99 is already connected elsewhere
+
+    created = session_client.post(f"{_base(workspace)}/installations/", {"installation_id": 77}, format="json")
+    assert created.status_code == 201 and created.data["account_login"] == "acme"
+    assert session_client.get(f"{_base(workspace)}/installations/").data == []
+
+    taken = session_client.post(f"{_base(workspace)}/installations/", {"installation_id": 99}, format="json")
+    assert taken.status_code == 409

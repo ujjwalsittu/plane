@@ -31,6 +31,7 @@ from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Workspace,
 from plane.utils import github_app
 from plane.utils.github_integration import (
     GitHubIntegrationError,
+    available_installations,
     claim_installation,
     installation_payload,
     link_payload,
@@ -71,6 +72,27 @@ class GitHubInstallUrlEndpoint(BaseAPIView):
         workspace = Workspace.objects.get(slug=slug)
         state = github_app.make_install_state(workspace.id, request.user.id)
         return Response({"url": github_app.install_url(state)})
+
+
+class GitHubInstallationListEndpoint(BaseAPIView):
+    """Installations of the app not connected to any workspace yet, and connecting one directly (for
+    when the app was installed from GitHub rather than through Plane's install link)."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug):
+        try:
+            return Response(available_installations())
+        except github_app.GitHubAppError as exc:
+            return _error(exc)
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def post(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        try:
+            installation = claim_installation(workspace, request.data.get("installation_id"))
+        except (GitHubIntegrationError, github_app.GitHubAppError) as exc:
+            return _error(exc)
+        return Response(installation_payload(installation), status=status.HTTP_201_CREATED)
 
 
 class GitHubInstallationDetailEndpoint(BaseAPIView):

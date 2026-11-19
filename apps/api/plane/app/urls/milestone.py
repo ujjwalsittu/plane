@@ -26,6 +26,7 @@ from plane.app.views.page.workspace_page import (
 )
 from plane.app.views.github_app import (
     GitHubInstallationDetailEndpoint,
+    GitHubInstallationListEndpoint,
     GitHubInstallationRepositoriesEndpoint,
     GitHubInstallUrlEndpoint,
     GitHubIntegrationEndpoint,
@@ -166,6 +167,11 @@ urlpatterns = [
     path("integrations/github/setup/", GitHubSetupCallbackView.as_view(), name="github-setup"),
     path("workspaces/<str:slug>/github/", GitHubIntegrationEndpoint.as_view(), name="github-integration"),
     path("workspaces/<str:slug>/github/install-url/", GitHubInstallUrlEndpoint.as_view(), name="github-install-url"),
+    path(
+        "workspaces/<str:slug>/github/installations/",
+        GitHubInstallationListEndpoint.as_view(),
+        name="github-installations",
+    ),
     path(
         "workspaces/<str:slug>/github/installations/<uuid:pk>/",
         GitHubInstallationDetailEndpoint.as_view(),

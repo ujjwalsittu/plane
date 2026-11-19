@@ -15,7 +15,13 @@ import { ConfirmDialog } from "@plane/blocks/dialog";
 import { Select } from "@plane/blocks/select";
 import { setToast } from "@plane/blocks/toast";
 import { useTranslation } from "@plane/i18n";
-import type { TGitHubInstallation, TGitHubRepository, TGitHubRepositoryLink, TProject } from "@plane/types";
+import type {
+  TGitHubAvailableInstallation,
+  TGitHubInstallation,
+  TGitHubRepository,
+  TGitHubRepositoryLink,
+  TProject,
+} from "@plane/types";
 import { useProject } from "@/hooks/store/use-project";
 import { GitHubAppService } from "@/services/github-app.service";
 import { GitHubMarkIcon } from "./github-mark-icon";
@@ -146,6 +152,8 @@ export const GitHubIntegrationRoot = observer(function GitHubIntegrationRoot({
         )}
       </section>
 
+      <AvailableInstallations workspaceSlug={workspaceSlug} onConnected={() => void mutate()} />
+
       {data.installations.length > 0 && (
         <RepositoryLinks
           workspaceSlug={workspaceSlug}
@@ -166,6 +174,67 @@ export const GitHubIntegrationRoot = observer(function GitHubIntegrationRoot({
     </div>
   );
 });
+
+/** Installations of the app made from GitHub directly, which Plane's install link didn't see. */
+function AvailableInstallations({ workspaceSlug, onConnected }: { workspaceSlug: string; onConnected: () => void }) {
+  const { t } = useTranslation();
+  const { data, mutate } = useSWR(`GITHUB_AVAILABLE_INSTALLATIONS_${workspaceSlug}`, () =>
+    service.listAvailableInstallations(workspaceSlug)
+  );
+  const [busy, setBusy] = useState<number | null>(null);
+
+  if (!data || data.length === 0) return null;
+
+  const connect = async (installation: TGitHubAvailableInstallation) => {
+    setBusy(installation.installation_id);
+    try {
+      await service.connectInstallation(workspaceSlug, installation.installation_id);
+      setToast({ type: "success", title: t("github_app.connected") });
+      await mutate();
+      onConnected();
+    } catch (error) {
+      setToast({ type: "error", title: errorMessage(error) ?? t("github_app.connect_error") });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div>
+        <h3 className="text-h5-medium text-primary">{t("github_app.available_title")}</h3>
+        <p className="text-body-xs-regular text-tertiary">{t("github_app.available_description")}</p>
+      </div>
+      <div className="divide-y divide-subtle rounded-lg border border-subtle">
+        {data.map((installation) => (
+          <div key={installation.installation_id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+            {installation.account_avatar_url ? (
+              <img src={installation.account_avatar_url} alt="" className="size-6 rounded-full" />
+            ) : (
+              <GitHubMarkIcon className="size-5 text-secondary" />
+            )}
+            <span className="text-body-sm-medium text-primary">{installation.account_login}</span>
+            <span className="text-caption-md-regular text-tertiary">
+              {installation.account_type === "Organization"
+                ? t("github_app.organization")
+                : t("github_app.personal_account")}
+            </span>
+            <div className="ml-auto">
+              <Button
+                variant="secondary"
+                size="sm"
+                stretch="auto"
+                loading={busy === installation.installation_id}
+                label={t("github_app.connect_account")}
+                onClick={() => void connect(installation)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 type TRepoOption = TGitHubRepository & { installation: string };
 

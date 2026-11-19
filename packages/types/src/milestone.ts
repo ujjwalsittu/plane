@@ -221,6 +221,15 @@ export type TGitHubRepository = {
   private: boolean;
 };
 
+export type TGitHubAvailableInstallation = {
+  installation_id: number;
+  account_login: string;
+  account_type: string;
+  account_avatar_url: string;
+  repository_selection: string;
+  suspended_at: string | null;
+};
+
 export type TGitHubIntegration = {
   configured: boolean;
   app_slug: string | null;
