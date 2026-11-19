@@ -281,3 +281,34 @@ export type TGitHubAutomation = {
 } & Record<TGitHubAutomationRule, string | null>;
 
 export type TGitHubPerson = { user: string; github_login: string };
+
+export type TInitiativeState = "DRAFT" | "PLANNED" | "ACTIVE" | "COMPLETED" | "CLOSED";
+
+export type TInitiativeProgress = {
+  total: number;
+  completed: number;
+  cancelled: number;
+  started: number;
+  unstarted: number;
+  backlog: number;
+  percent: number;
+};
+
+export type TInitiative = {
+  id: string;
+  name: string;
+  description_html: string;
+  description_stripped: string;
+  start_date: string | null;
+  end_date: string | null;
+  logo_props: Record<string, unknown>;
+  state: TInitiativeState;
+  lead: string | null;
+  workspace: string;
+  sort_order: number;
+  project_ids: string[];
+  work_item_ids: string[];
+  progress: TInitiativeProgress;
+  created_at: string | null;
+  updated_at: string | null;
+};

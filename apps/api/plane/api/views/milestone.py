@@ -443,7 +443,7 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
 
     FEATURES = {
         "project_grouping": False,
-        "initiatives": False,
+        "initiatives": True,
         "teams": False,
         "customers": False,
         "wiki": False,
@@ -458,7 +458,8 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
 
     def patch(self, request, slug):
         data = request.data if isinstance(request.data, dict) else {}
-        enabled = [name for name, value in data.items() if value]
+        # Initiatives are always on in this fork.
+        enabled = [name for name, value in data.items() if value and not self.FEATURES.get(name)]
         if enabled:
             return Response(
                 {"error": f"Not available on this Plane edition: {', '.join(enabled)}"},

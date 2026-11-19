@@ -40,6 +40,12 @@ from plane.app.views.github_app import (
     GitHubWebhookView,
     IssueGitHubEndpoint,
 )
+from plane.app.views.initiative import (
+    InitiativeEndpoint,
+    InitiativeListEndpoint,
+    InitiativeProjectEndpoint,
+    InitiativeWorkItemEndpoint,
+)
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -207,5 +213,22 @@ urlpatterns = [
         "workspaces/<str:slug>/github/links/<uuid:pk>/",
         GitHubRepositoryLinkDetailEndpoint.as_view(),
         name="github-link",
+    ),
+    # Initiatives
+    path("workspaces/<str:slug>/initiatives/", InitiativeListEndpoint.as_view(), name="app-initiatives"),
+    path(
+        "workspaces/<str:slug>/initiatives/<uuid:initiative_id>/",
+        InitiativeEndpoint.as_view(),
+        name="app-initiative",
+    ),
+    path(
+        "workspaces/<str:slug>/initiatives/<uuid:initiative_id>/projects/",
+        InitiativeProjectEndpoint.as_view(),
+        name="app-initiative-projects",
+    ),
+    path(
+        "workspaces/<str:slug>/initiatives/<uuid:initiative_id>/work-items/",
+        InitiativeWorkItemEndpoint.as_view(),
+        name="app-initiative-work-items",
     ),
 ]

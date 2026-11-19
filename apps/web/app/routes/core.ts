@@ -100,6 +100,15 @@ export const coreRoutes: RouteConfigEntry[] = [
           ),
         ]),
 
+        // Initiatives
+        layout("./(all)/[workspaceSlug]/(projects)/initiatives/layout.tsx", [
+          route(":workspaceSlug/initiatives", "./(all)/[workspaceSlug]/(projects)/initiatives/page.tsx"),
+          route(
+            ":workspaceSlug/initiatives/:initiativeId",
+            "./(all)/[workspaceSlug]/(projects)/initiatives/[initiativeId]/page.tsx"
+          ),
+        ]),
+
         // Wiki (workspace pages and collections)
         layout("./(all)/[workspaceSlug]/(projects)/wiki/layout.tsx", [
           route(":workspaceSlug/wiki", "./(all)/[workspaceSlug]/(projects)/wiki/page.tsx"),

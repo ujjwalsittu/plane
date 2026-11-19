@@ -21,6 +21,7 @@ from .page import urlpatterns as page_patterns
 from .issue_property import urlpatterns as issue_property_patterns
 from .work_log import urlpatterns as work_log_patterns
 from .github import urlpatterns as github_patterns
+from .initiative import urlpatterns as initiative_patterns
 
 urlpatterns = [
     *asset_patterns,
@@ -42,4 +43,5 @@ urlpatterns = [
     *issue_property_patterns,
     *work_log_patterns,
     *github_patterns,
+    *initiative_patterns,
 ]

@@ -10,6 +10,7 @@ import {
   CyclesOutline,
   DraftsOutline,
   HomeOutline,
+  InitiativeOutline,
   InboxOutline,
   MultipleStickyOutline,
   ProjectsOutline,
@@ -39,6 +40,8 @@ export const getSidebarNavigationItemIcon = (key: string, className: string = ""
       return <DraftsOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "archives":
       return <ArchiveOutline className={cn("size-4 flex-shrink-0", className)} />;
+    case "initiatives":
+      return <InitiativeOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "wiki":
       return <PagesOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "stickies":

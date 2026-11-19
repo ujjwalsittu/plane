@@ -339,5 +339,41 @@
       "placeholder": "GitHub username",
       "login": "GitHub username for {name}"
     }
+  },
+  "initiatives": {
+    "title": "Initiatives",
+    "new": "New initiative",
+    "name_placeholder": "Initiative name",
+    "create": "Create",
+    "empty_title": "No initiatives yet",
+    "empty_description": "Group projects and work items under a goal and follow their combined progress.",
+    "projects": "Projects",
+    "work_items": "Work items",
+    "add_projects": "Add projects",
+    "add_work_items": "Add work items",
+    "no_projects": "No projects linked yet.",
+    "no_work_items": "No work items linked directly. Epics and other items from any project can be added.",
+    "progress": "Progress",
+    "progress_detail": "{completed} of {total} done",
+    "lead": "Lead",
+    "no_lead": "No lead",
+    "start_date": "Start date",
+    "end_date": "Target date",
+    "description": "Description",
+    "edit_description": "Edit in Markdown",
+    "no_description": "No description.",
+    "delete": "Delete initiative",
+    "delete_description": "Projects and work items stay as they are; only the initiative and its links are removed.",
+    "remove": "Remove",
+    "save_error": "Couldn't save the initiative.",
+    "not_found": "Initiative not found.",
+    "work_items_hint": "Progress counts every work item in the linked projects plus the work items linked here.",
+    "states": {
+      "DRAFT": "Draft",
+      "PLANNED": "Planned",
+      "ACTIVE": "Active",
+      "COMPLETED": "Completed",
+      "CLOSED": "Closed"
+    }
   }
 }
