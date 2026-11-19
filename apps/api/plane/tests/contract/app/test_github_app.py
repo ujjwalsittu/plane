@@ -346,3 +346,51 @@ def test_failed_delivery_is_retried_then_marked_failed(monkeypatch):
     _, queue = record_delivery("f-1", "installation", {})
     delivery.refresh_from_db()
     assert queue and delivery.status == GitHubWebhookDelivery.PENDING and delivery.attempts == 0
+
+
+class _FakeResponse:
+    def __init__(self, status, body):
+        self.status_code = status
+        self._body = body
+        self.content = json.dumps(body).encode()
+
+    def json(self):
+        return self._body
+
+
+@pytest.mark.django_db
+def test_revoked_cached_token_is_replaced_once(app_settings, monkeypatch):
+    from django.core.cache import cache
+
+    cache.set("github:installation-token:77", "stale", 60)
+    calls = []
+
+    def fake_request(method, url, headers, timeout, **kwargs):
+        calls.append((method, url, headers["Authorization"]))
+        if url.endswith("/access_tokens"):
+            return _FakeResponse(201, {"token": "fresh"})
+        if headers["Authorization"] == "Bearer stale":
+            return _FakeResponse(401, {"message": "Bad credentials"})
+        return _FakeResponse(200, {"repositories": [{"id": 1, "full_name": "acme/api"}]})
+
+    monkeypatch.setattr(github_app.requests, "request", fake_request)
+    repos = github_app.installation_repositories(77)
+    assert [r["full_name"] for r in repos] == ["acme/api"]
+    assert [c[2] for c in calls if "/installation/repositories" in c[1]] == ["Bearer stale", "Bearer fresh"]
+    assert cache.get("github:installation-token:77") == "fresh"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_github_errors_are_reported_with_their_message(
+    session_client, workspace, installation, app_settings, monkeypatch
+):
+    def failing(installation_id):
+        raise github_app.GitHubAppError(
+            "GitHub answered 403: Resource not accessible by integration", github_status=403
+        )
+
+    monkeypatch.setattr(github_app, "installation_repositories", failing)
+    response = session_client.get(f"{_base(workspace)}/installations/{installation.id}/repositories/")
+    assert response.status_code == 424
+    assert "Resource not accessible" in response.data["error"]

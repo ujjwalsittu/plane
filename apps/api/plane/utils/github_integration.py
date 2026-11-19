@@ -144,6 +144,8 @@ def _installation_event(delivery, payload):
         remove_installation(installation)
         return
     _apply_installation_data(installation, data)
+    if delivery.action == "new_permissions_accepted":
+        github_app.forget_installation_token(installation.installation_id)
     if delivery.action == "suspend":
         installation.suspended_at = installation.suspended_at or timezone.now()
     elif delivery.action == "unsuspend":

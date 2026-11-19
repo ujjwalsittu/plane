@@ -26,11 +26,17 @@ INSTALL_STATE_SALT = "plane.github.install"
 INSTALL_STATE_MAX_AGE = 60 * 60
 
 
+# A GitHub failure is reported as 424 (failed dependency): a 5xx from Plane would be swapped for the
+# proxy's own error page, hiding the message.
+UPSTREAM_ERROR = 424
+
+
 class GitHubAppError(Exception):
-    def __init__(self, message, status_code=502):
+    def __init__(self, message, status_code=UPSTREAM_ERROR, github_status=None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.github_status = github_status
 
 
 def private_key():
@@ -101,9 +107,14 @@ def _request(method, path, token, **kwargs):
     except requests.RequestException as exc:
         raise GitHubAppError(f"GitHub could not be reached: {exc.__class__.__name__}") from exc
     if response.status_code == 404:
-        raise GitHubAppError("Not found on GitHub, or the app has no access to it", status_code=404)
+        raise GitHubAppError("Not found on GitHub, or the app has no access to it", status_code=404, github_status=404)
     if response.status_code >= 400:
-        raise GitHubAppError(f"GitHub answered {response.status_code}")
+        try:
+            detail = response.json().get("message", "")
+        except ValueError:
+            detail = ""
+        message = f"GitHub answered {response.status_code}" + (f": {detail}" if detail else "")
+        raise GitHubAppError(message[:500], github_status=response.status_code)
     return response.json() if response.content else None
 
 
@@ -133,11 +144,24 @@ def forget_installation_token(installation_id):
     cache.delete(_token_cache_key(installation_id))
 
 
+def _installation_request(installation_id, method, path, **kwargs):
+    """A call with the installation's token. GitHub revokes tokens when the app's permissions or keys
+    change, so a 401 with a cached token gets one retry with a fresh one."""
+    try:
+        return _request(method, path, installation_token(installation_id), **kwargs)
+    except GitHubAppError as exc:
+        if exc.github_status != 401:
+            raise
+    forget_installation_token(installation_id)
+    return _request(method, path, installation_token(installation_id), **kwargs)
+
+
 def installation_repositories(installation_id, limit=1000):
-    token = installation_token(installation_id)
     repos, page = [], 1
     while len(repos) < limit:
-        data = _request("GET", "/installation/repositories", token, params={"per_page": 100, "page": page})
+        data = _installation_request(
+            installation_id, "GET", "/installation/repositories", params={"per_page": 100, "page": page}
+        )
         batch = data.get("repositories", [])
         repos.extend(batch)
         if len(batch) < 100:
@@ -147,7 +171,7 @@ def installation_repositories(installation_id, limit=1000):
 
 
 def get_repository(installation_id, repository_id):
-    return _request("GET", f"/repositories/{int(repository_id)}", installation_token(installation_id))
+    return _installation_request(installation_id, "GET", f"/repositories/{int(repository_id)}")
 
 
 def repository_summary(repo):
