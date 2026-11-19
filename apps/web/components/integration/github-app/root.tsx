@@ -299,6 +299,15 @@ const RepositoryLinks = observer(function RepositoryLinks(props: {
     }
   };
 
+  const handleSync = async (link: TGitHubRepositoryLink) => {
+    try {
+      await service.syncRepository(workspaceSlug, link.id);
+      setToast({ type: "success", title: t("github_app.sync_started"), message: link.full_name });
+    } catch (error) {
+      setToast({ type: "error", title: errorMessage(error) ?? t("github_app.save_error") });
+    }
+  };
+
   const handleUnlink = async (link: TGitHubRepositoryLink) => {
     try {
       await service.unlinkRepository(workspaceSlug, link.id);
@@ -334,7 +343,14 @@ const RepositoryLinks = observer(function RepositoryLinks(props: {
                 <span className="text-body-sm-regular text-secondary">
                   {linkedProject ? `${linkedProject.name} (${linkedProject.identifier})` : link.project}
                 </span>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    stretch="auto"
+                    label={t("github_app.sync")}
+                    onClick={() => void handleSync(link)}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"

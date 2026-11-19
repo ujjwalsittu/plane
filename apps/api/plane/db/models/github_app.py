@@ -94,3 +94,77 @@ class GitHubWebhookDelivery(models.Model):
         verbose_name_plural = "GitHub Webhook Deliveries"
         db_table = "github_webhook_deliveries"
         ordering = ("-received_at",)
+
+
+class GitHubPullRequest(BaseModel):
+    """A pull request in a linked repository, kept current from webhooks."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="github_pull_requests")
+    repository_id = models.BigIntegerField()
+    repository_full_name = models.CharField(max_length=255)
+    number = models.PositiveIntegerField()
+    title = models.CharField(max_length=1024)
+    html_url = models.URLField(max_length=1000)
+    # "open" or "closed", as GitHub reports it; drafts and merges are separate flags.
+    state = models.CharField(max_length=16, default="open")
+    is_draft = models.BooleanField(default=False)
+    merged_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    head_ref = models.CharField(max_length=255, blank=True, default="")
+    head_sha = models.CharField(max_length=64, blank=True, default="")
+    base_ref = models.CharField(max_length=255, blank=True, default="")
+    author_login = models.CharField(max_length=255, blank=True, default="")
+    # "", "approved" or "changes_requested"
+    review_state = models.CharField(max_length=32, blank=True, default="")
+    # Check suites and commit statuses for head_sha: {key: "pending" | "success" | "failure"}.
+    checks = models.JSONField(default=dict)
+    github_updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "GitHub Pull Request"
+        verbose_name_plural = "GitHub Pull Requests"
+        db_table = "github_pull_requests"
+        ordering = ("-github_updated_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "repository_id", "number"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_pull_request_unique_number_when_deleted_at_null",
+            )
+        ]
+
+
+class GitHubWorkItemLink(ProjectBaseModel):
+    """A pull request, branch or commit that mentions a work item's identifier."""
+
+    PULL_REQUEST = "pull_request"
+    BRANCH = "branch"
+    COMMIT = "commit"
+    KIND_CHOICES = ((PULL_REQUEST, "Pull request"), (BRANCH, "Branch"), (COMMIT, "Commit"))
+
+    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="github_links")
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES)
+    pull_request = models.ForeignKey(
+        "db.GitHubPullRequest", on_delete=models.CASCADE, null=True, blank=True, related_name="work_item_links"
+    )
+    repository_id = models.BigIntegerField()
+    repository_full_name = models.CharField(max_length=255)
+    # The PR number, branch name or commit sha.
+    ref = models.CharField(max_length=255)
+    title = models.CharField(max_length=1024, blank=True, default="")
+    url = models.URLField(max_length=1000, blank=True, default="")
+    author_login = models.CharField(max_length=255, blank=True, default="")
+    github_created_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "GitHub Work Item Link"
+        verbose_name_plural = "GitHub Work Item Links"
+        db_table = "github_work_item_links"
+        ordering = ("-github_created_at", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["issue", "kind", "repository_id", "ref"],
+                condition=Q(deleted_at__isnull=True),
+                name="github_work_item_link_unique_ref_when_deleted_at_null",
+            )
+        ]

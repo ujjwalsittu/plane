@@ -26,7 +26,9 @@ from rest_framework.response import Response
 # Module imports
 from plane.app.permissions import ROLE, allow_permission
 from plane.app.views.base import BaseAPIView
-from plane.bgtasks.github_webhook_task import process_github_delivery
+from plane.api.views.github import WorkItemGitHubAPIEndpoint
+from plane.authentication.session import BaseSessionAuthentication
+from plane.bgtasks.github_webhook_task import backfill_github_repository, process_github_delivery
 from plane.db.models import GitHubInstallation, GitHubRepositoryLink, Workspace, WorkspaceMember
 from plane.utils import github_app
 from plane.utils.github_integration import (
@@ -137,6 +139,27 @@ class GitHubRepositoryLinkDetailEndpoint(BaseAPIView):
             return Response({"error": "Link not found"}, status=status.HTTP_404_NOT_FOUND)
         link.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GitHubRepositoryLinkSyncEndpoint(BaseAPIView):
+    """Re-reads the repository's open pull requests and links the work items they mention."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def post(self, request, slug, pk):
+        link = GitHubRepositoryLink.objects.filter(workspace__slug=slug, pk=pk).first()
+        if not link:
+            return Response({"error": "Link not found"}, status=status.HTTP_404_NOT_FOUND)
+        backfill_github_repository.delay(str(link.id))
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
+class IssueGitHubEndpoint(WorkItemGitHubAPIEndpoint):
+    """The web app's view of a work item's pull requests, branches and commits."""
+
+    authentication_classes = [BaseSessionAuthentication]
+
+    def get_throttles(self):
+        return []
 
 
 def _settings_redirect(slug, **params):

@@ -32,8 +32,10 @@ from plane.app.views.github_app import (
     GitHubIntegrationEndpoint,
     GitHubRepositoryLinkDetailEndpoint,
     GitHubRepositoryLinkListEndpoint,
+    GitHubRepositoryLinkSyncEndpoint,
     GitHubSetupCallbackView,
     GitHubWebhookView,
+    IssueGitHubEndpoint,
 )
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
@@ -183,6 +185,12 @@ urlpatterns = [
         name="github-installation-repositories",
     ),
     path("workspaces/<str:slug>/github/links/", GitHubRepositoryLinkListEndpoint.as_view(), name="github-links"),
+    path(
+        "workspaces/<str:slug>/github/links/<uuid:pk>/sync/",
+        GitHubRepositoryLinkSyncEndpoint.as_view(),
+        name="github-link-sync",
+    ),
+    path(f"{_PROJECT}/issues/<uuid:issue_id>/github/", IssueGitHubEndpoint.as_view(), name="issue-github"),
     path(
         "workspaces/<str:slug>/github/links/<uuid:pk>/",
         GitHubRepositoryLinkDetailEndpoint.as_view(),

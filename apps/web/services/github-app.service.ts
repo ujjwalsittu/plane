@@ -11,6 +11,7 @@ import type {
   TGitHubIntegration,
   TGitHubRepository,
   TGitHubRepositoryLink,
+  TWorkItemGitHub,
 } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
@@ -66,5 +67,13 @@ export class GitHubAppService extends APIService {
 
   unlinkRepository(workspaceSlug: string, linkId: string): Promise<void> {
     return this.call(this.delete(`${this.base(workspaceSlug)}/links/${linkId}/`));
+  }
+
+  syncRepository(workspaceSlug: string, linkId: string): Promise<void> {
+    return this.call(this.post(`${this.base(workspaceSlug)}/links/${linkId}/sync/`));
+  }
+
+  getWorkItemGitHub(workspaceSlug: string, projectId: string, issueId: string): Promise<TWorkItemGitHub> {
+    return this.call(this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/github/`));
   }
 }

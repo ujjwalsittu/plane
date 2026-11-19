@@ -291,6 +291,28 @@
     "repositories_error": "Couldn't load repositories from GitHub.",
     "available_title": "Installed on GitHub, not connected yet",
     "available_description": "The app is installed on these accounts. Connect one to use its repositories in this workspace.",
-    "connect_account": "Connect"
+    "connect_account": "Connect",
+    "work_item": {
+      "title": "GitHub",
+      "copy_branch": "Copy branch name",
+      "branch_copied": "Branch name copied",
+      "empty": "No pull requests, branches or commits yet. Name a branch {branch}, or mention this work item's ID in a PR title or commit message.",
+      "branch": "Branch",
+      "approved": "Approved",
+      "changes_requested": "Changes requested",
+      "status": {
+        "open": "Open",
+        "draft": "Draft",
+        "merged": "Merged",
+        "closed": "Closed"
+      },
+      "checks": {
+        "pending": "Checks running",
+        "success": "Checks passed",
+        "failure": "Checks failed"
+      }
+    },
+    "sync": "Sync",
+    "sync_started": "Syncing open pull requests"
   }
 }

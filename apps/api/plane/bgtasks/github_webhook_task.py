@@ -16,9 +16,10 @@ from django.db import transaction
 from django.utils import timezone
 
 # Module imports
-from plane.db.models import GitHubWebhookDelivery
+from plane.db.models import GitHubRepositoryLink, GitHubWebhookDelivery
 from plane.utils.exception_logger import log_exception
 from plane.utils.github_integration import process_delivery
+from plane.utils.github_sync import backfill_repository
 
 logger = logging.getLogger("plane.worker")
 
@@ -61,3 +62,19 @@ def delete_old_github_deliveries():
     cutoff = timezone.now() - timedelta(days=KEEP_DAYS)
     deleted, _ = GitHubWebhookDelivery.objects.filter(received_at__lt=cutoff).delete()
     logger.info("Deleted %s old GitHub webhook deliveries", deleted)
+
+
+@shared_task(bind=True, max_retries=3)
+def backfill_github_repository(self, link_id):
+    """Link the open pull requests of a newly linked repository to the work items they mention."""
+    link = GitHubRepositoryLink.objects.filter(pk=link_id).select_related("installation").first()
+    if not link:
+        return
+    try:
+        count = backfill_repository(link)
+    except Exception as exc:  # noqa: BLE001 - retried, then logged
+        if self.request.retries >= self.max_retries:
+            log_exception(exc)
+            return
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+    logger.info("Backfilled %s open pull requests for %s", count, link.full_name)

@@ -12,7 +12,7 @@ from django.utils import timezone
 
 # Module imports
 from plane.db.models import GitHubInstallation, GitHubRepositoryLink, GitHubWebhookDelivery, Project
-from plane.utils import github_app
+from plane.utils import github_app, github_sync
 
 
 class GitHubIntegrationError(ValueError):
@@ -142,7 +142,7 @@ def link_repository(workspace, data):
         raise GitHubIntegrationError("That repository is already linked to this project", status_code=409)
     # Confirms the installation can see the repository.
     repo = github_app.repository_summary(github_app.get_repository(installation.installation_id, repository_id))
-    return GitHubRepositoryLink.objects.create(
+    link = GitHubRepositoryLink.objects.create(
         project=project,
         installation=installation,
         repository_id=repo["id"],
@@ -151,6 +151,11 @@ def link_repository(workspace, data):
         default_branch=repo["default_branch"],
         is_private=repo["private"],
     )
+    # Imported here: the task module imports this one.
+    from plane.bgtasks.github_webhook_task import backfill_github_repository
+
+    transaction.on_commit(lambda: backfill_github_repository.delay(str(link.id)))
+    return link
 
 
 # --- webhook deliveries ---------------------------------------------------------------------------
@@ -207,6 +212,7 @@ EVENT_HANDLERS = {
     "installation": _installation_event,
     "installation_repositories": _installation_repositories_event,
     "repository": _repository_event,
+    **github_sync.EVENT_HANDLERS,
 }
 
 

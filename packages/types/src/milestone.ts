@@ -236,3 +236,34 @@ export type TGitHubIntegration = {
   installations: TGitHubInstallation[];
   links: TGitHubRepositoryLink[];
 };
+
+export type TGitHubPullRequestStatus = "open" | "draft" | "merged" | "closed";
+
+export type TWorkItemGitHub = {
+  enabled: boolean;
+  branch_name: string;
+  pull_requests: {
+    id: string;
+    repository: string;
+    number: number;
+    title: string;
+    url: string;
+    status: TGitHubPullRequestStatus;
+    review_state: "" | "approved" | "changes_requested";
+    checks_state: "" | "pending" | "success" | "failure";
+    author: string;
+    head_ref: string;
+    base_ref: string;
+    updated_at: string | null;
+  }[];
+  branches: { id: string; repository: string; name: string; url: string }[];
+  commits: {
+    id: string;
+    repository: string;
+    sha: string;
+    message: string;
+    url: string;
+    author: string;
+    committed_at: string | null;
+  }[];
+};

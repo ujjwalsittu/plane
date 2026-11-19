@@ -195,3 +195,23 @@ def repository_summary(repo):
         "default_branch": repo.get("default_branch", ""),
         "private": bool(repo.get("private")),
     }
+
+
+def repository_pull_requests(installation_id, full_name, limit=300):
+    """Open pull requests of a repository, newest first."""
+    pulls, page = [], 1
+    while len(pulls) < limit:
+        batch = (
+            _installation_request(
+                installation_id,
+                "GET",
+                f"/repos/{full_name}/pulls",
+                params={"state": "open", "per_page": 100, "page": page},
+            )
+            or []
+        )
+        pulls.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return pulls[:limit]
