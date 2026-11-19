@@ -268,7 +268,11 @@ def handle_push(delivery, payload):
     pusher = (payload.get("pusher") or {}).get("name") or ""
     if payload.get("created"):
         _link_branch(repository, projects, branch, pusher)
-    for commit in payload.get("commits") or []:
+    commits = payload.get("commits") or []
+    if not commits and payload.get("head_commit"):
+        # A push that creates a branch can list no commits and carry only head_commit.
+        commits = [payload["head_commit"]]
+    for commit in commits:
         message = commit.get("message") or ""
         author = commit.get("author") or {}
         for issue in referenced_issues(projects, message):

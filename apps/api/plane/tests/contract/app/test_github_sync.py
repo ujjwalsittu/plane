@@ -171,6 +171,26 @@ def test_branches_and_commits(repo_link, issues):
 
 
 @pytest.mark.django_db
+def test_new_branch_push_links_head_commit(repo_link, issues):
+    first, _, _ = issues
+    deliver(
+        "push",
+        {
+            "ref": "refs/heads/feature",
+            "created": True,
+            "commits": [],
+            "head_commit": {
+                "id": "h1",
+                "message": f"PLAT-{first.sequence_id}: start",
+                "url": "https://x/h1",
+                "author": {"username": "dev"},
+            },
+        },
+    )
+    assert [c["sha"] for c in github_sync.work_item_payload(first)["commits"]] == ["h1"]
+
+
+@pytest.mark.django_db
 def test_unlinked_repository_is_ignored(installation, issues):
     first, _, _ = issues
     deliver("pull_request", {"pull_request": pr_payload(title=f"PLAT-{first.sequence_id}")}, "opened")
