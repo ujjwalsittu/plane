@@ -148,6 +148,16 @@ class GitHubRepositoryLinkDetailEndpoint(BaseAPIView):
             return Response({"error": "issue_sync must be true or false"}, status=status.HTTP_400_BAD_REQUEST)
         if value and link.installation.suspended_at:
             return Response({"error": "That installation is suspended on GitHub"}, status=status.HTTP_400_BAD_REQUEST)
+        if value and not link.issue_sync:
+            try:
+                repo = github_app.get_repository(link.installation.installation_id, link.repository_id)
+            except github_app.GitHubAppError as exc:
+                return _error(exc)
+            if not repo.get("has_issues", True):
+                return Response(
+                    {"error": f"Issues are turned off for {link.full_name} on GitHub (repository Settings → Features)"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         turned_on = value and not link.issue_sync
         link.issue_sync = value
         link.save(update_fields=["issue_sync", "updated_at"])

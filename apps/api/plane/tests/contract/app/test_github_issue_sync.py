@@ -247,8 +247,13 @@ def test_endpoints(session_client, workspace, project, repo_link, create_user, m
     monkeypatch.setattr(github_webhook_task.import_github_issues, "delay", lambda link_id: queued.append(link_id))
     repo_link.issue_sync = False
     repo_link.save()
+    repo = {"id": 501, "full_name": "acme/api", "has_issues": False}
+    monkeypatch.setattr(github_app, "get_repository", lambda installation_id, repository_id: repo)
     url = f"/api/workspaces/{workspace.slug}/github/links/{repo_link.id}/"
     assert session_client.patch(url, {"issue_sync": "yes"}, format="json").status_code == 400
+    off = session_client.patch(url, {"issue_sync": True}, format="json")
+    assert off.status_code == 400 and "Issues are turned off" in off.data["error"]
+    repo["has_issues"] = True
     response = session_client.patch(url, {"issue_sync": True}, format="json")
     assert response.status_code == 200 and response.data["issue_sync"] is True
 
