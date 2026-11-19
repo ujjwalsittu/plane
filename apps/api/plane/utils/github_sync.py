@@ -335,7 +335,12 @@ def backfill_repository(link):
 
 def branch_name(issue):
     """A suggested branch name, e.g. plat-12-deploy-script."""
-    title = slugify(issue.name or "")[:40].strip("-")
+    title = slugify(issue.name or "")
+    if len(title) > 40:
+        # Cut at a word boundary rather than mid-word.
+        cut = title[:41].rfind("-")
+        title = title[: cut if cut > 0 else 40]
+    title = title.strip("-")
     base = f"{issue.project.identifier.lower()}-{issue.sequence_id}"
     return f"{base}-{title}" if title else base
 

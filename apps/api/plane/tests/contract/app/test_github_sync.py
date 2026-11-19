@@ -194,6 +194,8 @@ def test_branch_name():
     issue = Issue(name="Deploy script: verify & restart!", sequence_id=12)
     issue.project = Project(identifier="PLAT")
     assert github_sync.branch_name(issue) == "plat-12-deploy-script-verify-restart"
+    issue.name = "Link PRs, branches and commits to work items; GitHub panel"
+    assert github_sync.branch_name(issue) == "plat-12-link-prs-branches-and-commits-to-work"
 
 
 @pytest.mark.contract
