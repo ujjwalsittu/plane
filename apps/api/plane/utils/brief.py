@@ -5,6 +5,7 @@
 """The Brief: what needs a person, what is blocked, and what got done since they last looked."""
 
 from collections import defaultdict
+from html import unescape
 from datetime import timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -223,7 +224,7 @@ def _milestones_due(workspace_id, user, today):
 
 
 def _excerpt(html):
-    text = " ".join(strip_tags(html or "").split())
+    text = " ".join(unescape(strip_tags(html or "")).split())
     return text if len(text) <= EXCERPT_LENGTH else text[: EXCERPT_LENGTH - 1].rstrip() + "\u2026"
 
 
@@ -243,18 +244,20 @@ def _projects(workspace_id, user, now, today):
     )
     ids = [project.id for project in projects]
     counts = project_counts(_visible_issues(user, workspace_id), ids, now)
-    # Newest first; the first row seen per project is its latest update.
-    latest = {}
-    recent = ProjectUpdate.objects.filter(
-        workspace_id=workspace_id, project_id__in=ids, created_at__gte=now - timedelta(days=PROJECT_UPDATE_DAYS)
-    ).select_related("created_by")
-    for update in recent:
-        latest.setdefault(update.project_id, update)
+    # The latest update per project, however old (one query); recency only decides who stays in the strip.
+    latest = {
+        update.project_id: update
+        for update in ProjectUpdate.objects.filter(workspace_id=workspace_id, project_id__in=ids)
+        .order_by("project_id", "-created_at")
+        .distinct("project_id")
+        .select_related("created_by")
+    }
+    recent_cutoff = now - timedelta(days=PROJECT_UPDATE_DAYS)
     rows = []
     for project in projects:
         open_count, done = counts.get(project.id, (0, 0))
         update = latest.get(project.id)
-        if not open_count and update is None:
+        if not open_count and (update is None or update.created_at < recent_cutoff):
             continue
         predicted = finish_from_counts(open_count, done, today)
         by = update.created_by if update else None

@@ -46,15 +46,6 @@ def project_counts(issues, project_ids, now=None):
     return {row["project_id"]: (row["open"], row["done"]) for row in rows}
 
 
-def predicted_finish(project, today=None):
-    """The date the project's open work item count runs out at the recent pace, or None."""
-    from plane.db.models import Issue
-
-    now = timezone.now()
-    open_count, done = project_counts(Issue.issue_objects.all(), [project.id], now).get(project.id, (0, 0))
-    return finish_from_counts(open_count, done, today or now.date())
-
-
 def health_for(update, predicted, target_date):
     """The latest update's health; with none, at_risk when the prediction is past the target date."""
     if update is not None:
@@ -62,7 +53,3 @@ def health_for(update, predicted, target_date):
     if predicted is not None and target_date is not None and predicted > target_date:
         return "at_risk"
     return "on_track"
-
-
-def project_health(project, latest_update, today=None):
-    return health_for(latest_update, predicted_finish(project, today), project.target_date)
