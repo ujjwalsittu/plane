@@ -10,6 +10,7 @@ Supported, joined with AND:
 * ``milestone = "<uuid>"`` / ``milestone IN (...)``
 * ``parent = "<uuid>"``
 * ``childOf("<PROJECT>-<N>")`` -- direct children of a work item
+* ``team = "<uuid>"`` / ``team IN (...)`` -- assigned to a member of the team(s)
 * ``cf["<property id>"] = <value>`` / ``cf["<property id>"] IN ("<value>", ...)`` -- custom
   property values: option or record ids for OPTION/RELATION, true/false, numbers, dates
   (YYYY-MM-DD) or text
@@ -30,7 +31,8 @@ from plane.db.models import Issue, IssueProperty, IssuePropertyValue
 
 SUPPORTED = (
     'type = "<id>", type IN ("<id>", ...), milestone = "<id>", milestone IN (...), '
-    'parent = "<id>", childOf("<PROJECT>-<N>") and cf["<property id>"] = <value> / IN (...), joined with AND'
+    'parent = "<id>", childOf("<PROJECT>-<N>"), team = "<id>", team IN (...) '
+    'and cf["<property id>"] = <value> / IN (...), joined with AND'
 )
 
 _FIELDS = {"type": "type_id", "milestone": "milestone_id", "parent": "parent_id"}
@@ -157,6 +159,15 @@ def pql_to_q(pql, slug):
             continue
 
         comparison = _COMPARISON.match(clause)
+        if comparison and comparison.group("field").lower() == "team":
+            # Imported here: teamspaces imports from plane.db.models like this module does.
+            from plane.utils.teamspaces import assigned_to_team_q
+
+            ids = _uuids(comparison.group("value"))
+            if comparison.group("op").upper() == "=" and len(ids) != 1:
+                raise UnsupportedPQL(f"= takes one id: {clause}")
+            q &= assigned_to_team_q(ids)
+            continue
         if not comparison or comparison.group("field").lower() not in _FIELDS:
             raise UnsupportedPQL(f"Unsupported clause: {clause}")
         field = _FIELDS[comparison.group("field").lower()]

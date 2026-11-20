@@ -400,3 +400,38 @@ export type TTemplateUseResult = {
   sequence_id?: number;
   identifier?: string;
 };
+
+// --- teams --------------------------------------------------------------------------------------
+
+export type TTeam = {
+  id: string;
+  name: string;
+  description_html: string;
+  description_stripped: string;
+  logo_props: Record<string, unknown>;
+  lead: string | null;
+  member_ids: string[];
+  project_ids: string[];
+  workspace: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TTeamWorkItem = {
+  id: string;
+  name: string;
+  project_id: string;
+  project_identifier: string;
+  sequence_id: number;
+  priority: string;
+  state_id: string | null;
+  state_name: string | null;
+  state_group: string | null;
+  target_date: string | null;
+  assignee_ids: string[];
+};
+
+export type TTeamWorkload = {
+  members: { member_id: string; open: number; started: number; completed: number }[];
+  unassigned_open: number;
+};

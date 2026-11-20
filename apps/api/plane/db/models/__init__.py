@@ -88,6 +88,7 @@ from .work_log import IssueWorkLog
 from .initiative import Initiative, InitiativeProject, InitiativeWorkItem
 from .release import Release, ReleaseLabel, ReleaseLabelLink, ReleaseTag, ReleaseWorkItem
 from .template import Template
+from .teamspace import Teamspace, TeamspaceMember, TeamspaceProject
 from .github_app import (
     GitHubCommentLink,
     GitHubInstallation,

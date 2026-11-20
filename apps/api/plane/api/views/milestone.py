@@ -444,7 +444,7 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
     FEATURES = {
         "project_grouping": False,
         "initiatives": True,
-        "teams": False,
+        "teams": True,
         "customers": False,
         "wiki": False,
         "pi": False,

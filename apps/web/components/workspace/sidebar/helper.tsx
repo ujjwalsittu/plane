@@ -16,6 +16,7 @@ import {
   ProjectsOutline,
   ReleasesOutline,
   TemplatesOutline,
+  TeamspacesOutline,
   ViewsOutline,
   YourWorkOutline,
   PagesOutline,
@@ -46,6 +47,8 @@ export const getSidebarNavigationItemIcon = (key: string, className: string = ""
       return <ReleasesOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "templates":
       return <TemplatesOutline className={cn("size-4 flex-shrink-0", className)} />;
+    case "teams":
+      return <TeamspacesOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "initiatives":
       return <InitiativeOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "wiki":

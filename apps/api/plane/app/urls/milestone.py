@@ -48,6 +48,7 @@ from plane.app.views.initiative import (
 )
 from plane.app.views import release as release_views
 from plane.app.views import template as template_views
+from plane.app.views import teamspace as teamspace_views
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -284,5 +285,36 @@ urlpatterns = [
         "workspaces/<str:slug>/templates/<uuid:template_id>/use/",
         template_views.TemplateUseEndpoint.as_view(),
         name="app-template-use",
+    ),
+    # Teams
+    path(
+        "workspaces/<str:slug>/teamspaces/",
+        teamspace_views.TeamspaceListEndpoint.as_view(),
+        name="app-teamspaces",
+    ),
+    path(
+        "workspaces/<str:slug>/teamspaces/<uuid:team_id>/",
+        teamspace_views.TeamspaceEndpoint.as_view(),
+        name="app-teamspace",
+    ),
+    path(
+        "workspaces/<str:slug>/teamspaces/<uuid:team_id>/members/",
+        teamspace_views.TeamspaceMemberEndpoint.as_view(),
+        name="app-teamspace-members",
+    ),
+    path(
+        "workspaces/<str:slug>/teamspaces/<uuid:team_id>/projects/",
+        teamspace_views.TeamspaceProjectEndpoint.as_view(),
+        name="app-teamspace-projects",
+    ),
+    path(
+        "workspaces/<str:slug>/teamspaces/<uuid:team_id>/work-items/",
+        teamspace_views.TeamspaceWorkItemEndpoint.as_view(),
+        name="app-teamspace-work-items",
+    ),
+    path(
+        "workspaces/<str:slug>/teamspaces/<uuid:team_id>/workload/",
+        teamspace_views.TeamspaceWorkloadEndpoint.as_view(),
+        name="app-teamspace-workload",
     ),
 ]
