@@ -105,3 +105,22 @@ class TestSlackApp:
         assert connection.status == "broken"
         assert connection.last_error == "reconnect"
         assert SlackConnection.objects.filter(workspace=workspace).count() == 1
+
+    def test_link_users_removes_stale_links(self, workspace, create_user):
+        other = User.objects.create(email="other@example.com", username="other")
+        WorkspaceMember.objects.create(workspace=workspace, member=other, role=15)
+        connection, _ = _connect(workspace)
+        SlackUserLink.objects.create(workspace=workspace, user=other, slack_user_id="UOLD")
+        SlackUserLink.objects.create(workspace=workspace, user=create_user, slack_user_id="USTALE")
+
+        def fake_post(url, **kwargs):
+            if kwargs["data"]["email"] == create_user.email:
+                return _resp({"ok": True, "user": {"id": "U1"}})
+            return _resp({"ok": False, "error": "users_not_found"})
+
+        with patch("plane.utils.slack_app.requests.post", side_effect=fake_post):
+            count = slack_app.link_users(connection)
+
+        assert count == 1
+        links = SlackUserLink.objects.filter(workspace=workspace)
+        assert [(link.user, link.slack_user_id) for link in links] == [(create_user, "U1")]

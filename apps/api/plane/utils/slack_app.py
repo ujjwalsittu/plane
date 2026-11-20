@@ -60,16 +60,25 @@ def connect(workspace, bot_token):
     encrypted = encrypt_data(bot_token)
     if not encrypted:
         raise SlackError("encryption_failed")
-    connection, _ = SlackConnection.objects.update_or_create(
-        workspace=workspace,
-        defaults={
-            "team_id": result.get("team_id", ""),
-            "team_name": result.get("team", ""),
-            "bot_token_encrypted": encrypted,
-            "status": "ok",
-            "last_error": "",
-        },
-    )
+    values = {
+        "team_id": result.get("team_id", ""),
+        "team_name": result.get("team", ""),
+        "bot_token_encrypted": encrypted,
+        "status": "ok",
+        "last_error": "",
+        "deleted_at": None,
+    }
+    # all_objects: the workspace's unique row may be soft-deleted from before; revive it instead of inserting.
+    connection = SlackConnection.all_objects.filter(workspace=workspace).first()
+    if connection is None:
+        connection = SlackConnection.objects.create(workspace=workspace, **values)
+    else:
+        if connection.team_id != values["team_id"]:
+            # A different Slack team: the old links point at people in another team.
+            SlackUserLink.all_objects.filter(workspace=workspace).delete()
+        for field, value in values.items():
+            setattr(connection, field, value)
+        connection.save()
     return connection
 
 
@@ -97,21 +106,27 @@ def slack_call(connection, method, **params):
 
 
 def link_users(connection):
-    """Match active workspace members to Slack users by email. Returns how many people are linked."""
+    """Replace the workspace's links with the people who resolve by email right now (so a changed email or
+    team can't leave a link pointing at the wrong Slack user). Returns how many people are linked."""
     members = WorkspaceMember.objects.filter(workspace=connection.workspace, is_active=True).select_related("member")
+    resolved = {}
     for membership in members:
         user = membership.member
         if not user.email:
             continue
         result = slack_call(connection, "users.lookupByEmail", email=user.email)
         if connection.status == "broken":
-            break
+            # Slack stopped accepting the token: keep the existing links rather than wiping them.
+            return SlackUserLink.objects.filter(workspace=connection.workspace).count()
         slack_id = (result.get("user") or {}).get("id") if result.get("ok") else None
         if slack_id:
-            SlackUserLink.objects.update_or_create(
-                workspace=connection.workspace, user=user, defaults={"slack_user_id": slack_id}
-            )
-    return SlackUserLink.objects.filter(workspace=connection.workspace, user__in=[m.member_id for m in members]).count()
+            resolved[user.id] = slack_id
+    SlackUserLink.objects.filter(workspace=connection.workspace).exclude(user_id__in=list(resolved)).delete(soft=False)
+    for user_id, slack_id in resolved.items():
+        SlackUserLink.objects.update_or_create(
+            workspace=connection.workspace, user_id=user_id, defaults={"slack_user_id": slack_id}
+        )
+    return len(resolved)
 
 
 def dm(connection, user, blocks, text):

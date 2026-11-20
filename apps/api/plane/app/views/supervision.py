@@ -106,6 +106,8 @@ class SlackConnectionEndpoint(AppBaseAPIView):
     @allow_permission([ROLE.ADMIN], level="WORKSPACE")
     def delete(self, request, slug):
         workspace = Workspace.objects.get(slug=slug)
-        SlackUserLink.objects.filter(workspace=workspace).delete()
-        SlackConnection.objects.filter(workspace=workspace).delete()
+        # Hard delete (also rows soft-deleted earlier): the encrypted token must not outlive a disconnect, and the
+        # workspace's unique connection row must be free for a reconnect.
+        SlackUserLink.all_objects.filter(workspace=workspace).delete()
+        SlackConnection.all_objects.filter(workspace=workspace).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
