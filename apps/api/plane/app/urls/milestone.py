@@ -343,4 +343,14 @@ urlpatterns = [
         supervision_views.MyDecisionsEndpoint.as_view(http_method_names=["get"]),
         name="app-my-decisions",
     ),
+    path(
+        "workspaces/<str:slug>/brief/",
+        supervision_views.BriefEndpoint.as_view(http_method_names=["get"]),
+        name="app-brief",
+    ),
+    path(
+        "workspaces/<str:slug>/brief/seen/",
+        supervision_views.BriefSeenEndpoint.as_view(http_method_names=["post"]),
+        name="app-brief-seen",
+    ),
 ]

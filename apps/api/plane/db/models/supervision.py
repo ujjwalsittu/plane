@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import Q
 
 # Module imports
+from .base import BaseModel
 from .project import ProjectBaseModel
 
 
@@ -64,3 +65,24 @@ class DecisionRequest(ProjectBaseModel):
         verbose_name_plural = "Decision Requests"
         db_table = "decision_requests"
         ordering = ("-created_at",)
+
+
+class BriefVisit(BaseModel):
+    """When a person last looked at their Brief; "done since" is measured from here."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="brief_visits")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="brief_visits")
+    last_seen_at = models.DateTimeField()
+
+    class Meta:
+        verbose_name = "Brief Visit"
+        verbose_name_plural = "Brief Visits"
+        db_table = "brief_visits"
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "user"],
+                condition=Q(deleted_at__isnull=True),
+                name="brief_visit_unique_workspace_user",
+            )
+        ]

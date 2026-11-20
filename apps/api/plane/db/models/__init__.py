@@ -87,7 +87,7 @@ from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
 from .initiative import Initiative, InitiativeProject, InitiativeWorkItem
 from .release import Release, ReleaseLabel, ReleaseLabelLink, ReleaseTag, ReleaseWorkItem
-from .supervision import DecisionRequest, WorkItemWaiting
+from .supervision import BriefVisit, DecisionRequest, WorkItemWaiting
 from .template import Template
 from .teamspace import Teamspace, TeamspaceMember, TeamspaceProject
 from .github_app import (
