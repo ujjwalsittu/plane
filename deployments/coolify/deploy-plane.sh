@@ -7,6 +7,7 @@
 #
 #   deploy-plane.sh <commit-sha | sha-xxxxxxx | custom-v* tag>
 #
+# 0. Checks the Coolify token works.
 # 1. Checks the images for that release exist on GHCR.
 # 2. Sets APP_RELEASE on the Coolify service and triggers a deploy.
 # 3. Waits until https://$PLANE_HOST/version.json reports that commit and the API answers.
@@ -62,6 +63,17 @@ api() {
     ${body:+-H "Content-Type: application/json" --data "$body"}
 }
 
+# 0. The token works before anything changes.
+token_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+  -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H "Accept: application/json" \
+  "${COOLIFY_URL}/api/v1/services/${PLANE_SERVICE_UUID}" || true)"
+case "$token_status" in
+  200) ;;
+  401|403) die "Coolify rejected COOLIFY_TOKEN (HTTP ${token_status}). It needs read, write and deploy permissions." ;;
+  404) die "Coolify has no service ${PLANE_SERVICE_UUID} (check PLANE_SERVICE_UUID)" ;;
+  *) die "Couldn't reach Coolify at ${COOLIFY_URL} (HTTP ${token_status:-none})" ;;
+esac
+
 # 1. Images exist (anonymous pull token; the packages are public).
 for image in frontend backend admin space live proxy; do
   token="$(curl -fsS "https://ghcr.io/token?scope=repository:${IMAGE_OWNER}/plane-${image}:pull" | jq -r .token)"
@@ -76,6 +88,11 @@ log "Images for ${release} found on GHCR"
 previous="$(api GET "/services/${PLANE_SERVICE_UUID}/envs" | jq -r '[.[] | select(.key=="APP_RELEASE")][0].value // empty')"
 log "Current APP_RELEASE: ${previous:-<unset>} -> ${release}"
 api PATCH "/services/${PLANE_SERVICE_UUID}/envs" "$(jq -nc --arg v "$release" '{key:"APP_RELEASE",value:$v}')" >/dev/null
+# Read it back: a save on Coolify's env page has reset APP_RELEASE before.
+now="$(api GET "/services/${PLANE_SERVICE_UUID}/envs" | jq -r '[.[] | select(.key=="APP_RELEASE")][0].value // empty')"
+if [ -n "$now" ] && [ "$now" != "$release" ]; then
+  die "APP_RELEASE reads back as ${now}, not ${release}; nothing was deployed"
+fi
 api GET "/deploy?uuid=${PLANE_SERVICE_UUID}&force=false" >/dev/null
 log "Deploy triggered"
 
