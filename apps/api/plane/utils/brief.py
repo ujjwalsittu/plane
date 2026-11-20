@@ -20,6 +20,8 @@ from plane.utils.supervision import OPEN_GROUPS, blocked_items, is_agent_activit
 MENTION_SENDER = "in_app:issue_activities:mentioned"
 MENTION_DAYS = 14
 DEFAULT_WINDOW_HOURS = 24
+# "Done since you last looked" never reaches further back than this, however long someone was away.
+MAX_DONE_DAYS = 7
 MILESTONE_WINDOW_DAYS = 7
 EXCERPT_LENGTH = 160
 PROJECT_UPDATE_DAYS = 30
@@ -60,15 +62,21 @@ def _local_date(user, now):
     return now.astimezone(zone_for(user)).date()
 
 
-def _since(workspace_id, user, since):
+def last_seen(workspace_id, user):
+    """When the person last looked at the Brief, or None."""
     from plane.db.models import BriefVisit
 
+    visit = BriefVisit.objects.filter(workspace_id=workspace_id, user=user).first()
+    return visit.last_seen_at if visit is not None else None
+
+
+def _since(workspace_id, user, since, now):
     if since is not None:
         return since
-    visit = BriefVisit.objects.filter(workspace_id=workspace_id, user=user).first()
-    if visit is not None and visit.last_seen_at is not None:
-        return visit.last_seen_at
-    return timezone.now() - timedelta(hours=DEFAULT_WINDOW_HOURS)
+    seen = last_seen(workspace_id, user)
+    if seen is not None:
+        return max(seen, now - timedelta(days=MAX_DONE_DAYS))
+    return now - timedelta(hours=DEFAULT_WINDOW_HOURS)
 
 
 def _needs_me(workspace_id, user, now):
@@ -286,8 +294,10 @@ def _projects(workspace_id, user, now, today):
 
 
 def brief_for(workspace_id, user, since=None):
+    """The Brief for ``user``. ``since`` overrides the start of the "done" window (the default is the last
+    visit, at most a week back, or the last day on a first visit)."""
     now = timezone.now()
-    since = _since(workspace_id, user, since)
+    since = _since(workspace_id, user, since, now)
     return {
         "since": _iso(since),
         "generated_at": _iso(now),

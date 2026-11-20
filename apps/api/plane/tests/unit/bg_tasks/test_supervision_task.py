@@ -189,6 +189,27 @@ class TestSlackBrief:
             supervision_task.send_slack_briefs()
         assert len(slack.posts()) == 2
 
+    def test_slack_brief_covers_the_last_day_at_most(self, workspace, project, states, linked):
+        from datetime import timedelta
+
+        _assign(_issue(project, states["started"], "x"), linked)
+        cases = (
+            (NINE_IST - timedelta(days=3), NINE_IST - timedelta(hours=24)),  # long ago: the last 24h
+            (NINE_IST - timedelta(hours=2), NINE_IST - timedelta(hours=2)),  # recent visit: since then
+            (None, NINE_IST - timedelta(hours=24)),  # never opened the Brief
+        )
+        for seen, expected in cases:
+            BriefVisit.objects.update_or_create(
+                workspace=workspace, user=linked, defaults={"last_seen_at": seen, "slack_sent_on": None}
+            )
+            with (
+                patch("plane.utils.slack_app.requests.post", side_effect=FakeSlack()),
+                patch.object(supervision_task, "brief_for", wraps=brief_for) as built,
+                freeze_time(NINE_IST),
+            ):
+                supervision_task.send_slack_briefs()
+            assert built.call_args.kwargs["since"] == expected
+
     def test_one_workspace_failing_does_not_crash_the_task(self, workspace, linked):
         with patch.object(supervision_task, "_send_connection_briefs", side_effect=RuntimeError("boom")):
             supervision_task.send_slack_briefs()  # must not raise

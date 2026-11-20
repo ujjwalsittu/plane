@@ -19,7 +19,7 @@ from celery import shared_task
 # Module imports
 from plane.db.models import BriefVisit, DecisionRequest, Notification, SlackConnection, SlackUserLink
 from plane.utils import slack_app
-from plane.utils.brief import _milestones_due, brief_for, zone_for
+from plane.utils.brief import DEFAULT_WINDOW_HOURS, _milestones_due, brief_for, last_seen, zone_for
 from plane.utils.exception_logger import log_exception
 
 BRIEF_HOUR = 9
@@ -145,7 +145,12 @@ def _send_connection_briefs(connection, now=None):
             continue
         try:
             # Nothing to report today: stays marked, so it isn't rebuilt for the rest of the hour.
-            blocks = build_brief_blocks(slug, brief_for(connection.workspace_id, user))
+            # A daily message covers the last day at most, even when the Brief page was last opened long ago.
+            since = now - timedelta(hours=DEFAULT_WINDOW_HOURS)
+            seen = last_seen(connection.workspace_id, user)
+            if seen is not None and seen > since:
+                since = seen
+            blocks = build_brief_blocks(slug, brief_for(connection.workspace_id, user, since=since))
             error = slack_app.send_dm(connection, user, blocks, "Your Plane brief") if blocks else None
         except Exception as exc:  # one person's failure must not stop the rest; never log tokens
             log_exception(exc)

@@ -163,6 +163,23 @@ def test_done_defaults_to_last_24h_on_first_visit(session_client, workspace, pro
 
 @pytest.mark.contract
 @pytest.mark.django_db
+def test_old_last_seen_is_clamped_to_a_week(session_client, workspace, project, states, create_user):
+    now = timezone.now()
+    BriefVisit.objects.create(workspace=workspace, user=create_user, last_seen_at=now - timedelta(days=30))
+    within = _issue(project, states["started"], "within")
+    too_old = _issue(project, states["started"], "too old")
+    _complete(within, create_user, states, when=now - timedelta(days=6))
+    _complete(too_old, create_user, states, when=now - timedelta(days=8))
+
+    response = session_client.get(_url(workspace))
+    names = [i["issue"]["name"] for g in response.data["done"] for i in g["items"]]
+    assert names == ["within"]
+    since = timezone.datetime.fromisoformat(response.data["since"])
+    assert timedelta(days=7) - timedelta(minutes=1) < now - since <= timedelta(days=7) + timedelta(minutes=1)
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
 def test_seen_moves_the_window(session_client, workspace, project, states, create_user):
     item = _issue(project, states["started"], "item")
     _complete(item, create_user, states, when=timezone.now() - timedelta(hours=2))
