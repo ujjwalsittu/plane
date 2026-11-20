@@ -8,6 +8,7 @@
 import json
 import logging
 import re
+import uuid
 from urllib.parse import parse_qs
 
 # Django imports
@@ -80,7 +81,12 @@ class SlackInteractivityView(View):
         if payload.get("type") != "block_actions" or not match:
             return HttpResponse(status=200)  # not one of ours
         response_url = payload.get("response_url")
-        decision = DecisionRequest.objects.filter(pk=match.group(1)).select_related("issue").first()
+        try:
+            decision_id = uuid.UUID(match.group(1))
+        except ValueError:
+            _reply(response_url, _ephemeral("Unknown decision"))
+            return HttpResponse(status=200)
+        decision = DecisionRequest.objects.filter(pk=decision_id).select_related("issue").first()
         team_id = (payload.get("team") or {}).get("id") or (payload.get("user") or {}).get("team_id")
         slack_user = (payload.get("user") or {}).get("id")
         # The decision's own workspace must be the one connected to the Slack team that sent this.

@@ -482,3 +482,11 @@ class TestInteractivityChecks:
         assert post.call_args.kwargs["json"]["response_type"] == "ephemeral"
         decision.refresh_from_db()
         assert decision.status == "open"
+
+    def test_malformed_decision_id_gets_unknown_decision(self, client, workspace, project, states, linked):
+        payload = _click(_decision(_issue(project, states["started"]), linked), 0)
+        payload["actions"][0]["action_id"] = "decision:" + "-" * 36 + ":0"
+        response, post = self._post(client, payload)
+        assert response.status_code == 200
+        sent = post.call_args.kwargs["json"]
+        assert sent["response_type"] == "ephemeral" and sent["text"] == "Unknown decision"
