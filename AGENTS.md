@@ -54,6 +54,10 @@ See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooti
 
 Strings live in `packages/i18n/src/locales/<lang>/<namespace>.json`; `en` is the source of truth and every locale must have the same keys. Use the `translate` skill when changing locale files, and run `pnpm --filter=@plane/i18n sync:check` (CI runs it with `--ci`).
 
+## Upstream sync
+
+Merging a new upstream Plane release into `custom` follows `UPSTREAM_SYNC.md`. A daily `check_upstream_release` run opens a work item when one is published.
+
 ## Pull requests
 
 Open PRs against `preview`. New `.py`, `.ts` and `.tsx` files need the `COPYRIGHT.txt` header (checked in CI, see `COPYRIGHT_CHECK.md`).
