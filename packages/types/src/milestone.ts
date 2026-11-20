@@ -435,3 +435,92 @@ export type TTeamWorkload = {
   members: { member_id: string; open: number; started: number; completed: number }[];
   unassigned_open: number;
 };
+
+// --- supervision (brief, decisions, waiting) ----------------------------------------------------
+
+export type TSupervisionWorkItem = {
+  id: string;
+  name: string;
+  identifier: string;
+  project_id: string;
+  project_identifier: string;
+  state_group: string | null;
+  state_name: string | null;
+  priority: string;
+  target_date: string | null;
+  milestone_id: string | null;
+};
+
+export type TDecisionPerson = { id: string; display_name: string };
+
+export type TDecisionRequest = {
+  id: string;
+  issue_id: string;
+  question: string;
+  options: string[];
+  status: string;
+  answer: string | null;
+  asked_user: TDecisionPerson | null;
+  requested_by: TDecisionPerson | null;
+  answered_by: string | null;
+  answered_at: string | null;
+  created_at: string;
+  source: string;
+  issue?: TSupervisionWorkItem;
+};
+
+export type TBriefWhy = "assigned" | "mentioned" | "decision";
+
+export type TBriefNeedsMe = {
+  issue: TSupervisionWorkItem;
+  why: TBriefWhy;
+  decision_id: string | null;
+  due: string | null;
+  overdue: boolean;
+};
+
+export type TBlockedReasonKind = "blocked_by" | "waiting_on" | "stale";
+
+export type TBlockedItem = {
+  issue: TSupervisionWorkItem;
+  reasons: { kind: TBlockedReasonKind; detail: string; since: string | null }[];
+};
+
+export type TBriefDone = {
+  project_id: string;
+  project_identifier: string;
+  items: {
+    issue: TSupervisionWorkItem;
+    completed_at: string | null;
+    by: { id: string | null; display_name: string | null; is_agent: boolean };
+  }[];
+};
+
+export type TBriefMilestone = {
+  id: string;
+  title: string;
+  project_identifier: string;
+  target_date: string | null;
+  open: number;
+  total: number;
+  assigned_to_me_open: number;
+};
+
+export type TBrief = {
+  since: string | null;
+  generated_at: string;
+  needs_me: TBriefNeedsMe[];
+  blocked: TBlockedItem[];
+  done: TBriefDone[];
+  milestones_due: TBriefMilestone[];
+};
+
+export type TWorkItemWaiting = {
+  id: string;
+  issue_id: string;
+  waiting_on_user: string | null;
+  waiting_on_name: string | null;
+  waiting_on_text: string;
+  note: string;
+  since: string | null;
+};

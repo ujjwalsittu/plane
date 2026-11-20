@@ -7,6 +7,7 @@
 import {
   AnalyticsOutline,
   ArchiveOutline,
+  CheckDoneOutline,
   CyclesOutline,
   DraftsOutline,
   HomeOutline,
@@ -43,6 +44,8 @@ export const getSidebarNavigationItemIcon = (key: string, className: string = ""
       return <DraftsOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "archives":
       return <ArchiveOutline className={cn("size-4 flex-shrink-0", className)} />;
+    case "brief":
+      return <CheckDoneOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "releases":
       return <ReleasesOutline className={cn("size-4 flex-shrink-0", className)} />;
     case "templates":
