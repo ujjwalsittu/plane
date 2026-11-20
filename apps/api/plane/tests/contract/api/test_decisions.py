@@ -213,3 +213,36 @@ def test_answered_or_withdrawn_decision_leaves_the_inbox(api_key_client, workspa
 
     assert _client(person).post(_url(workspace, project, issue, f"{withdrawn_id}/withdraw/")).status_code == 200
     assert _action_ids(person, workspace) == []
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_answer_needs_a_live_item_and_active_membership(api_key_client, workspace, project, issue):
+    from plane.utils.decisions import answer_decision
+    from plane.utils.supervision import SupervisionError
+
+    person = _person(workspace, "alice@example.com", project)
+    decision = DecisionRequest.objects.get(pk=_ask(api_key_client, workspace, project, issue, person).data["id"])
+
+    ProjectMember.objects.filter(project=project, member=person).update(is_active=False)
+    with pytest.raises(SupervisionError) as removed:
+        answer_decision(decision, person, "Yes")
+    assert removed.value.status_code == 403
+    ProjectMember.objects.filter(project=project, member=person).update(is_active=True, role=5)
+    with pytest.raises(SupervisionError) as guest:
+        answer_decision(decision, person, "Yes")
+    assert guest.value.status_code == 403
+    ProjectMember.objects.filter(project=project, member=person).update(role=15)
+
+    Issue.objects.filter(pk=issue.pk).update(archived_at="2020-01-01")
+    with pytest.raises(SupervisionError) as archived:
+        answer_decision(decision, person, "Yes")
+    assert archived.value.status_code == 404
+
+    Issue.objects.filter(pk=issue.pk).update(archived_at=None, deleted_at="2020-01-01T00:00:00Z")
+    gone = _client(person).post(
+        _url(workspace, project, issue, f"{decision.id}/answer/"), {"answer": "Yes"}, format="json"
+    )
+    assert gone.status_code == 404
+    decision.refresh_from_db()
+    assert decision.status == "open"

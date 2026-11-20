@@ -113,10 +113,18 @@ def _close_notifications(decision, now):
 
 def answer_decision(decision, user, answer, source="app", origin=None):
     """Record `user`'s answer and write it onto the work item as a comment."""
-    from plane.db.models import DecisionRequest, IssueActivity, IssueComment
+    from plane.db.models import DecisionRequest, Issue, IssueActivity, IssueComment, ProjectMember
 
     if decision.asked_user_id != user.id:
         raise SupervisionError("Only the person asked can answer", status_code=403)
+    # Checked here so every caller (web, API, Slack buttons) gets it: the work item must still be live
+    # (not deleted, archived or a draft) and the person must still be able to write in the project.
+    if not Issue.issue_objects.filter(pk=decision.issue_id).exists():
+        raise SupervisionError("Work item not found", status_code=404)
+    if not ProjectMember.objects.filter(
+        project_id=decision.project_id, member_id=user.id, is_active=True, role__gte=15
+    ).exists():
+        raise SupervisionError("Only active members of the project can answer", status_code=403)
     answer = answer.strip() if isinstance(answer, str) else ""
 
     def _check(row):

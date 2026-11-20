@@ -413,3 +413,41 @@ class TestInteractivity:
             assert response.status_code == 200
         decision.refresh_from_db()
         assert decision.status == "open"
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestInteractivityChecks:
+    @pytest.fixture(autouse=True)
+    def _secret(self, settings):
+        settings.SLACK_SIGNING_SECRET = SECRET
+        settings.WEB_URL = "https://plane.example.com"
+
+    def _post(self, client, payload):
+        body, headers = _signed(payload)
+        with patch("plane.app.views.slack_interactivity.requests.post") as post:
+            response = client.post(
+                INTERACTIVITY_URL, data=body, content_type="application/x-www-form-urlencoded", **headers
+            )
+        return response, post
+
+    def test_deleted_item_gets_ephemeral_reply(self, client, workspace, project, states, linked):
+        issue = _issue(project, states["started"])
+        decision = _decision(issue, linked)
+        Issue.objects.filter(pk=issue.pk).update(deleted_at="2020-01-01T00:00:00Z")
+        response, post = self._post(client, _click(decision, 0))
+        assert response.status_code == 200
+        sent = post.call_args.kwargs["json"]
+        assert sent["response_type"] == "ephemeral" and sent["replace_original"] is False
+        assert "not found" in sent["text"].lower()
+        decision.refresh_from_db()
+        assert decision.status == "open"
+
+    def test_removed_member_gets_ephemeral_reply(self, client, workspace, project, states, linked):
+        decision = _decision(_issue(project, states["started"]), linked)
+        ProjectMember.objects.filter(project=project, member=linked).update(is_active=False)
+        response, post = self._post(client, _click(decision, 0))
+        assert response.status_code == 200
+        assert post.call_args.kwargs["json"]["response_type"] == "ephemeral"
+        decision.refresh_from_db()
+        assert decision.status == "open"
