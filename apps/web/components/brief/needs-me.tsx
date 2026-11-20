@@ -46,10 +46,11 @@ export function NeedsMeColumn({
                 <span className="text-caption-md-regular text-tertiary">{t("supervision.due", { date: due })}</span>
               )}
             </div>
-            {row.decision_id && !decision && (
-              <p className="text-caption-md-regular text-tertiary">
-                {decisionsError ? t("supervision.decisions_error") : t("supervision.decisions_loading")}
-              </p>
+            {row.decision_id && !decision && decisions === undefined && !decisionsError && (
+              <p className="text-caption-md-regular text-tertiary">{t("supervision.decisions_loading")}</p>
+            )}
+            {row.decision_id && !decision && decisionsError && (
+              <p className="text-caption-md-regular text-tertiary">{t("supervision.decisions_error")}</p>
             )}
             {decision && (
               <DecisionAnswer

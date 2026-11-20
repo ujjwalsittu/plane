@@ -79,4 +79,35 @@ export class SupervisionService extends APIService {
   clearWaiting(workspaceSlug: string, projectId: string, issueId: string): Promise<void> {
     return this.call(this.delete(this.waitingUrl(workspaceSlug, projectId, issueId)));
   }
+
+  private decisionsUrl(workspaceSlug: string, projectId: string, issueId: string) {
+    return `${this.base(workspaceSlug)}/projects/${projectId}/issues/${issueId}/decisions/`;
+  }
+
+  listWorkItemDecisions(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    status = "open"
+  ): Promise<TDecisionRequest[]> {
+    return this.call(this.get(this.decisionsUrl(workspaceSlug, projectId, issueId), { params: { status } }));
+  }
+
+  createDecision(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    data: { asked_user: string; question: string; options: string[] }
+  ): Promise<TDecisionRequest> {
+    return this.call(this.post(this.decisionsUrl(workspaceSlug, projectId, issueId), data));
+  }
+
+  withdrawDecision(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    decisionId: string
+  ): Promise<TDecisionRequest> {
+    return this.call(this.post(`${this.decisionsUrl(workspaceSlug, projectId, issueId)}${decisionId}/withdraw/`));
+  }
 }
