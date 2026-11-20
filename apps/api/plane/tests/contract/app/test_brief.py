@@ -127,7 +127,7 @@ def test_needs_me_orders_overdue_first(session_client, workspace, project, state
     assert by_name["asked"]["decision_id"] == str(decision.id)
     assert by_name["via milestone"]["due"] == (today + timedelta(days=3)).isoformat()
     assert by_name["undated"]["due"] is None and by_name["later"]["decision_id"] is None
-    assert set(response.data) == {"since", "generated_at", "needs_me", "blocked", "done", "milestones_due"}
+    assert set(response.data) == {"since", "generated_at", "needs_me", "blocked", "done", "milestones_due", "projects"}
 
 
 @pytest.mark.contract
