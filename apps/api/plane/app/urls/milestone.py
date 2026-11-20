@@ -342,6 +342,11 @@ urlpatterns = [
         name="app-work-item-decision-withdraw",
     ),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/updates/",
+        supervision_views.ProjectUpdateEndpoint.as_view(http_method_names=["get", "post"]),
+        name="app-project-updates",
+    ),
+    path(
         "workspaces/<str:slug>/decisions/",
         supervision_views.MyDecisionsEndpoint.as_view(http_method_names=["get"]),
         name="app-my-decisions",

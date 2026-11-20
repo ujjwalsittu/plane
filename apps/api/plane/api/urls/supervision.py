@@ -8,6 +8,7 @@ from plane.api.views.supervision import (
     DecisionAnswerAPIEndpoint,
     DecisionRequestAPIEndpoint,
     DecisionWithdrawAPIEndpoint,
+    ProjectUpdateAPIEndpoint,
     WorkItemWaitingAPIEndpoint,
 )
 
@@ -40,3 +41,13 @@ for _suffix, _slash in (("/", True), ("", False)):
             name=f"work-item-decision-withdraw{_tag}",
         ),
     ]
+
+_updates = "workspaces/<str:slug>/projects/<uuid:project_id>/updates"
+urlpatterns += [
+    path(f"{_updates}/", ProjectUpdateAPIEndpoint.as_view(http_method_names=["get", "post"]), name="project-updates"),
+    path(
+        _updates,
+        ProjectUpdateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="project-updates-no-slash",
+    ),
+]

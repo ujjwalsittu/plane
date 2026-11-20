@@ -127,3 +127,20 @@ class SlackUserLink(BaseModel):
                 name="slack_user_link_unique_workspace_user",
             )
         ]
+
+
+class ProjectUpdate(ProjectBaseModel):
+    """A status post on a project: how it is going, in a sentence or two. Agents post these over the API."""
+
+    HEALTH_CHOICES = (("on_track", "On track"), ("at_risk", "At risk"), ("off_track", "Off track"))
+
+    health = models.CharField(max_length=16, choices=HEALTH_CHOICES)
+    body_html = models.TextField(blank=True, default="")
+    # "api" when posted through an API key, "app" for the browser session
+    source = models.CharField(max_length=8, default="app")
+
+    class Meta:
+        verbose_name = "Project Update"
+        verbose_name_plural = "Project Updates"
+        db_table = "project_updates"
+        ordering = ("-created_at",)

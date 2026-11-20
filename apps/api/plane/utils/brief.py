@@ -10,14 +10,18 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from plane.utils.decisions import decisions_for
+from plane.utils.project_health import finish_from_counts, health_for, project_counts
 from plane.utils.supervision import OPEN_GROUPS, blocked_items, is_agent_activity, work_item_payload
 
 MENTION_SENDER = "in_app:issue_activities:mentioned"
 MENTION_DAYS = 14
 DEFAULT_WINDOW_HOURS = 24
 MILESTONE_WINDOW_DAYS = 7
+EXCERPT_LENGTH = 160
+PROJECT_UPDATE_DAYS = 30
 
 
 def _iso(value):
@@ -218,6 +222,66 @@ def _milestones_due(workspace_id, user, today):
     return rows
 
 
+def _excerpt(html):
+    text = " ".join(strip_tags(html or "").split())
+    return text if len(text) <= EXCERPT_LENGTH else text[: EXCERPT_LENGTH - 1].rstrip() + "\u2026"
+
+
+def _projects(workspace_id, user, now, today):
+    """Projects the person is in that have open work or a recent update, with health and predicted finish.
+
+    Four queries however many projects there are: members, grouped counts, latest updates, the rows."""
+    from plane.db.models import Project, ProjectMember, ProjectUpdate
+
+    member_of = ProjectMember.objects.filter(
+        workspace_id=workspace_id, member=user, is_active=True, project__deleted_at__isnull=True
+    ).values("project_id")
+    projects = list(
+        Project.objects.filter(workspace_id=workspace_id, id__in=member_of, archived_at__isnull=True).order_by(
+            "identifier"
+        )
+    )
+    ids = [project.id for project in projects]
+    counts = project_counts(_visible_issues(user, workspace_id), ids, now)
+    # Newest first; the first row seen per project is its latest update.
+    latest = {}
+    recent = ProjectUpdate.objects.filter(
+        workspace_id=workspace_id, project_id__in=ids, created_at__gte=now - timedelta(days=PROJECT_UPDATE_DAYS)
+    ).select_related("created_by")
+    for update in recent:
+        latest.setdefault(update.project_id, update)
+    rows = []
+    for project in projects:
+        open_count, done = counts.get(project.id, (0, 0))
+        update = latest.get(project.id)
+        if not open_count and update is None:
+            continue
+        predicted = finish_from_counts(open_count, done, today)
+        by = update.created_by if update else None
+        rows.append(
+            {
+                "id": str(project.id),
+                "identifier": project.identifier,
+                "name": project.name,
+                "health": health_for(update, predicted, project.target_date),
+                "latest_update": None
+                if update is None
+                else {
+                    "health": update.health,
+                    "excerpt": _excerpt(update.body_html),
+                    "created_at": _iso(update.created_at),
+                    "by": {
+                        "display_name": (by.display_name or by.email.split("@")[0]) if by else None,
+                        "is_agent": update.source == "api" or bool(by and by.is_bot),
+                    },
+                },
+                "predicted_finish": _iso(predicted),
+                "target_date": _iso(project.target_date),
+            }
+        )
+    return rows
+
+
 def brief_for(workspace_id, user, since=None):
     now = timezone.now()
     since = _since(workspace_id, user, since)
@@ -228,6 +292,7 @@ def brief_for(workspace_id, user, since=None):
         "blocked": blocked_items(workspace_id, user),
         "done": _done(workspace_id, user, since),
         "milestones_due": _milestones_due(workspace_id, user, _local_date(user, now)),
+        "projects": _projects(workspace_id, user, now, _local_date(user, now)),
     }
 
 

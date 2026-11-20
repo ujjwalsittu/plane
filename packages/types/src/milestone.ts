@@ -506,6 +506,23 @@ export type TBriefMilestone = {
   assigned_to_me_open: number;
 };
 
+export type TProjectHealth = "on_track" | "at_risk" | "off_track";
+
+export type TBriefProject = {
+  id: string;
+  identifier: string;
+  name: string;
+  health: TProjectHealth;
+  latest_update: {
+    health: TProjectHealth;
+    excerpt: string;
+    created_at: string;
+    by: { display_name: string | null; is_agent: boolean };
+  } | null;
+  predicted_finish: string | null;
+  target_date: string | null;
+};
+
 export type TBrief = {
   since: string | null;
   generated_at: string;
@@ -513,6 +530,7 @@ export type TBrief = {
   blocked: TBlockedItem[];
   done: TBriefDone[];
   milestones_due: TBriefMilestone[];
+  projects: TBriefProject[];
 };
 
 export type TBriefSummary = {

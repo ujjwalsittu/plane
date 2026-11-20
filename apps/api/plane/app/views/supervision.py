@@ -39,6 +39,10 @@ class DecisionWithdrawEndpoint(_Session, api.DecisionWithdrawAPIEndpoint):
     source = "app"
 
 
+class ProjectUpdateEndpoint(_Session, api.ProjectUpdateAPIEndpoint):
+    source = "app"
+
+
 class MyDecisionsEndpoint(_Session, api.MyDecisionsAPIEndpoint):
     pass
 
