@@ -5,6 +5,7 @@
 """Slack messages for supervision: the daily brief, milestone alerts and decision requests."""
 
 # Python imports
+import logging
 import uuid
 from datetime import date, timedelta
 
@@ -26,6 +27,16 @@ TOP = 5
 MAX_NAME = 120
 MAX_BUTTON = 75
 RATE_LIMITED = "ratelimited"
+MAX_QUESTION = 2500
+
+logger = logging.getLogger("plane.worker")
+
+
+def _log_send_error(kind, error):
+    """Log why a Slack DM was not sent: Slack's error code only, never the token or the message."""
+    if error is not None:
+        level = logging.INFO if error == "not_linked" else logging.WARNING
+        logger.log(level, "Slack %s DM not sent: %s", kind, error)
 
 
 def escape_mrkdwn(value):
@@ -139,6 +150,7 @@ def _send_connection_briefs(connection, now=None):
         except Exception as exc:  # one person's failure must not stop the rest; never log tokens
             log_exception(exc)
             error = "exception"
+        _log_send_error("brief", error)
         if error is not None:
             _release(connection.workspace_id, user, today, previous[0])
         if error == RATE_LIMITED or connection.status == "broken":
@@ -184,6 +196,7 @@ def _send_connection_milestone_alerts(connection, now):
             )
         blocks = [_list_section("Milestones needing attention", len(due), lines), _open_brief_button(slug)]
         error = slack_app.send_dm(connection, user, blocks, "Milestones due soon")
+        _log_send_error("milestone alert", error)
         if error == RATE_LIMITED or connection.status == "broken":
             return
 
@@ -207,7 +220,7 @@ def _decision_blocks(decision):
     blocks = [
         _section(
             f"*Decision needed* on <{url}|{identifier}> {escape_mrkdwn(_short(issue.name))}\n"
-            f"{escape_mrkdwn(decision.question)}"
+            f"{escape_mrkdwn(_short(decision.question, MAX_QUESTION))}"
         )
     ]
     if decision.options:
@@ -271,6 +284,7 @@ def notify_decision(decision_id):
     if connection is None:
         return
     try:
-        slack_app.send_dm(connection, decision.asked_user, _decision_blocks(decision), "Decision needed")
+        error = slack_app.send_dm(connection, decision.asked_user, _decision_blocks(decision), "Decision needed")
+        _log_send_error("decision", error)
     except Exception as exc:
         log_exception(exc)

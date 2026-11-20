@@ -300,6 +300,16 @@ class TestDecisionDm:
         assert elements[0]["url"].endswith("/test-workspace/browse/ALP-1/")
         assert elements[0]["text"]["text"] == "Answer in Plane"
 
+    def test_long_question_is_shortened_and_send_errors_logged(self, workspace, project, states, linked, caplog):
+        decision = _decision(_issue(project, states["started"]), linked, question="q" * 4000)
+        slack = FakeSlack(ratelimit_on="chat.postMessage")
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack), caplog.at_level("INFO"):
+            supervision_task.notify_decision(str(decision.id))
+        section = json.loads(slack.posts()[0]["blocks"])[0]["text"]["text"]
+        assert len(section) < 3000 and section.endswith("\u2026")
+        assert "Slack decision DM not sent: ratelimited" in caplog.text
+        assert "xoxb-secret" not in caplog.text
+
     def test_answered_decision_is_not_sent(self, workspace, project, states, linked):
         decision = _decision(_issue(project, states["started"]), linked, status="answered", answer="Yes")
         slack = FakeSlack()

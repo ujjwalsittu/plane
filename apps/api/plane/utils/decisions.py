@@ -16,6 +16,8 @@ from plane.utils.supervision import SupervisionError, work_item_payload
 MAX_OPTIONS = 10
 MAX_OPTION_LENGTH = 255
 MAX_ANSWER_LENGTH = 5000
+# Slack refuses a DM section over 3000 characters; the DM shortens anything older and longer to 2500.
+MAX_QUESTION_LENGTH = 2000
 
 
 def on_decision_created(decision):
@@ -76,6 +78,8 @@ def create_decision(issue, data, actor, source):
     question = question.strip() if isinstance(question, str) else ""
     if not question:
         raise SupervisionError("question is required", field="question")
+    if len(question) > MAX_QUESTION_LENGTH:
+        raise SupervisionError(f"question must be at most {MAX_QUESTION_LENGTH} characters", field="question")
     options = _clean_options(data.get("options"))
     try:
         asked_id = uuid.UUID(str(data.get("asked_user")))

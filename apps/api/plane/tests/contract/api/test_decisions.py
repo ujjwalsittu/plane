@@ -162,6 +162,8 @@ def test_create_validation(api_key_client, workspace, project, issue):
     assert refused.status_code == 400 and "asked_user" in refused.data
     assert api_key_client.post(_url(workspace, project, issue), {"question": "Q"}, format="json").status_code == 400
     assert _ask(api_key_client, workspace, project, issue, member, question="  ").status_code == 400
+    too_long = _ask(api_key_client, workspace, project, issue, member, question="q" * 2001)
+    assert too_long.status_code == 400 and "question" in too_long.data
     assert (
         _ask(api_key_client, workspace, project, issue, member, options=[str(i) for i in range(11)]).status_code == 400
     )
