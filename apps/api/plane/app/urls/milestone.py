@@ -47,6 +47,7 @@ from plane.app.views.initiative import (
     InitiativeWorkItemEndpoint,
 )
 from plane.app.views import release as release_views
+from plane.app.views import supervision as supervision_views
 from plane.app.views import template as template_views
 from plane.app.views import teamspace as teamspace_views
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
@@ -316,5 +317,10 @@ urlpatterns = [
         "workspaces/<str:slug>/teamspaces/<uuid:team_id>/workload/",
         teamspace_views.TeamspaceWorkloadEndpoint.as_view(),
         name="app-teamspace-workload",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/waiting/",
+        supervision_views.WorkItemWaitingEndpoint.as_view(),
+        name="app-work-item-waiting",
     ),
 ]

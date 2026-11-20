@@ -23,6 +23,7 @@ from .work_log import urlpatterns as work_log_patterns
 from .github import urlpatterns as github_patterns
 from .initiative import urlpatterns as initiative_patterns
 from .release import urlpatterns as release_patterns
+from .supervision import urlpatterns as supervision_patterns
 from .template import urlpatterns as template_patterns
 from .teamspace import urlpatterns as teamspace_patterns
 from .work_item_count import urlpatterns as work_item_count_patterns
@@ -50,6 +51,7 @@ urlpatterns = [
     *github_patterns,
     *initiative_patterns,
     *release_patterns,
+    *supervision_patterns,
     *template_patterns,
     *teamspace_patterns,
 ]
