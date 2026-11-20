@@ -6,6 +6,7 @@
 
 from collections import defaultdict
 from datetime import timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -32,6 +33,15 @@ def _visible_issues(user, workspace_id):
     return Issue.issue_objects.filter(workspace_id=workspace_id, id__in=visible)
 
 
+def _local_date(user, now):
+    """Today's date in the person's own timezone (UTC when unset or unknown)."""
+    try:
+        zone = ZoneInfo(user.user_timezone or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("UTC")
+    return now.astimezone(zone).date()
+
+
 def _since(workspace_id, user, since):
     from plane.db.models import BriefVisit
 
@@ -49,7 +59,10 @@ def _needs_me(workspace_id, user, now):
     visible = _visible_issues(user, workspace_id).filter(state__group__in=OPEN_GROUPS)
     wanted = []  # (issue_id, why, decision_id)
     wanted += [
-        (pk, "assigned", None) for pk in visible.filter(issue_assignee__assignee=user).values_list("id", flat=True)
+        (pk, "assigned", None)
+        for pk in visible.filter(issue_assignee__assignee=user, issue_assignee__deleted_at__isnull=True).values_list(
+            "id", flat=True
+        )
     ]
     mentioned = (
         Notification.objects.filter(
@@ -60,19 +73,31 @@ def _needs_me(workspace_id, user, now):
             created_at__gte=now - timedelta(days=MENTION_DAYS),
             entity_identifier__in=visible.values("id"),
         )
+        .order_by()
         .values_list("entity_identifier", flat=True)
         .distinct()
     )
     wanted += [(pk, "mentioned", None) for pk in mentioned]
     decisions = decisions_for(workspace_id, user)
+    # Oldest decision first, so the oldest one wins when an item has several.
+    decisions.sort(key=lambda decision: decision["created_at"])
     wanted += [(decision["issue"]["id"], "decision", decision["id"]) for decision in decisions]
+
+    # One row per work item: decision > mentioned > assigned; the first of a kind wins.
+    rank = {"decision": 0, "mentioned": 1, "assigned": 2}
+    best = {}
+    for pk, why, decision_id in wanted:
+        key = str(pk)
+        if key not in best or rank[why] < rank[best[key][1]]:
+            best[key] = (pk, why, decision_id)
+    wanted = list(best.values())
 
     ids = {pk for pk, _, _ in wanted}
     issues = {
         str(issue.id): issue
         for issue in Issue.issue_objects.filter(id__in=ids).select_related("state", "project", "milestone")
     }
-    today = now.date()
+    today = _local_date(user, now)
     rows = []
     for pk, why, decision_id in wanted:
         issue = issues.get(str(pk))
@@ -149,7 +174,15 @@ def _milestones_due(workspace_id, user, today):
         .annotate(
             total=Count("id", distinct=True),
             open=Count("id", filter=Q(state__group__in=OPEN_GROUPS), distinct=True),
-            mine=Count("id", filter=Q(state__group__in=OPEN_GROUPS, issue_assignee__assignee=user), distinct=True),
+            mine=Count(
+                "id",
+                filter=Q(
+                    state__group__in=OPEN_GROUPS,
+                    issue_assignee__assignee=user,
+                    issue_assignee__deleted_at__isnull=True,
+                ),
+                distinct=True,
+            ),
         )
     }
     rows = []
@@ -181,7 +214,7 @@ def brief_for(workspace_id, user, since=None):
         "needs_me": _needs_me(workspace_id, user, now),
         "blocked": blocked_items(workspace_id, user),
         "done": _done(workspace_id, user, since),
-        "milestones_due": _milestones_due(workspace_id, user, now.date()),
+        "milestones_due": _milestones_due(workspace_id, user, _local_date(user, now)),
     }
 
 

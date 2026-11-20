@@ -235,3 +235,85 @@ def test_brief_hides_projects_user_is_not_in(session_client, workspace, project,
     response = session_client.get(_url(workspace))
     assert [r["issue"]["name"] for r in response.data["needs_me"]] == ["visible"]
     assert response.data["done"] == [] and response.data["milestones_due"] == []
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_removed_assignee_is_not_counted(session_client, workspace, project, states, create_user):
+    today = timezone.now().date()
+    milestone = Milestone.objects.create(title="M", project=project, workspace=workspace, target_date=today)
+    item = _issue(project, states["started"], "dropped", milestone=milestone)
+    _assign(item, create_user)
+    before = session_client.get(_url(workspace)).data
+    assert [r["issue"]["name"] for r in before["needs_me"]] == ["dropped"]
+    assert before["milestones_due"][0]["assigned_to_me_open"] == 1
+
+    IssueAssignee.objects.get(issue=item, assignee=create_user).delete()
+    after = session_client.get(_url(workspace)).data
+    assert after["needs_me"] == []
+    assert after["milestones_due"][0]["assigned_to_me_open"] == 0
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_one_row_per_item_with_priority(session_client, workspace, project, states, create_user):
+    asker = User.objects.create(email="bot2@example.com", username="bot2", first_name="Bot")
+    twice = _issue(project, states["started"], "twice mentioned")
+    _mention(workspace, project, twice, create_user)
+    _mention(workspace, project, twice, create_user)
+    everything = _issue(project, states["started"], "everything")
+    _assign(everything, create_user)
+    _mention(workspace, project, everything, create_user)
+    first = DecisionRequest.objects.create(
+        issue=everything,
+        project=project,
+        workspace=workspace,
+        asked_user=create_user,
+        question="One?",
+        created_by=asker,
+    )
+    DecisionRequest.objects.create(
+        issue=everything,
+        project=project,
+        workspace=workspace,
+        asked_user=create_user,
+        question="Two?",
+        created_by=asker,
+    )
+    mention_assigned = _issue(project, states["started"], "mention and assigned")
+    _assign(mention_assigned, create_user)
+    _mention(workspace, project, mention_assigned, create_user)
+
+    rows = {r["issue"]["name"]: r for r in session_client.get(_url(workspace)).data["needs_me"]}
+    assert len(session_client.get(_url(workspace)).data["needs_me"]) == 3
+    assert rows["twice mentioned"]["why"] == "mentioned"
+    assert rows["everything"]["why"] == "decision" and rows["everything"]["decision_id"] == str(first.id)
+    assert rows["mention and assigned"]["why"] == "mentioned" and rows["mention and assigned"]["decision_id"] is None
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_today_uses_the_users_timezone(session_client, workspace, project, states, create_user):
+    from datetime import datetime
+    from unittest import mock
+    from zoneinfo import ZoneInfo
+
+    create_user.user_timezone = "Pacific/Auckland"
+    create_user.save()
+    fixed = datetime(2026, 5, 10, 20, 0, tzinfo=ZoneInfo("UTC"))  # already May 11 in Auckland
+    item = _issue(project, states["started"], "due on utc day", target_date=fixed.date())
+    _assign(item, create_user)
+    soon = Milestone.objects.create(
+        title="Edge", project=project, workspace=workspace, target_date=datetime(2026, 5, 18).date()
+    )
+    _issue(project, states["started"], "open", milestone=soon)
+    with mock.patch("plane.utils.brief.timezone.now", return_value=fixed):
+        data = session_client.get(_url(workspace)).data
+    assert data["needs_me"][0]["overdue"] is True  # May 10 is yesterday for this person
+    assert [m["title"] for m in data["milestones_due"]] == ["Edge"]  # May 11 + 7 reaches May 18
+
+    create_user.user_timezone = "UTC"
+    create_user.save()
+    with mock.patch("plane.utils.brief.timezone.now", return_value=fixed):
+        data = session_client.get(_url(workspace)).data
+    assert data["needs_me"][0]["overdue"] is False and data["milestones_due"] == []
