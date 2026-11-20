@@ -1,0 +1,168 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
+"""Decision requests: an agent asks a person, the answer lands on the work item as a comment."""
+
+from html import escape
+
+from django.db import transaction
+from django.utils import timezone
+
+from plane.utils.supervision import SupervisionError, work_item_payload
+
+MAX_OPTIONS = 10
+MAX_OPTION_LENGTH = 255
+MAX_ANSWER_LENGTH = 5000
+
+
+def on_decision_created(decision):
+    """Called right after a decision is created. Does nothing yet; later work notifies the asked person."""
+
+
+def _name(user):
+    return (user.display_name or user.email) if user else None
+
+
+def decision_payload(decision, issue=None):
+    payload = {
+        "id": str(decision.id),
+        "issue_id": str(decision.issue_id),
+        "question": decision.question,
+        "options": decision.options,
+        "status": decision.status,
+        "answer": decision.answer,
+        "asked_user": str(decision.asked_user_id),
+        "requested_by": _name(decision.created_by),
+        "answered_by": str(decision.answered_by_id) if decision.answered_by_id else None,
+        "answered_at": decision.answered_at.isoformat() if decision.answered_at else None,
+        "created_at": decision.created_at.isoformat(),
+        "source": decision.source,
+    }
+    if issue is not None:
+        payload["issue"] = work_item_payload(issue)
+    return payload
+
+
+def _clean_options(raw):
+    if raw in (None, ""):
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_OPTIONS:
+        raise SupervisionError(f"options must be a list of at most {MAX_OPTIONS} strings", field="options")
+    options = []
+    for option in raw:
+        if not isinstance(option, str) or not option.strip() or len(option.strip()) > MAX_OPTION_LENGTH:
+            raise SupervisionError(
+                f"Each option must be a non-empty string of at most {MAX_OPTION_LENGTH} characters", field="options"
+            )
+        options.append(option.strip())
+    return options
+
+
+def create_decision(issue, data, actor, source):
+    """Ask a project member for a decision on `issue`."""
+    import uuid
+
+    from plane.db.models import DecisionRequest, ProjectMember
+
+    question = data.get("question")
+    question = question.strip() if isinstance(question, str) else ""
+    if not question:
+        raise SupervisionError("question is required", field="question")
+    options = _clean_options(data.get("options"))
+    try:
+        asked_id = uuid.UUID(str(data.get("asked_user")))
+    except ValueError:
+        raise SupervisionError("asked_user must be a user id", field="asked_user")
+    if not ProjectMember.objects.filter(project_id=issue.project_id, member_id=asked_id, is_active=True).exists():
+        raise SupervisionError("asked_user must be an active member of the project", field="asked_user")
+
+    decision = DecisionRequest.objects.create(
+        issue=issue,
+        project_id=issue.project_id,
+        workspace_id=issue.workspace_id,
+        asked_user_id=asked_id,
+        question=question,
+        options=options,
+        source=source,
+        created_by=actor,
+    )
+    on_decision_created(decision)
+    return decision
+
+
+def answer_decision(decision, user, answer, source="app"):
+    """Record `user`'s answer and write it onto the work item as a comment."""
+    from plane.db.models import DecisionRequest, IssueActivity, IssueComment
+
+    if decision.asked_user_id != user.id:
+        raise SupervisionError("Only the person asked can answer", status_code=403)
+    answer = answer.strip() if isinstance(answer, str) else ""
+    if not answer or len(answer) > MAX_ANSWER_LENGTH:
+        raise SupervisionError(f"answer is required and at most {MAX_ANSWER_LENGTH} characters", field="answer")
+    if decision.options and answer not in decision.options:
+        raise SupervisionError("answer must be one of the options", field="answer")
+
+    with transaction.atomic():
+        locked = DecisionRequest.objects.select_for_update().get(pk=decision.pk)
+        if locked.status != "open":
+            raise SupervisionError(f"This decision is already {locked.status}", status_code=409)
+        locked.status = "answered"
+        locked.answer = answer
+        locked.answered_by = user
+        locked.answered_at = timezone.now()
+        locked.updated_by = user
+        locked.save()
+        issue = locked.issue
+        comment = IssueComment.objects.create(
+            issue=issue,
+            project_id=issue.project_id,
+            workspace_id=issue.workspace_id,
+            actor=user,
+            created_by=user,
+            comment_html=f"<p>Decision: <strong>{escape(answer)}</strong></p><p>{escape(locked.question)}</p>",
+        )
+        IssueActivity.objects.create(
+            issue=issue,
+            project_id=issue.project_id,
+            workspace_id=issue.workspace_id,
+            actor=user,
+            verb="updated",
+            field="decision",
+            comment=f"answered a decision: {answer}",
+            new_value=answer,
+            issue_comment=comment,
+            epoch=timezone.now().timestamp(),
+            source=source,
+        )
+    return locked
+
+
+def withdraw_decision(decision, user):
+    """The person who asked, or the person asked, takes an open decision back."""
+    from plane.db.models import DecisionRequest
+
+    if user.id not in (decision.created_by_id, decision.asked_user_id):
+        raise SupervisionError("Only the asker or the person asked can withdraw", status_code=403)
+    with transaction.atomic():
+        locked = DecisionRequest.objects.select_for_update().get(pk=decision.pk)
+        if locked.status != "open":
+            raise SupervisionError(f"This decision is already {locked.status}", status_code=409)
+        locked.status = "withdrawn"
+        locked.updated_by = user
+        locked.save()
+    return locked
+
+
+def decisions_for(workspace_id, user, status="open"):
+    """Decisions asked of `user`, limited to work items they can see."""
+    from plane.api.views.issue import visible_issue_q
+    from plane.db.models import DecisionRequest, Issue
+
+    visible = Issue.issue_objects.filter(visible_issue_q(user)).values("id")
+    rows = (
+        DecisionRequest.objects.filter(workspace_id=workspace_id, asked_user=user, status=status, issue_id__in=visible)
+        .select_related("issue", "issue__project", "issue__state", "created_by")
+        .order_by("-created_at")
+    )
+    return [decision_payload(row, row.issue) for row in rows]

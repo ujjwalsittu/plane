@@ -4,7 +4,12 @@
 
 from django.urls import path
 
-from plane.api.views.supervision import WorkItemWaitingAPIEndpoint
+from plane.api.views.supervision import (
+    DecisionAnswerAPIEndpoint,
+    DecisionRequestAPIEndpoint,
+    DecisionWithdrawAPIEndpoint,
+    WorkItemWaitingAPIEndpoint,
+)
 
 _route = "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/waiting"
 _methods = ["get", "put", "delete"]
@@ -14,3 +19,24 @@ urlpatterns = [
     path(f"{_route}/", WorkItemWaitingAPIEndpoint.as_view(http_method_names=_methods), name="work-item-waiting"),
     path(_route, WorkItemWaitingAPIEndpoint.as_view(http_method_names=_methods), name="work-item-waiting-no-slash"),
 ]
+
+_decisions = "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/decisions"
+for _suffix, _slash in (("/", True), ("", False)):
+    _tag = "" if _slash else "-no-slash"
+    urlpatterns += [
+        path(
+            f"{_decisions}{_suffix}",
+            DecisionRequestAPIEndpoint.as_view(http_method_names=["get", "post"]),
+            name=f"work-item-decisions{_tag}",
+        ),
+        path(
+            f"{_decisions}/<uuid:decision_id>/answer{_suffix}",
+            DecisionAnswerAPIEndpoint.as_view(http_method_names=["post"]),
+            name=f"work-item-decision-answer{_tag}",
+        ),
+        path(
+            f"{_decisions}/<uuid:decision_id>/withdraw{_suffix}",
+            DecisionWithdrawAPIEndpoint.as_view(http_method_names=["post"]),
+            name=f"work-item-decision-withdraw{_tag}",
+        ),
+    ]

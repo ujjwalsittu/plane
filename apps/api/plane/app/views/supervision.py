@@ -17,3 +17,19 @@ class _Session:
 
 class WorkItemWaitingEndpoint(_Session, api.WorkItemWaitingAPIEndpoint):
     pass
+
+
+class DecisionRequestEndpoint(_Session, api.DecisionRequestAPIEndpoint):
+    source = "app"
+
+
+class DecisionAnswerEndpoint(_Session, api.DecisionAnswerAPIEndpoint):
+    source = "app"
+
+
+class DecisionWithdrawEndpoint(_Session, api.DecisionWithdrawAPIEndpoint):
+    source = "app"
+
+
+class MyDecisionsEndpoint(_Session, api.MyDecisionsAPIEndpoint):
+    pass

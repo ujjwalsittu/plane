@@ -323,4 +323,24 @@ urlpatterns = [
         supervision_views.WorkItemWaitingEndpoint.as_view(),
         name="app-work-item-waiting",
     ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/decisions/",
+        supervision_views.DecisionRequestEndpoint.as_view(http_method_names=["get", "post"]),
+        name="app-work-item-decisions",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/decisions/<uuid:decision_id>/answer/",
+        supervision_views.DecisionAnswerEndpoint.as_view(http_method_names=["post"]),
+        name="app-work-item-decision-answer",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/decisions/<uuid:decision_id>/withdraw/",
+        supervision_views.DecisionWithdrawEndpoint.as_view(http_method_names=["post"]),
+        name="app-work-item-decision-withdraw",
+    ),
+    path(
+        "workspaces/<str:slug>/decisions/",
+        supervision_views.MyDecisionsEndpoint.as_view(http_method_names=["get"]),
+        name="app-my-decisions",
+    ),
 ]

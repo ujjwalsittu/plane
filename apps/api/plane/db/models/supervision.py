@@ -37,3 +37,30 @@ class WorkItemWaiting(ProjectBaseModel):
                 name="work_item_waiting_one_open_per_issue",
             )
         ]
+
+
+class DecisionRequest(ProjectBaseModel):
+    """A question an agent (or person) asks a person about a work item. Answering writes a comment
+    on the work item, which is where the asker reads the answer."""
+
+    STATUS_CHOICES = (("open", "Open"), ("answered", "Answered"), ("withdrawn", "Withdrawn"))
+
+    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="decision_requests")
+    asked_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="decisions_asked")
+    question = models.TextField()
+    # Empty means a free-text answer.
+    options = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="open")
+    answer = models.TextField(blank=True, default="")
+    answered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    answered_at = models.DateTimeField(null=True, blank=True)
+    # "api" when an agent asked through an API key, "app" for the browser session
+    source = models.CharField(max_length=8, default="app")
+
+    class Meta:
+        verbose_name = "Decision Request"
+        verbose_name_plural = "Decision Requests"
+        db_table = "decision_requests"
+        ordering = ("-created_at",)
