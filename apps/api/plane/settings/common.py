@@ -617,3 +617,6 @@ if ENABLE_DRF_SPECTACULAR:
 
 # Slack: signs the requests Slack sends to interactivity endpoints. The bot token is per workspace.
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
+
+# The model behind the Brief's AI summary. The key itself comes from ANTHROPIC_API_KEY.
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")

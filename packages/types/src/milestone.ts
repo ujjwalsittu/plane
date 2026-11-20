@@ -515,6 +515,11 @@ export type TBrief = {
   milestones_due: TBriefMilestone[];
 };
 
+export type TBriefSummary = {
+  text: string | null;
+  item_ids: string[];
+};
+
 export type TWorkItemWaiting = {
   id: string;
   issue_id: string;

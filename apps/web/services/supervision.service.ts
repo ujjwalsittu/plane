@@ -5,7 +5,7 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TBrief, TDecisionRequest, TWorkItemWaiting } from "@plane/types";
+import type { TBrief, TBriefSummary, TDecisionRequest, TWorkItemWaiting } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 /** The Brief, decision requests and "waiting on" markers. */
@@ -33,6 +33,10 @@ export class SupervisionService extends APIService {
 
   getBrief(workspaceSlug: string): Promise<TBrief> {
     return this.call(this.get(`${this.base(workspaceSlug)}/brief/`));
+  }
+
+  getBriefSummary(workspaceSlug: string): Promise<TBriefSummary> {
+    return this.call(this.get(`${this.base(workspaceSlug)}/brief/summary/`));
   }
 
   markSeen(workspaceSlug: string): Promise<unknown> {

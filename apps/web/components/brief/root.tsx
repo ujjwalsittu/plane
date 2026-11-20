@@ -16,6 +16,7 @@ import { BlockedColumn } from "./blocked";
 import { DoneColumn } from "./done";
 import { MilestonesDue } from "./milestones-due";
 import { NeedsMeColumn } from "./needs-me";
+import { BriefSummary } from "./summary";
 
 const service = new SupervisionService();
 
@@ -76,6 +77,7 @@ export const BriefRoot = observer(function BriefRoot({ workspaceSlug }: { worksp
           onClick={() => void markSeen()}
         />
       </div>
+      <BriefSummary workspaceSlug={workspaceSlug} />
       <MilestonesDue milestones={brief.milestones_due} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <NeedsMeColumn

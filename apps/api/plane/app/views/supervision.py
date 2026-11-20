@@ -13,7 +13,7 @@ from plane.app.views.base import BaseAPIView as AppBaseAPIView
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import SlackConnection, SlackUserLink, Workspace
-from plane.utils import brief, slack_app
+from plane.utils import brief, brief_summary, slack_app
 
 
 class _Session:
@@ -57,6 +57,17 @@ class BriefEndpoint(_Session, BaseAPIView):
         if workspace is None:
             return Response({"error": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(brief.brief_for(workspace.id, request.user))
+
+
+class BriefSummaryEndpoint(_Session, BaseAPIView):
+    """A short AI paragraph over the Brief. `text` is null when no key is set or the call failed."""
+
+    def get(self, request, slug):
+        workspace = _workspace_for(request, slug)
+        if workspace is None:
+            return Response({"error": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        data = brief_summary.summarize(brief.brief_for(workspace.id, request.user), request.user.id, workspace.id)
+        return Response(data or {"text": None, "item_ids": []})
 
 
 class BriefSeenEndpoint(_Session, BaseAPIView):

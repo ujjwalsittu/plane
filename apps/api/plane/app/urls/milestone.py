@@ -352,6 +352,11 @@ urlpatterns = [
         name="app-brief",
     ),
     path(
+        "workspaces/<str:slug>/brief/summary/",
+        supervision_views.BriefSummaryEndpoint.as_view(http_method_names=["get"]),
+        name="app-brief-summary",
+    ),
+    path(
         "workspaces/<str:slug>/brief/seen/",
         supervision_views.BriefSeenEndpoint.as_view(http_method_names=["post"]),
         name="app-brief-seen",
