@@ -271,6 +271,13 @@ export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspac
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
     highlight: (pathname: string, url: string) => pathname.includes(url),
   },
+  templates: {
+    key: "templates",
+    labelTranslationKey: "workspace_templates.title",
+    href: `/templates/`,
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+    highlight: (pathname: string, url: string) => pathname.includes(url),
+  },
   initiatives: {
     key: "initiatives",
     labelTranslationKey: "initiatives.title",
@@ -303,6 +310,7 @@ export const WORKSPACE_SIDEBAR_STATIC_PINNED_NAVIGATION_ITEMS_LINKS: IWorkspaceS
   WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["wiki"],
   WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["initiatives"],
   WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["releases"],
+  WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["templates"],
 ];
 
 export const IS_FAVORITE_MENU_OPEN = "is_favorite_menu_open";

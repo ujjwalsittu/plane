@@ -58,6 +58,7 @@ export const SidebarItemBase = observer(function SidebarItemBase({
     "wiki",
     "initiatives",
     "releases",
+    "templates",
     ...(additionalStaticItems || []),
   ];
   const slug = workspaceSlug?.toString() || "";

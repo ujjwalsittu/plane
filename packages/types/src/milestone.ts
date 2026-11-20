@@ -352,3 +352,51 @@ export type TReleaseWorkItem = {
   state_group: string | null;
   state_name: string | null;
 };
+
+// --- templates ----------------------------------------------------------------------------------
+
+export type TTemplateKind = "workitem" | "page" | "project";
+
+export type TTemplateWorkItemBody = {
+  name?: string;
+  description_html?: string;
+  priority?: "urgent" | "high" | "medium" | "low" | "none";
+  state?: string;
+  labels?: string[];
+  assignees?: string[];
+  sub_work_items?: (string | TTemplateWorkItemBody)[];
+};
+
+export type TTemplatePageBody = { name?: string; description_html?: string };
+
+export type TTemplateProjectBody = {
+  description?: string;
+  network?: 0 | 2;
+  features?: Partial<Record<"cycles" | "modules" | "views" | "pages" | "intake" | "time_tracking", boolean>>;
+  states?: { name: string; group: "backlog" | "unstarted" | "started" | "completed" | "cancelled"; color?: string }[];
+  labels?: (string | { name: string; color?: string })[];
+  work_items?: TTemplateWorkItemBody[];
+  pages?: TTemplatePageBody[];
+};
+
+export type TTemplate = {
+  id: string;
+  name: string;
+  kind: TTemplateKind;
+  description: string;
+  description_html: string;
+  logo_props: Record<string, unknown>;
+  template_data: TTemplateWorkItemBody & TTemplatePageBody & TTemplateProjectBody;
+  project: string | null;
+  workspace: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TTemplateUseResult = {
+  kind: TTemplateKind;
+  id: string;
+  project_id: string;
+  sequence_id?: number;
+  identifier?: string;
+};

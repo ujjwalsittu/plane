@@ -47,6 +47,7 @@ from plane.app.views.initiative import (
     InitiativeWorkItemEndpoint,
 )
 from plane.app.views import release as release_views
+from plane.app.views import template as template_views
 from plane.app.views.issue.page_link import IssuePageLinkDetailEndpoint, IssuePageLinkEndpoint
 from plane.app.views.issue.property import (
     IssuePropertyDetailEndpoint,
@@ -271,5 +272,17 @@ urlpatterns = [
         "workspaces/<str:slug>/releases/<uuid:release_id>/labels/",
         release_views.ReleaseItemLabelEndpoint.as_view(),
         name="app-release-item-labels",
+    ),
+    # Templates
+    path("workspaces/<str:slug>/templates/", template_views.TemplateListEndpoint.as_view(), name="app-templates"),
+    path(
+        "workspaces/<str:slug>/templates/<uuid:template_id>/",
+        template_views.TemplateEndpoint.as_view(),
+        name="app-template",
+    ),
+    path(
+        "workspaces/<str:slug>/templates/<uuid:template_id>/use/",
+        template_views.TemplateUseEndpoint.as_view(),
+        name="app-template-use",
     ),
 ]

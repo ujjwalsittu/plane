@@ -109,6 +109,15 @@ export const coreRoutes: RouteConfigEntry[] = [
           ),
         ]),
 
+        // Templates
+        layout("./(all)/[workspaceSlug]/(projects)/templates/layout.tsx", [
+          route(":workspaceSlug/templates", "./(all)/[workspaceSlug]/(projects)/templates/page.tsx"),
+          route(
+            ":workspaceSlug/templates/:templateId",
+            "./(all)/[workspaceSlug]/(projects)/templates/[templateId]/page.tsx"
+          ),
+        ]),
+
         // Initiatives
         layout("./(all)/[workspaceSlug]/(projects)/initiatives/layout.tsx", [
           route(":workspaceSlug/initiatives", "./(all)/[workspaceSlug]/(projects)/initiatives/page.tsx"),

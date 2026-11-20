@@ -87,6 +87,7 @@ from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
 from .initiative import Initiative, InitiativeProject, InitiativeWorkItem
 from .release import Release, ReleaseLabel, ReleaseLabelLink, ReleaseTag, ReleaseWorkItem
+from .template import Template
 from .github_app import (
     GitHubCommentLink,
     GitHubInstallation,

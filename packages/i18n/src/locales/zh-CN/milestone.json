@@ -416,5 +416,112 @@
     "no_labels": "No labels yet.",
     "delete_tag": "Delete tag",
     "delete_label": "Delete label"
+  },
+  "workspace_templates": {
+    "title": "Templates",
+    "kinds": {
+      "workitem": "Work items",
+      "page": "Pages",
+      "project": "Projects"
+    },
+    "new": {
+      "workitem": "New work item template",
+      "page": "New page template",
+      "project": "New project template"
+    },
+    "empty": {
+      "workitem": "No work item templates yet",
+      "page": "No page templates yet",
+      "project": "No project templates yet"
+    },
+    "empty_description": "Save the shape of a work item, page or project once, then start new ones from it.",
+    "name_placeholder": "Template name, e.g. Bug report",
+    "scope": "Where the template lives",
+    "scope_workspace": "Workspace",
+    "name": "Name",
+    "summary": "Summary",
+    "summary_placeholder": "What this template is for",
+    "delete": "Delete template",
+    "delete_description": "Nothing created from this template changes; only the template is removed.",
+    "save_error": "Couldn't save the template.",
+    "not_found": "Template not found.",
+    "body": {
+      "workitem": "New work items start with",
+      "page": "New pages start with",
+      "project": "New projects start with"
+    },
+    "body_description": {
+      "workitem": "Labels and the state are matched by name in the project the work item is created in; ones that don't exist there are skipped.",
+      "page": "The title and content every page made from this template gets.",
+      "project": "Settings, workflow states, labels and starter work items and pages for every project made from this template."
+    },
+    "work_item_title": "Title",
+    "work_item_title_hint": "Used when you don't give the new work item a name.",
+    "priority_label": "Priority",
+    "priority": {
+      "none": "None",
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "state": "State",
+    "state_placeholder": "e.g. Todo",
+    "state_hint": "A state name, or a group such as started. Empty uses the project's default.",
+    "labels": "Labels",
+    "labels_placeholder": "e.g. bug, frontend",
+    "labels_hint": "Comma separated.",
+    "description": "Description",
+    "sub_work_items": "Sub work items",
+    "sub_work_items_hint": "Each line becomes a sub work item of the new one.",
+    "one_per_line": "One per line",
+    "page_title": "Page title",
+    "content": "Content",
+    "project_description": "Project description",
+    "features": "Features",
+    "public": "Public",
+    "feature": {
+      "cycles": "Cycles",
+      "modules": "Modules",
+      "views": "Views",
+      "pages": "Pages",
+      "intake": "Intake",
+      "time_tracking": "Time tracking"
+    },
+    "states": "Workflow states",
+    "states_hint": "Leave empty to use Plane's default states. Needs a backlog or unstarted state.",
+    "state_name": "State name",
+    "state_group": "State group",
+    "state_groups": {
+      "backlog": "Backlog",
+      "unstarted": "Unstarted",
+      "started": "Started",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "add_state": "Add state",
+    "new_state": "New state",
+    "remove": "Remove",
+    "starter_work_items": "Starter work items",
+    "starter_pages": "Starter pages",
+    "use": "Use this template",
+    "pick_project": "Choose a project",
+    "use_name": {
+      "workitem": "Work item name",
+      "page": "Page name",
+      "project": "Project name"
+    },
+    "identifier": "Identifier",
+    "create": {
+      "workitem": "Create work item",
+      "page": "Create page",
+      "project": "Create project"
+    },
+    "created": {
+      "workitem": "Work item created",
+      "page": "Page created",
+      "project": "Project created"
+    },
+    "use_error": "Couldn't create from this template."
   }
 }
