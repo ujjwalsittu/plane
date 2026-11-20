@@ -99,7 +99,7 @@ def create_decision(issue, data, actor, source):
     return decision
 
 
-def answer_decision(decision, user, answer, source="app"):
+def answer_decision(decision, user, answer, source="app", origin=None):
     """Record `user`'s answer and write it onto the work item as a comment."""
     from plane.db.models import DecisionRequest, IssueActivity, IssueComment
 
@@ -147,11 +147,11 @@ def answer_decision(decision, user, answer, source="app"):
             epoch=timezone.now().timestamp(),
             source=source,
         )
-        _dispatch_comment_created(comment, user, source)
+        _dispatch_comment_created(comment, user, source, origin)
     return locked
 
 
-def _dispatch_comment_created(comment, user, source):
+def _dispatch_comment_created(comment, user, source, origin):
     """Run the normal comment pipeline (activity, mentions, subscribers, webhooks) once committed."""
     from plane.bgtasks.issue_activities_task import issue_activity
     from plane.bgtasks.webhook_task import model_activity
@@ -170,6 +170,8 @@ def _dispatch_comment_created(comment, user, source):
             project_id=str(comment.project_id),
             current_instance=None,
             epoch=epoch,
+            notification=True,
+            origin=origin,
         )
         model_activity.delay(
             model_name="issue_comment",
@@ -178,7 +180,7 @@ def _dispatch_comment_created(comment, user, source):
             current_instance=None,
             actor_id=str(user.id),
             slug=slug,
-            origin=None,
+            origin=origin,
         )
 
     transaction.on_commit(_send)

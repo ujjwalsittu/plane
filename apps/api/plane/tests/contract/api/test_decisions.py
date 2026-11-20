@@ -89,6 +89,7 @@ def test_agent_asks_and_person_answers(
     activity_task.assert_called_once()
     kwargs = activity_task.call_args.kwargs
     assert kwargs["type"] == "comment.activity.created" and kwargs["source"] == "app"
+    assert kwargs["notification"] is True and kwargs["origin"]
     assert kwargs["actor_id"] == str(person.id) and kwargs["issue_id"] == str(issue.id)
     assert answered.status_code == 200 and answered.data["status"] == "answered"
     assert answered.data["answer"] == "Yes" and answered.data["answered_by"] == str(person.id)

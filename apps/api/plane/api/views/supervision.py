@@ -15,6 +15,7 @@ from plane.app.permissions import ProjectEntityPermission
 from plane.db.models import Issue, WorkItemWaiting
 from plane.db.models import DecisionRequest, Workspace
 from plane.utils import decisions, supervision
+from plane.utils.host import base_host
 
 
 def _issue(request, slug, project_id, issue_id):
@@ -118,7 +119,9 @@ class _DecisionActionEndpoint(BaseAPIView):
 class DecisionAnswerAPIEndpoint(_DecisionActionEndpoint):
     def act(self, request, decision):
         data = request.data if isinstance(request.data, dict) else {}
-        return decisions.answer_decision(decision, request.user, data.get("answer"), self.source)
+        return decisions.answer_decision(
+            decision, request.user, data.get("answer"), self.source, origin=base_host(request=request, is_app=True)
+        )
 
 
 class DecisionWithdrawAPIEndpoint(_DecisionActionEndpoint):
