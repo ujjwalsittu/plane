@@ -261,7 +261,7 @@ export const TeamDetail = observer(function TeamDetail(props: { workspaceSlug: s
       </div>
 
       <TeamWork
-        key={workVersion}
+        version={workVersion}
         workspaceSlug={workspaceSlug}
         teamId={teamId}
         teamMembers={teamMembers}
@@ -294,6 +294,7 @@ export const TeamDetail = observer(function TeamDetail(props: { workspaceSlug: s
 });
 
 function TeamWork(props: {
+  version: number;
   workspaceSlug: string;
   teamId: string;
   teamMembers: TMemberOption[];
@@ -302,9 +303,11 @@ function TeamWork(props: {
   canAssign: boolean;
   onAssigned: () => Promise<void>;
 }) {
-  const { workspaceSlug, teamId, teamMembers, hasProjects, unassignedOpen, canAssign, onAssigned } = props;
+  const { version, workspaceSlug, teamId, teamMembers, hasProjects, unassignedOpen, canAssign, onAssigned } = props;
   const { t } = useTranslation();
-  const [view, setView] = useState<"assigned" | "unassigned">("assigned");
+  const [chosenView, setView] = useState<"assigned" | "unassigned">("assigned");
+  // Unassigned work needs team projects; fall back when the last one is removed.
+  const view = hasProjects ? chosenView : "assigned";
   const [memberId, setMemberId] = useState<string | null>(null);
   const [openOnly, setOpenOnly] = useState(true);
   const filters: TTeamWorkFilters = {
@@ -312,7 +315,7 @@ function TeamWork(props: {
     state_group: openOnly ? OPEN_GROUPS : undefined,
     member_id: view === "assigned" ? (memberId ?? undefined) : undefined,
   };
-  const { data: items, mutate } = useSWR(`${getTeamKey(teamId)}_WORK_${JSON.stringify(filters)}`, () =>
+  const { data: items, mutate } = useSWR(`${getTeamKey(teamId)}_WORK_${version}_${JSON.stringify(filters)}`, () =>
     service.workItems(workspaceSlug, teamId, filters)
   );
   const statusOptions: TOption[] = [
