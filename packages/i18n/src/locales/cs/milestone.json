@@ -581,6 +581,7 @@
     "why_assigned": "Přiřazeno vám",
     "why_mentioned": "Byli jste zmíněni",
     "why_decision": "Je třeba rozhodnout",
+    "notification_decision": "Je třeba rozhodnout: {question}",
     "overdue": "Po termínu",
     "due": "Termín: {date}",
     "reason_blocked_by": "Blokuje: {detail}",

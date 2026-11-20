@@ -581,6 +581,7 @@
     "why_assigned": "已指派給您",
     "why_mentioned": "您被提及",
     "why_decision": "需要決策",
+    "notification_decision": "需要決策：{question}",
     "overdue": "已逾期",
     "due": "截止 {date}",
     "reason_blocked_by": "被 {detail} 阻擋",

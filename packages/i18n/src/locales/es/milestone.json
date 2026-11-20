@@ -581,6 +581,7 @@
     "why_assigned": "Asignado a usted",
     "why_mentioned": "Lo mencionaron",
     "why_decision": "Se necesita una decisión",
+    "notification_decision": "Se necesita una decisión: {question}",
     "overdue": "Vencido",
     "due": "Vence el {date}",
     "reason_blocked_by": "Bloqueado por {detail}",

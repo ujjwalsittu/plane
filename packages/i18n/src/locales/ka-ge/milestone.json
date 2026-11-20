@@ -581,6 +581,7 @@
     "why_assigned": "თქვენზეა მიმაგრებული",
     "why_mentioned": "თქვენ ახსენეს",
     "why_decision": "საჭიროა გადაწყვეტილება",
+    "notification_decision": "საჭიროა გადაწყვეტილება: {question}",
     "overdue": "ვადაგადაცილებული",
     "due": "ვადა: {date}",
     "reason_blocked_by": "დაბლოკილია: {detail}",

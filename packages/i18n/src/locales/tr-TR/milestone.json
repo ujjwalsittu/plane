@@ -581,6 +581,7 @@
     "why_assigned": "Size atandı",
     "why_mentioned": "Sizden bahsedildi",
     "why_decision": "Karar gerekli",
+    "notification_decision": "Karar gerekli: {question}",
     "overdue": "Gecikmiş",
     "due": "Son tarih: {date}",
     "reason_blocked_by": "Engelleyen: {detail}",

@@ -581,6 +581,7 @@
     "why_assigned": "あなたに割り当て済み",
     "why_mentioned": "あなたがメンションされました",
     "why_decision": "決定が必要です",
+    "notification_decision": "決定が必要です：{question}",
     "overdue": "期限超過",
     "due": "期限：{date}",
     "reason_blocked_by": "{detail}にブロックされています",

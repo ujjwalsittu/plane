@@ -581,6 +581,7 @@
     "why_assigned": "Atribuit dumneavoastră",
     "why_mentioned": "Ați fost menționat",
     "why_decision": "Decizie necesară",
+    "notification_decision": "Decizie necesară: {question}",
     "overdue": "Întârziat",
     "due": "Scadent la {date}",
     "reason_blocked_by": "Blocat de {detail}",

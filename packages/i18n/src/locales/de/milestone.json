@@ -581,6 +581,7 @@
     "why_assigned": "Ihnen zugewiesen",
     "why_mentioned": "Sie wurden erwähnt",
     "why_decision": "Entscheidung erforderlich",
+    "notification_decision": "Entscheidung erforderlich: {question}",
     "overdue": "Überfällig",
     "due": "Fällig {date}",
     "reason_blocked_by": "Blockiert durch {detail}",

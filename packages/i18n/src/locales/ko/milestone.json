@@ -581,6 +581,7 @@
     "why_assigned": "나에게 할당됨",
     "why_mentioned": "나를 멘션함",
     "why_decision": "결정 필요",
+    "notification_decision": "결정 필요: {question}",
     "overdue": "기한 초과",
     "due": "기한: {date}",
     "reason_blocked_by": "차단 사유: {detail}",

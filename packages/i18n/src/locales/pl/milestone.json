@@ -581,6 +581,7 @@
     "why_assigned": "Przypisane do mnie",
     "why_mentioned": "Wspomniano o mnie",
     "why_decision": "Wymagana decyzja",
+    "notification_decision": "Wymagana decyzja: {question}",
     "overdue": "Po terminie",
     "due": "Termin: {date}",
     "reason_blocked_by": "Zablokowane przez: {detail}",

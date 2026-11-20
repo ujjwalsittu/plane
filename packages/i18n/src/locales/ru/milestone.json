@@ -581,6 +581,7 @@
     "why_assigned": "Назначено вам",
     "why_mentioned": "Вас упомянули",
     "why_decision": "Требуется решение",
+    "notification_decision": "Требуется решение: {question}",
     "overdue": "Просрочено",
     "due": "Срок: {date}",
     "reason_blocked_by": "Заблокировано: {detail}",

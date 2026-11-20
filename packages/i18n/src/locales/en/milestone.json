@@ -581,6 +581,7 @@
     "why_assigned": "Assigned to you",
     "why_mentioned": "You were mentioned",
     "why_decision": "Decision needed",
+    "notification_decision": "Decision needed: {question}",
     "overdue": "Overdue",
     "due": "Due {date}",
     "reason_blocked_by": "Blocked by {detail}",

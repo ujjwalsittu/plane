@@ -581,6 +581,7 @@
     "why_assigned": "Aan u toegewezen",
     "why_mentioned": "U bent genoemd",
     "why_decision": "Beslissing nodig",
+    "notification_decision": "Beslissing nodig: {question}",
     "overdue": "Te laat",
     "due": "Vervalt op {date}",
     "reason_blocked_by": "Geblokkeerd door {detail}",

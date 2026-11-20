@@ -581,6 +581,7 @@
     "why_assigned": "Pridelené vám",
     "why_mentioned": "Boli ste spomenutí",
     "why_decision": "Treba rozhodnúť",
+    "notification_decision": "Treba rozhodnúť: {question}",
     "overdue": "Po termíne",
     "due": "Termín: {date}",
     "reason_blocked_by": "Blokuje: {detail}",

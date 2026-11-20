@@ -581,6 +581,7 @@
     "why_assigned": "Ditugaskan kepada Anda",
     "why_mentioned": "Anda disebut",
     "why_decision": "Perlu keputusan",
+    "notification_decision": "Perlu keputusan: {question}",
     "overdue": "Terlambat",
     "due": "Tenggat {date}",
     "reason_blocked_by": "Diblokir oleh {detail}",

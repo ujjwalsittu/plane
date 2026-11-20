@@ -581,6 +581,7 @@
     "why_assigned": "Giao cho bạn",
     "why_mentioned": "Bạn được nhắc đến",
     "why_decision": "Cần quyết định",
+    "notification_decision": "Cần quyết định: {question}",
     "overdue": "Quá hạn",
     "due": "Hạn {date}",
     "reason_blocked_by": "Bị chặn bởi {detail}",

@@ -22,6 +22,7 @@ import {
   renderAdditionalValue,
   shouldShowConnector,
 } from "../../notification-card/content";
+import { DecisionNotificationContent } from "./decision-content";
 
 // Types
 export type TNotificationFieldData = {
@@ -162,6 +163,8 @@ export function NotificationContent({
   renderCommentBox?: boolean;
   isUnread?: boolean;
 }) {
+  if (notification.entity_name === "decision")
+    return <DecisionNotificationContent notification={notification} isUnread={isUnread} />;
   const { data, triggered_by_details: triggeredBy } = notification;
   const emphasisClassName = isUnread ? "font-semibold" : "font-medium";
   const notificationField = data?.issue_activity?.field;
