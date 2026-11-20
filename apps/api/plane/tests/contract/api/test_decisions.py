@@ -262,3 +262,17 @@ def test_asker_follows_the_item(api_key_client, workspace, project, issue, creat
     IssueSubscriber.objects.filter(issue=issue, subscriber=create_user).delete()
     _ask(api_key_client, workspace, project, issue, person)
     assert IssueSubscriber.objects.filter(issue=issue, subscriber=create_user).count() == 1
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_external_api_lists_my_decisions(api_key_client, workspace, project, issue, create_user):
+    created = _ask(api_key_client, workspace, project, issue, create_user).data["id"]
+    for path in (f"/api/v1/workspaces/{workspace.slug}/decisions/", f"/api/v1/workspaces/{workspace.slug}/decisions"):
+        listed = api_key_client.get(path)
+        assert listed.status_code == 200, listed.data
+        assert [row["id"] for row in listed.data] == [created]
+        assert listed.data[0]["issue"]["identifier"] == f"ALP-{issue.sequence_id}"
+    assert api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/decisions/?status=answered").data == []
+    assert api_key_client.post(f"/api/v1/workspaces/{workspace.slug}/decisions/", {}).status_code == 405
+    assert api_key_client.get("/api/v1/workspaces/not-mine/decisions/").status_code == 404

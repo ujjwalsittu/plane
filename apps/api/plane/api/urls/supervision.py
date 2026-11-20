@@ -8,6 +8,7 @@ from plane.api.views.supervision import (
     DecisionAnswerAPIEndpoint,
     DecisionRequestAPIEndpoint,
     DecisionWithdrawAPIEndpoint,
+    MyDecisionsAPIEndpoint,
     ProjectUpdateAPIEndpoint,
     WorkItemWaitingAPIEndpoint,
 )
@@ -50,4 +51,11 @@ urlpatterns += [
         ProjectUpdateAPIEndpoint.as_view(http_method_names=["get", "post"]),
         name="project-updates-no-slash",
     ),
+]
+
+# Decisions asked of the API key's user across the workspace (?status=open|answered|withdrawn).
+_my_decisions = "workspaces/<str:slug>/decisions"
+urlpatterns += [
+    path(f"{_my_decisions}/", MyDecisionsAPIEndpoint.as_view(http_method_names=["get"]), name="my-decisions"),
+    path(_my_decisions, MyDecisionsAPIEndpoint.as_view(http_method_names=["get"]), name="my-decisions-no-slash"),
 ]
