@@ -4,8 +4,10 @@
 
 """Decision requests: an agent asks a person, the answer lands on the work item as a comment."""
 
+import json
 from html import escape
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.utils import timezone
 
@@ -20,8 +22,10 @@ def on_decision_created(decision):
     """Called right after a decision is created. Does nothing yet; later work notifies the asked person."""
 
 
-def _name(user):
-    return (user.display_name or user.email) if user else None
+def _person(user):
+    if user is None:
+        return None
+    return {"id": str(user.id), "display_name": user.display_name or user.email.split("@")[0]}
 
 
 def decision_payload(decision, issue=None):
@@ -32,8 +36,8 @@ def decision_payload(decision, issue=None):
         "options": decision.options,
         "status": decision.status,
         "answer": decision.answer,
-        "asked_user": str(decision.asked_user_id),
-        "requested_by": _name(decision.created_by),
+        "asked_user": _person(decision.asked_user),
+        "requested_by": _person(decision.created_by),
         "answered_by": str(decision.answered_by_id) if decision.answered_by_id else None,
         "answered_at": decision.answered_at.isoformat() if decision.answered_at else None,
         "created_at": decision.created_at.isoformat(),
@@ -74,7 +78,10 @@ def create_decision(issue, data, actor, source):
         asked_id = uuid.UUID(str(data.get("asked_user")))
     except ValueError:
         raise SupervisionError("asked_user must be a user id", field="asked_user")
-    if not ProjectMember.objects.filter(project_id=issue.project_id, member_id=asked_id, is_active=True).exists():
+    # Guests cannot answer (writes need member or admin), so they cannot be asked.
+    if not ProjectMember.objects.filter(
+        project_id=issue.project_id, member_id=asked_id, is_active=True, role__gte=15
+    ).exists():
         raise SupervisionError("asked_user must be an active member of the project", field="asked_user")
 
     decision = DecisionRequest.objects.create(
@@ -87,7 +94,8 @@ def create_decision(issue, data, actor, source):
         source=source,
         created_by=actor,
     )
-    on_decision_created(decision)
+    # Looked up at call time so tests can patch it; fires only for committed rows.
+    transaction.on_commit(lambda: on_decision_created(decision))
     return decision
 
 
@@ -98,15 +106,19 @@ def answer_decision(decision, user, answer, source="app"):
     if decision.asked_user_id != user.id:
         raise SupervisionError("Only the person asked can answer", status_code=403)
     answer = answer.strip() if isinstance(answer, str) else ""
-    if not answer or len(answer) > MAX_ANSWER_LENGTH:
-        raise SupervisionError(f"answer is required and at most {MAX_ANSWER_LENGTH} characters", field="answer")
-    if decision.options and answer not in decision.options:
-        raise SupervisionError("answer must be one of the options", field="answer")
 
+    def _check(row):
+        if row.status != "open":
+            raise SupervisionError(f"This decision is already {row.status}", status_code=409)
+        if not answer or len(answer) > MAX_ANSWER_LENGTH:
+            raise SupervisionError(f"answer is required and at most {MAX_ANSWER_LENGTH} characters", field="answer")
+        if row.options and answer not in row.options:
+            raise SupervisionError("answer must be one of the options", field="answer")
+
+    _check(decision)
     with transaction.atomic():
         locked = DecisionRequest.objects.select_for_update().get(pk=decision.pk)
-        if locked.status != "open":
-            raise SupervisionError(f"This decision is already {locked.status}", status_code=409)
+        _check(locked)
         locked.status = "answered"
         locked.answer = answer
         locked.answered_by = user
@@ -135,7 +147,41 @@ def answer_decision(decision, user, answer, source="app"):
             epoch=timezone.now().timestamp(),
             source=source,
         )
+        _dispatch_comment_created(comment, user, source)
     return locked
+
+
+def _dispatch_comment_created(comment, user, source):
+    """Run the normal comment pipeline (activity, mentions, subscribers, webhooks) once committed."""
+    from plane.bgtasks.issue_activities_task import issue_activity
+    from plane.bgtasks.webhook_task import model_activity
+
+    requested = json.dumps({"id": str(comment.id), "comment_html": comment.comment_html}, cls=DjangoJSONEncoder)
+    epoch = int(timezone.now().timestamp())
+    slug = comment.issue.workspace.slug
+
+    def _send():
+        issue_activity.delay(
+            source=source,
+            type="comment.activity.created",
+            requested_data=requested,
+            actor_id=str(user.id),
+            issue_id=str(comment.issue_id),
+            project_id=str(comment.project_id),
+            current_instance=None,
+            epoch=epoch,
+        )
+        model_activity.delay(
+            model_name="issue_comment",
+            model_id=str(comment.id),
+            requested_data={"comment_html": comment.comment_html},
+            current_instance=None,
+            actor_id=str(user.id),
+            slug=slug,
+            origin=None,
+        )
+
+    transaction.on_commit(_send)
 
 
 def withdraw_decision(decision, user):

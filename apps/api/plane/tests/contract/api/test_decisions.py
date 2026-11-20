@@ -61,10 +61,13 @@ def _ask(client, workspace, project, issue, asked, **extra):
 
 @pytest.mark.contract
 @pytest.mark.django_db
-def test_agent_asks_and_person_answers(api_key_client, workspace, project, issue):
+def test_agent_asks_and_person_answers(
+    api_key_client, workspace, project, issue, create_user, django_capture_on_commit_callbacks
+):
     person = _person(workspace, "alice@example.com", project)
     with patch("plane.utils.decisions.on_decision_created") as hook:
-        created = _ask(api_key_client, workspace, project, issue, person)
+        with django_capture_on_commit_callbacks(execute=True):
+            created = _ask(api_key_client, workspace, project, issue, person)
     assert created.status_code == 201
     assert created.data["status"] == "open" and created.data["options"] == ["Yes", "No"]
     assert created.data["source"] == "api"
@@ -77,9 +80,20 @@ def test_agent_asks_and_person_answers(api_key_client, workspace, project, issue
 
     base = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/decisions"
     twin = f"{base}/{created.data['id']}/answer/"
-    answered = _client(person).post(twin, {"answer": "Yes"}, format="json")
+    with (
+        patch("plane.bgtasks.issue_activities_task.issue_activity.delay") as activity_task,
+        patch("plane.bgtasks.webhook_task.model_activity.delay"),
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            answered = _client(person).post(twin, {"answer": "Yes"}, format="json")
+    activity_task.assert_called_once()
+    kwargs = activity_task.call_args.kwargs
+    assert kwargs["type"] == "comment.activity.created" and kwargs["source"] == "app"
+    assert kwargs["actor_id"] == str(person.id) and kwargs["issue_id"] == str(issue.id)
     assert answered.status_code == 200 and answered.data["status"] == "answered"
     assert answered.data["answer"] == "Yes" and answered.data["answered_by"] == str(person.id)
+    assert created.data["asked_user"] == {"id": str(person.id), "display_name": "alice"}
+    assert created.data["requested_by"]["id"] == str(create_user.id)
 
     comment = IssueComment.objects.get(issue=issue)
     assert comment.actor_id == person.id
@@ -100,6 +114,9 @@ def test_answer_rules(api_key_client, workspace, project, issue):
 
     assert _client(other).post(answer_url, {"answer": "Yes"}, format="json").status_code == 403
     assert _client(person).post(answer_url, {"answer": "Maybe"}, format="json").status_code == 400
+    assert _client(person).post(answer_url, {"answer": "Maybe"}, format="json").data == {
+        "answer": "answer must be one of the options"
+    }
     assert _client(person).post(answer_url, {"answer": ""}, format="json").status_code == 400
     assert _client(person).post(answer_url, {"answer": "No"}, format="json").status_code == 200
     assert _client(person).post(answer_url, {"answer": "Yes"}, format="json").status_code == 409
@@ -138,6 +155,9 @@ def test_create_validation(api_key_client, workspace, project, issue):
     outsider = _person(workspace, "out@example.com")
     member = _person(workspace, "alice@example.com", project)
     assert _ask(api_key_client, workspace, project, issue, outsider).status_code == 400
+    guest = _person(workspace, "guest@example.com", project, role=5)
+    refused = _ask(api_key_client, workspace, project, issue, guest)
+    assert refused.status_code == 400 and "asked_user" in refused.data
     assert api_key_client.post(_url(workspace, project, issue), {"question": "Q"}, format="json").status_code == 400
     assert _ask(api_key_client, workspace, project, issue, member, question="  ").status_code == 400
     assert (
