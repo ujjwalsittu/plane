@@ -524,3 +524,11 @@ export type TWorkItemWaiting = {
   note: string;
   since: string | null;
 };
+
+export type TSlackConnection = {
+  connected: boolean;
+  status: "ok" | "broken" | null;
+  team_name: string;
+  linked_users: number;
+  last_error: string;
+};

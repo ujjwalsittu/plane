@@ -16,6 +16,7 @@ import {
 import type { ISvgIcons } from "@plane/blocks/icons";
 import type { TWorkspaceSettingsTabs } from "@plane/types";
 import { GitHubMarkIcon } from "@/components/integration/github-app/github-mark-icon";
+import { SlackMarkIcon } from "@/components/integration/slack/slack-mark-icon";
 
 export const WORKSPACE_SETTINGS_ICONS: Record<TWorkspaceSettingsTabs, IconGlyph | React.FC<ISvgIcons>> = {
   general: BuildingOutline,
@@ -24,4 +25,5 @@ export const WORKSPACE_SETTINGS_ICONS: Record<TWorkspaceSettingsTabs, IconGlyph 
   "billing-and-plans": BillingsOutline,
   webhooks: WebhooksOutline,
   github: GitHubMarkIcon,
+  slack: SlackMarkIcon,
 };

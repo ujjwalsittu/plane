@@ -621,6 +621,29 @@
     "decision_create_error": "Couldn't send the decision request.",
     "decision_withdraw": "Withdraw",
     "decision_withdraw_error": "Couldn't withdraw the decision request.",
-    "decision_none": "No open decisions."
+    "decision_none": "No open decisions.",
+    "slack": {
+      "settings_short_title": "Slack",
+      "settings_title": "Slack",
+      "settings_description": "Connect your workspace's Slack app so people get their daily Brief and alerts by direct message. People are matched to Slack by email.",
+      "status": "Status",
+      "status_ok": "Connected",
+      "status_broken": "Needs reconnecting",
+      "reconnect_hint": "Slack stopped accepting the saved token. Paste the bot token again to reconnect.",
+      "team": "Slack team",
+      "linked_users": "{count, plural, one{# person linked} other{# people linked}}",
+      "not_connected": "Slack isn't connected.",
+      "bot_token": "Bot token",
+      "bot_token_placeholder": "xoxb-…",
+      "connect": "Connect",
+      "reconnect": "Reconnect",
+      "disconnect": "Disconnect",
+      "disconnect_title": "Disconnect Slack",
+      "disconnect_description": "People will stop receiving Slack messages from Plane. You can reconnect any time.",
+      "connected": "Slack connected",
+      "connect_error": "Couldn't connect Slack.",
+      "disconnect_error": "Couldn't disconnect Slack.",
+      "load_error": "Couldn't load the Slack connection."
+    }
   }
 }

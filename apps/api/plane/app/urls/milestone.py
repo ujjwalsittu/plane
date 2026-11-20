@@ -353,4 +353,9 @@ urlpatterns = [
         supervision_views.BriefSeenEndpoint.as_view(http_method_names=["post"]),
         name="app-brief-seen",
     ),
+    path(
+        "workspaces/<str:slug>/slack/",
+        supervision_views.SlackConnectionEndpoint.as_view(http_method_names=["get", "put", "delete"]),
+        name="app-slack-connection",
+    ),
 ]

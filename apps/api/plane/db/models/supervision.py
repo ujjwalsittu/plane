@@ -86,3 +86,41 @@ class BriefVisit(BaseModel):
                 name="brief_visit_unique_workspace_user",
             )
         ]
+
+
+class SlackConnection(BaseModel):
+    """A workspace's internal Slack app: the bot token (encrypted) and whether it still works."""
+
+    STATUS_CHOICES = (("ok", "Ok"), ("broken", "Broken"))
+
+    workspace = models.OneToOneField("db.Workspace", on_delete=models.CASCADE, related_name="slack_connection")
+    team_id = models.CharField(max_length=32, blank=True, default="")
+    team_name = models.CharField(max_length=255, blank=True, default="")
+    bot_token_encrypted = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="ok")
+    last_error = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Slack Connection"
+        verbose_name_plural = "Slack Connections"
+        db_table = "slack_connections"
+
+
+class SlackUserLink(BaseModel):
+    """A workspace member matched to their Slack user (by email)."""
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="slack_user_links")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="slack_links")
+    slack_user_id = models.CharField(max_length=32)
+
+    class Meta:
+        verbose_name = "Slack User Link"
+        verbose_name_plural = "Slack User Links"
+        db_table = "slack_user_links"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "user"],
+                condition=Q(deleted_at__isnull=True),
+                name="slack_user_link_unique_workspace_user",
+            )
+        ]

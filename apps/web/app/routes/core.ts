@@ -350,6 +350,10 @@ export const coreRoutes: RouteConfigEntry[] = [
             ":workspaceSlug/settings/github",
             "./(all)/[workspaceSlug]/(settings)/settings/(workspace)/github/page.tsx"
           ),
+          route(
+            ":workspaceSlug/settings/slack",
+            "./(all)/[workspaceSlug]/(settings)/settings/(workspace)/slack/page.tsx"
+          ),
         ]),
 
         // --------------------------------------------------------------------

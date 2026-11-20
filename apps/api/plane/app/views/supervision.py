@@ -8,10 +8,12 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from plane.api.views import supervision as api
+from plane.app.permissions import ROLE, allow_permission
+from plane.app.views.base import BaseAPIView as AppBaseAPIView
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
-from plane.db.models import Workspace
-from plane.utils import brief
+from plane.db.models import SlackConnection, SlackUserLink, Workspace
+from plane.utils import brief, slack_app
 
 
 class _Session:
@@ -64,3 +66,46 @@ class BriefSeenEndpoint(_Session, BaseAPIView):
             return Response({"error": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         visit = brief.mark_seen(workspace.id, request.user)
         return Response({"last_seen_at": visit.last_seen_at.isoformat()})
+
+
+def _slack_payload(workspace):
+    """Status of the workspace's Slack connection. Never includes the token."""
+    connection = SlackConnection.objects.filter(workspace=workspace).first()
+    if connection is None:
+        return {"connected": False, "status": None, "team_name": "", "linked_users": 0, "last_error": ""}
+    return {
+        "connected": True,
+        "status": connection.status,
+        "team_name": connection.team_name,
+        "linked_users": SlackUserLink.objects.filter(workspace=workspace).count(),
+        "last_error": connection.last_error,
+    }
+
+
+class SlackConnectionEndpoint(AppBaseAPIView):
+    """The workspace's Slack connection (admins only): status, connect or reconnect with a bot token, disconnect."""
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def get(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        return Response(_slack_payload(workspace))
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def put(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        token = request.data.get("bot_token")
+        if not isinstance(token, str) or not token.strip():
+            return Response({"error": "A bot token is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            connection = slack_app.connect(workspace, token.strip())
+        except slack_app.SlackError as exc:
+            return Response({"error": f"Slack refused the token ({exc})"}, status=status.HTTP_400_BAD_REQUEST)
+        slack_app.link_users(connection)
+        return Response(_slack_payload(workspace))
+
+    @allow_permission([ROLE.ADMIN], level="WORKSPACE")
+    def delete(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
+        SlackUserLink.objects.filter(workspace=workspace).delete()
+        SlackConnection.objects.filter(workspace=workspace).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
