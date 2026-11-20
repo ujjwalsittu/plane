@@ -32,10 +32,10 @@ export function useWritableProjects(): TProject[] {
   );
 }
 
-/** Split "a, b, c" into trimmed, non-empty parts. */
+/** Split "a, b, c" into trimmed, non-empty parts; full-width "，" and "、" count as commas too. */
 export const splitList = (value: string) =>
   value
-    .split(",")
+    .split(/[,，、]/)
     .map((part) => part.trim())
     .filter(Boolean);
 

@@ -5,7 +5,7 @@ plane.azeonics.com as `ghcr.io/ujjwalsittu/plane-*:sha-<7>`, built by the "Custo
 
 ## How you find out
 
-A Coolify scheduled task on the Plane service runs `python manage.py check_upstream_release` every
+A Coolify scheduled task ("upstream-release-check", 06:00 UTC, in the api container) runs `python manage.py check_upstream_release` every
 day. When makeplane/plane publishes a release newer than `apps/api/package.json`'s version, it opens
 one high-priority work item in the project set by `UPSTREAM_SYNC_TARGET` (`azeonics/PLAT`). Release
 candidates are ignored, and a release never gets a second work item, even if you delete the first.
@@ -47,7 +47,7 @@ Merge **releases** only (tags like `v1.6.0`), never `upstream/preview`.
    ```
 5. **Merge and push.** Merge the sync branch into `custom` and push; wait for "Custom images":
    `gh run watch <id> --repo ujjwalsittu/plane`.
-6. **Back up.** Run the Coolify scheduled task "backup" on the Plane service, and confirm a new
+6. **Back up.** Run the Coolify scheduled task "pre-upgrade-pgdump" on the Plane service, and confirm a new
    `plane-<date>.dump` in its output.
 7. **Deploy.** In Coolify set `APP_RELEASE=sha-<7>` on the Plane service (re-set it even if it
    looks right; saving the env page can reset it), then deploy.
