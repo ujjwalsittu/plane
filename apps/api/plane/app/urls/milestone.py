@@ -24,6 +24,7 @@ from plane.app.views.page.workspace_page import (
     WikiPageDetailEndpoint,
     WikiPageListEndpoint,
 )
+from plane.app.views.slack_interactivity import SlackInteractivityView
 from plane.app.views.github_app import (
     GitHubAutomationDetailEndpoint,
     GitHubAutomationListEndpoint,
@@ -177,6 +178,8 @@ urlpatterns = [
     path(
         "workspaces/<str:slug>/project-tags/<uuid:pk>/", ProjectTagDetailEndpoint.as_view(), name="project-tag-detail"
     ),
+    # Slack interactivity: signed by Slack, no session
+    path("slack/interactivity/", SlackInteractivityView.as_view(), name="slack-interactivity"),
     # GitHub App integration
     path("integrations/github/webhook/", GitHubWebhookView.as_view(), name="github-webhook"),
     path("integrations/github/setup/", GitHubSetupCallbackView.as_view(), name="github-setup"),

@@ -48,7 +48,7 @@ def _since(workspace_id, user, since):
     if since is not None:
         return since
     visit = BriefVisit.objects.filter(workspace_id=workspace_id, user=user).first()
-    if visit is not None:
+    if visit is not None and visit.last_seen_at is not None:
         return visit.last_seen_at
     return timezone.now() - timedelta(hours=DEFAULT_WINDOW_HOURS)
 

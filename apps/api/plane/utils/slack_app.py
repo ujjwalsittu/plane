@@ -129,17 +129,23 @@ def link_users(connection):
     return len(resolved)
 
 
-def dm(connection, user, blocks, text):
-    """Send a direct message to a linked user. False when the user isn't linked or Slack refuses."""
+def send_dm(connection, user, blocks, text):
+    """Send a direct message to a linked user. Returns None when sent, otherwise Slack's error code
+    (``not_linked`` when the user has no link), so callers can stop on ``ratelimited``."""
     link = SlackUserLink.objects.filter(workspace=connection.workspace, user=user).first()
     if link is None:
-        return False
+        return "not_linked"
     opened = slack_call(connection, "conversations.open", users=link.slack_user_id)
     channel = (opened.get("channel") or {}).get("id") if opened.get("ok") else None
     if not channel:
-        return False
+        return opened.get("error") or "open_failed"
     posted = slack_call(connection, "chat.postMessage", channel=channel, text=text, blocks=json.dumps(blocks))
-    return bool(posted.get("ok"))
+    return None if posted.get("ok") else (posted.get("error") or "post_failed")
+
+
+def dm(connection, user, blocks, text):
+    """Send a direct message to a linked user. False when the user isn't linked or Slack refuses."""
+    return send_dm(connection, user, blocks, text) is None
 
 
 def verify_signature(headers, body):

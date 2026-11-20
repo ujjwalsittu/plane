@@ -98,6 +98,14 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.github_webhook_task.delete_old_github_deliveries",
         "schedule": crontab(hour=4, minute=0),  # UTC 04:00
     },
+    "send-slack-briefs": {
+        "task": "plane.bgtasks.supervision_task.send_slack_briefs",
+        "schedule": crontab(minute=0),  # Hourly, at minute 0
+    },
+    "send-milestone-alerts": {
+        "task": "plane.bgtasks.supervision_task.send_milestone_alerts",
+        "schedule": crontab(hour=3, minute=30),  # UTC 03:30
+    },
     "check-every-day-to-delete-exporter-history": {
         "task": "plane.bgtasks.exporter_expired_task.delete_old_s3_link",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45

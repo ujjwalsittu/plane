@@ -19,7 +19,10 @@ MAX_ANSWER_LENGTH = 5000
 
 
 def on_decision_created(decision):
-    """Called right after a decision is created. Does nothing yet; later work notifies the asked person."""
+    """Called right after a decision is created: tell the asked person (Slack DM and inbox row)."""
+    from plane.bgtasks.supervision_task import notify_decision
+
+    notify_decision.delay(str(decision.id))
 
 
 def _person(user):

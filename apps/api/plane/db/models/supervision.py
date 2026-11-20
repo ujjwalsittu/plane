@@ -72,7 +72,10 @@ class BriefVisit(BaseModel):
 
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="brief_visits")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="brief_visits")
-    last_seen_at = models.DateTimeField()
+    # Null when the row only records a Slack send: the person has not opened the Brief yet.
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    # The local day the Slack brief was last sent, so it goes out at most once a day.
+    slack_sent_on = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Brief Visit"
