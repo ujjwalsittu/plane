@@ -358,6 +358,14 @@ class TestDecisionDm:
         assert "Slack decision DM not sent: ratelimited" in caplog.text
         assert "xoxb-secret" not in caplog.text
 
+        # Escaping grows "<" and "&" fourfold; the section must still fit and not end mid-entity.
+        heavy = _decision(_issue(project, states["started"]), linked, question="<&" * 1000)
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack):
+            supervision_task.notify_decision(str(heavy.id))
+        section = json.loads(slack.posts()[0]["blocks"])[0]["text"]["text"]
+        assert len(section) <= 3000 and section.endswith(";\u2026")
+
     def test_answered_decision_is_not_sent(self, workspace, project, states, linked):
         decision = _decision(_issue(project, states["started"]), linked, status="answered", answer="Yes")
         slack = FakeSlack()

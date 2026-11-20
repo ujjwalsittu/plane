@@ -27,6 +27,7 @@ SIGNATURE_MAX_AGE = 60 * 5
 # Errors that mean the token will not work again until someone reconnects.
 BROKEN_ERRORS = {"invalid_auth", "token_revoked", "account_inactive"}
 RATE_LIMITED = "ratelimited"
+NOT_FOUND = "users_not_found"
 
 
 class SlackError(Exception):
@@ -116,13 +117,13 @@ def link_users(connection):
         if not user.email:
             continue
         result = slack_call(connection, "users.lookupByEmail", email=user.email)
-        if connection.status == "broken" or result.get("error") == RATE_LIMITED:
-            # Slack stopped accepting the token, or asked us to slow down: the lookups are incomplete, so keep
-            # the existing links rather than dropping everyone not looked up yet.
-            return SlackUserLink.objects.filter(workspace=connection.workspace).count()
         slack_id = (result.get("user") or {}).get("id") if result.get("ok") else None
         if slack_id:
             resolved[user.id] = slack_id
+        elif result.get("error") != NOT_FOUND or connection.status == "broken":
+            # Only "users_not_found" says the person really isn't in Slack. Anything else (a broken token,
+            # rate limiting, a network or Slack failure) leaves the pass incomplete: keep every existing link.
+            return SlackUserLink.objects.filter(workspace=connection.workspace).count()
     SlackUserLink.objects.filter(workspace=connection.workspace).exclude(user_id__in=list(resolved)).delete(soft=False)
     for user_id, slack_id in resolved.items():
         SlackUserLink.objects.update_or_create(

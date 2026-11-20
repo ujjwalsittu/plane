@@ -61,6 +61,18 @@ def _short(value, limit=MAX_NAME):
     return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
+def _short_escaped(value, limit):
+    """Escape for mrkdwn, then shorten, so the escaped text itself fits; never ends inside an entity."""
+    text = escape_mrkdwn(value)
+    if len(text) <= limit:
+        return text
+    text = text[: limit - 1]
+    cut = text.rfind("&")
+    if cut != -1 and ";" not in text[cut:]:
+        text = text[:cut]
+    return text + "…"
+
+
 def _section(text):
     return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
 
@@ -232,7 +244,7 @@ def _decision_blocks(decision):
     blocks = [
         _section(
             f"*Decision needed* on <{url}|{identifier}> {escape_mrkdwn(_short(issue.name))}\n"
-            f"{escape_mrkdwn(_short(decision.question, MAX_QUESTION))}"
+            f"{_short_escaped(decision.question, MAX_QUESTION)}"
         )
     ]
     if decision.options:

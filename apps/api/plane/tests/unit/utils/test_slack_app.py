@@ -139,3 +139,26 @@ class TestSlackApp:
         assert SlackUserLink.objects.filter(workspace=workspace).count() == 2
         connection.refresh_from_db()
         assert connection.status == "ok"
+
+    def test_link_users_keeps_links_on_lookup_errors(self, workspace, create_user):
+        other = User.objects.create(email="other@example.com", username="other")
+        WorkspaceMember.objects.create(workspace=workspace, member=other, role=15)
+        connection, _ = _connect(workspace)
+        SlackUserLink.objects.create(workspace=workspace, user=other, slack_user_id="U2")
+        SlackUserLink.objects.create(workspace=workspace, user=create_user, slack_user_id="U1")
+        before = set(SlackUserLink.all_objects.values_list("id", "user_id", "slack_user_id"))
+
+        for error in ("request_failed", "bad_response", "internal_error"):
+            with patch("plane.utils.slack_app.requests.post", return_value=_resp({"ok": False, "error": error})):
+                assert slack_app.link_users(connection) == 2
+            assert set(SlackUserLink.all_objects.values_list("id", "user_id", "slack_user_id")) == before
+
+        # One person resolves, the next lookup fails: still nothing is changed or removed.
+        def partial(url, **kwargs):
+            if kwargs["data"]["email"] == create_user.email:
+                return _resp({"ok": True, "user": {"id": "UNEW"}})
+            return _resp({"ok": False, "error": "request_failed"})
+
+        with patch("plane.utils.slack_app.requests.post", side_effect=partial):
+            slack_app.link_users(connection)
+        assert set(SlackUserLink.all_objects.values_list("id", "user_id", "slack_user_id")) == before
