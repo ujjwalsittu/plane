@@ -72,7 +72,7 @@ def create_decision(issue, data, actor, source):
     """Ask a project member for a decision on `issue`."""
     import uuid
 
-    from plane.db.models import DecisionRequest, ProjectMember
+    from plane.db.models import DecisionRequest, IssueSubscriber, ProjectMember
 
     question = data.get("question")
     question = question.strip() if isinstance(question, str) else ""
@@ -100,6 +100,13 @@ def create_decision(issue, data, actor, source):
         options=options,
         source=source,
         created_by=actor,
+    )
+    # The asker (agent or person) follows the item, so the answer comment notifies them. Only live rows count:
+    # someone who unsubscribed earlier is subscribed again by asking.
+    IssueSubscriber.objects.get_or_create(
+        issue=issue,
+        subscriber=actor,
+        defaults={"project_id": issue.project_id, "workspace_id": issue.workspace_id, "created_by": actor},
     )
     # Looked up at call time so tests can patch it; fires only for committed rows.
     transaction.on_commit(lambda: on_decision_created(decision))

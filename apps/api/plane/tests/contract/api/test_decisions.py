@@ -14,6 +14,7 @@ from plane.db.models import (
     Issue,
     IssueActivity,
     IssueComment,
+    IssueSubscriber,
     Notification,
     Project,
     ProjectMember,
@@ -248,3 +249,16 @@ def test_answer_needs_a_live_item_and_active_membership(api_key_client, workspac
     assert gone.status_code == 404
     decision.refresh_from_db()
     assert decision.status == "open"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_asker_follows_the_item(api_key_client, workspace, project, issue, create_user):
+    person = _person(workspace, "alice@example.com", project)
+    _ask(api_key_client, workspace, project, issue, person)
+    _ask(api_key_client, workspace, project, issue, person)
+    assert IssueSubscriber.objects.filter(issue=issue, subscriber=create_user).count() == 1
+
+    IssueSubscriber.objects.filter(issue=issue, subscriber=create_user).delete()
+    _ask(api_key_client, workspace, project, issue, person)
+    assert IssueSubscriber.objects.filter(issue=issue, subscriber=create_user).count() == 1
