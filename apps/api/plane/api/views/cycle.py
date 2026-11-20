@@ -630,6 +630,7 @@ class CycleDetailAPIEndpoint(BaseAPIView):
         cycle_issues = list(CycleIssue.objects.filter(cycle_id=self.kwargs.get("pk")).values_list("issue", flat=True))
 
         issue_activity.delay(
+            source="api",
             type="cycle.activity.deleted",
             requested_data=json.dumps(
                 {
@@ -1048,6 +1049,7 @@ class CycleIssueListCreateAPIEndpoint(BaseAPIView):
 
         # Capture Issue Activity
         issue_activity.delay(
+            source="api",
             type="cycle.activity.created",
             requested_data=json.dumps({"cycles_list": issues}),
             actor_id=str(self.request.user.id),
@@ -1162,6 +1164,7 @@ class CycleIssueDetailAPIEndpoint(BaseAPIView):
         issue_id = cycle_issue.issue_id
         cycle_issue.delete()
         issue_activity.delay(
+            source="api",
             type="cycle.activity.deleted",
             requested_data=json.dumps(
                 {

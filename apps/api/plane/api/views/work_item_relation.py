@@ -212,6 +212,7 @@ def _create(request, slug, project_id, issue_id, db_type, reverse, targets):
 
 def _log_created(request, project_id, issue_id, relation_type, targets):
     issue_activity.delay(
+        source="api",
         type="issue_relation.activity.created",
         requested_data=json.dumps(
             {"relation_type": relation_type, "issues": [str(t) for t in targets]},
@@ -243,6 +244,7 @@ def _remove(request, slug, project_id, issue_id, related_issue_id, db_types):
     current_instance = json.dumps(IssueRelationSerializer(relation).data, cls=DjangoJSONEncoder)
     relation.delete()
     issue_activity.delay(
+        source="api",
         type="issue_relation.activity.deleted",
         requested_data=json.dumps({"related_issue": str(related_issue_id)}, cls=DjangoJSONEncoder),
         actor_id=str(request.user.id),

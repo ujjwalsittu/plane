@@ -216,6 +216,7 @@ class IntakeIssueListCreateAPIEndpoint(BaseAPIView):
         )
         # Create an Issue Activity
         issue_activity.delay(
+            source="api",
             type="issue.activity.created",
             requested_data=json.dumps(request.data, cls=DjangoJSONEncoder),
             actor_id=str(request.user.id),
@@ -417,6 +418,7 @@ class IntakeIssueDetailAPIEndpoint(BaseAPIView):
             # Log all the updates; read-only fields are ignored on save, so they are not reported either.
             requested_data = json.dumps(writable_data(issue_serializer, issue_data), cls=DjangoJSONEncoder)
             issue_activity.delay(
+                source="api",
                 type="issue.activity.updated",
                 requested_data=requested_data,
                 actor_id=str(request.user.id),
@@ -438,6 +440,7 @@ class IntakeIssueDetailAPIEndpoint(BaseAPIView):
 
             # create a activity for status change
             issue_activity.delay(
+                source="api",
                 type="intake.activity.created",
                 requested_data=json.dumps(request.data, cls=DjangoJSONEncoder),
                 actor_id=str(request.user.id),

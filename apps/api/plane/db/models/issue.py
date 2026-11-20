@@ -443,6 +443,8 @@ class IssueActivity(ProjectBaseModel):
     old_identifier = models.UUIDField(null=True)
     new_identifier = models.UUIDField(null=True)
     epoch = models.FloatField(null=True)
+    # "api" when the change came in through an API key (an agent), "app" for the browser session
+    source = models.CharField(max_length=8, default="app")
 
     class Meta:
         verbose_name = "Issue Activity"

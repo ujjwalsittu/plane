@@ -561,6 +561,7 @@ class ModuleDetailAPIEndpoint(BaseAPIView):
 
         module_issues = list(ModuleIssue.objects.filter(module_id=pk).values_list("issue", flat=True))
         issue_activity.delay(
+            source="api",
             type="module.activity.deleted",
             requested_data=json.dumps(
                 {
@@ -769,6 +770,7 @@ class ModuleIssueListCreateAPIEndpoint(BaseAPIView):
 
         # Capture Issue Activity
         issue_activity.delay(
+            source="api",
             type="module.activity.created",
             requested_data=json.dumps({"modules_list": str(issues)}),
             actor_id=str(self.request.user.id),
@@ -938,6 +940,7 @@ class ModuleIssueDetailAPIEndpoint(BaseAPIView):
         module_name = module_issue.module.name if module_issue.module is not None else ""
         module_issue.delete()
         issue_activity.delay(
+            source="api",
             type="module.activity.deleted",
             requested_data=json.dumps({"module_id": str(module_id), "issues": [str(module_issue.issue_id)]}),
             actor_id=str(request.user.id),

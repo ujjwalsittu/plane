@@ -671,9 +671,11 @@ def create_issue_activity(
     actor_id,
     issue_activities,
     epoch,
+    source="app",
 ):
     issue = Issue.objects.get(pk=issue_id)
     issue_activity = IssueActivity.objects.create(
+        source=source,
         issue_id=issue_id,
         project_id=project_id,
         workspace_id=workspace_id,
@@ -1639,6 +1641,7 @@ def issue_activity(
     notification=False,
     origin=None,
     intake=None,
+    source="app",
 ):
     try:
         issue_activities = []
@@ -1695,6 +1698,8 @@ def issue_activity(
 
         func = ACTIVITY_MAPPER.get(type)
         if func is not None:
+            # create_issue_activity saves its own row instead of appending to issue_activities
+            extra = {"source": source} if func is create_issue_activity else {}
             func(
                 requested_data=requested_data,
                 current_instance=current_instance,
@@ -1704,7 +1709,11 @@ def issue_activity(
                 actor_id=actor_id,
                 issue_activities=issue_activities,
                 epoch=epoch,
+                **extra,
             )
+
+        for activity in issue_activities:
+            activity.source = source
 
         # Save all the values to database
         issue_activities_created = IssueActivity.objects.bulk_create(issue_activities)
