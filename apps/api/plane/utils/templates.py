@@ -267,7 +267,7 @@ def can_write(template_or_scope, user, workspace_id):
 # --- using a template -----------------------------------------------------------------------------
 
 
-def _activity(issue, user, origin):
+def _activity(issue, user, origin, source="app"):
     # Imported here: the task module imports models that import this package.
     from plane.bgtasks.issue_activities_task import issue_activity
 
@@ -281,6 +281,7 @@ def _activity(issue, user, origin):
         epoch=int(timezone.now().timestamp()),
         notification=True,
         origin=origin,
+        source=source,
     )
 
 
@@ -330,7 +331,7 @@ def _assignees_for(project, values):
     return found
 
 
-def _create_issue(project, data, user, origin, parent=None, name=None):
+def _create_issue(project, data, user, origin, parent=None, name=None, source="app"):
     # Imported here to avoid a circular import through plane.api.serializers.
     from plane.api.serializers import IssueSerializer
 
@@ -361,9 +362,9 @@ def _create_issue(project, data, user, origin, parent=None, name=None):
     if not serializer.is_valid():
         raise TemplateError(json.dumps(serializer.errors), field="template_data")
     issue = serializer.save()
-    _activity(issue, user, origin)
+    _activity(issue, user, origin, source)
     for sub in data.get("sub_work_items") or []:
-        _create_issue(project, sub, user, origin, parent=issue)
+        _create_issue(project, sub, user, origin, parent=issue, source=source)
     return issue
 
 
@@ -394,7 +395,7 @@ def _project_member(project, user):
     return ProjectMember.objects.filter(project=project, member=user, is_active=True, role__gte=MEMBER).exists()
 
 
-def use_template(template, user, data, origin=None):
+def use_template(template, user, data, origin=None, source="app"):
     """Create a work item, page or project from a template. Returns {"kind", "id", "project_id", ...}."""
     data = data if isinstance(data, dict) else {}
     body = template.template_data or {}
@@ -414,7 +415,9 @@ def use_template(template, user, data, origin=None):
         name = str(data.get("name") or "").strip() or None
         if template.kind == Template.WORK_ITEM:
             with transaction.atomic():
-                issue = _create_issue(project, body, user, origin, name=name or body.get("name") or template.name)
+                issue = _create_issue(
+                    project, body, user, origin, name=name or body.get("name") or template.name, source=source
+                )
             return {
                 "kind": template.kind,
                 "id": str(issue.id),
@@ -426,10 +429,10 @@ def use_template(template, user, data, origin=None):
             raise TemplateError("Pages are turned off in this project", field="project_id")
         page = _create_page(project, body, user, name=name or body.get("name") or template.name)
         return {"kind": template.kind, "id": str(page.id), "project_id": str(project.id)}
-    return {"kind": template.kind, **_create_project(template, user, data, origin)}
+    return {"kind": template.kind, **_create_project(template, user, data, origin, source)}
 
 
-def _create_project(template, user, data, origin):
+def _create_project(template, user, data, origin, source="app"):
     from plane.api.serializers import ProjectCreateSerializer
 
     role = (
@@ -503,7 +506,7 @@ def _create_project(template, user, data, origin):
                     created_by=user,
                 )
             for item in body.get("work_items") or []:
-                _create_issue(project, item, user, origin)
+                _create_issue(project, item, user, origin, source=source)
             for page in body.get("pages") or []:
                 if str(page.get("name") or "").strip():
                     _create_page(project, page, user)

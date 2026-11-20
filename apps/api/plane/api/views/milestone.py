@@ -45,6 +45,7 @@ from plane.utils.milestone import (
     set_issues_milestone,
     unlink_issue_type,
 )
+from plane.utils.supervision import source_for
 
 ADMIN = 20
 
@@ -153,7 +154,9 @@ class MilestoneDetailAPIEndpoint(BaseAPIView):
     def delete(self, request, slug, project_id, milestone_id):
         milestone = Milestone.objects.get(pk=milestone_id, project_id=project_id, workspace__slug=slug)
         issue_ids = list(Issue.issue_objects.filter(milestone=milestone).values_list("id", flat=True))
-        set_issues_milestone(request, slug, project_id, issue_ids, None, base_host(request=request, is_app=True))
+        set_issues_milestone(
+            request, slug, project_id, issue_ids, None, base_host(request=request, is_app=True), source_for(request)
+        )
         Issue.all_objects.filter(milestone=milestone).update(milestone=None)
         milestone.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -196,7 +199,15 @@ class MilestoneWorkItemAPIEndpoint(BaseAPIView):
                 {"error": "Some work items were not found in this project", "issues": missing},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        set_issues_milestone(request, slug, project_id, issue_ids, milestone, base_host(request=request, is_app=True))
+        set_issues_milestone(
+            request,
+            slug,
+            project_id,
+            issue_ids,
+            milestone,
+            base_host(request=request, is_app=True),
+            source_for(request),
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def delete(self, request, slug, project_id, milestone_id):
@@ -206,7 +217,13 @@ class MilestoneWorkItemAPIEndpoint(BaseAPIView):
             return Response({"error": "issues must be a non-empty list"}, status=status.HTTP_400_BAD_REQUEST)
         in_milestone = Issue.issue_objects.filter(milestone=milestone, pk__in=issue_ids).values_list("id", flat=True)
         set_issues_milestone(
-            request, slug, project_id, list(in_milestone), None, base_host(request=request, is_app=True)
+            request,
+            slug,
+            project_id,
+            list(in_milestone),
+            None,
+            base_host(request=request, is_app=True),
+            source_for(request),
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

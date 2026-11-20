@@ -16,6 +16,7 @@ from django.utils import timezone
 # Module imports
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import Issue, IssueType, Milestone, ProjectIssueType
+from plane.utils.supervision import source_for
 
 _ACTIVE_ISSUE = Q(
     issues__deleted_at__isnull=True,
@@ -40,10 +41,12 @@ def milestone_queryset(slug, project_id):
     )
 
 
-def set_issues_milestone(request, slug, project_id, issue_ids, milestone, origin):
+def set_issues_milestone(request, slug, project_id, issue_ids, milestone, origin, source=None):
     """Point ``issue_ids`` (of this project) at ``milestone`` (or clear it with
     None), recording one activity per changed work item. Returns the ids that
-    changed; unknown ids are ignored."""
+    changed; unknown ids are ignored. ``source`` defaults to how ``request``
+    was authenticated (an API key is "api")."""
+    source = source or source_for(request)
     target_id = milestone.id if milestone else None
     issues = list(
         Issue.issue_objects.filter(workspace__slug=slug, project_id=project_id, pk__in=issue_ids).values(
@@ -69,6 +72,7 @@ def set_issues_milestone(request, slug, project_id, issue_ids, milestone, origin
             epoch=epoch,
             notification=True,
             origin=origin,
+            source=source,
         )
     return [row["id"] for row in changed]
 

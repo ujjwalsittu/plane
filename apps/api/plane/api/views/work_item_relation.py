@@ -44,6 +44,7 @@ from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import Issue, IssueCustomRelation, IssueRelation, IssueRelationDefinition, Project, Workspace
 from plane.utils.host import base_host
 from plane.utils.issue_relation_mapper import get_actual_relation
+from plane.utils.supervision import source_for
 
 # Dependency directions, from the perspective of the URL work item.
 DEPENDENCY_TYPES = (
@@ -212,7 +213,7 @@ def _create(request, slug, project_id, issue_id, db_type, reverse, targets):
 
 def _log_created(request, project_id, issue_id, relation_type, targets):
     issue_activity.delay(
-        source="api",
+        source=source_for(request),
         type="issue_relation.activity.created",
         requested_data=json.dumps(
             {"relation_type": relation_type, "issues": [str(t) for t in targets]},
@@ -244,7 +245,7 @@ def _remove(request, slug, project_id, issue_id, related_issue_id, db_types):
     current_instance = json.dumps(IssueRelationSerializer(relation).data, cls=DjangoJSONEncoder)
     relation.delete()
     issue_activity.delay(
-        source="api",
+        source=source_for(request),
         type="issue_relation.activity.deleted",
         requested_data=json.dumps({"related_issue": str(related_issue_id)}, cls=DjangoJSONEncoder),
         actor_id=str(request.user.id),

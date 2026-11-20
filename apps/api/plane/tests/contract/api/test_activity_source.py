@@ -80,3 +80,59 @@ class TestActivitySource:
         error = SupervisionError("nope", status_code=404, field="issue")
         assert (error.message, error.status_code, error.field) == ("nope", 404, "issue")
         assert SupervisionError("x").status_code == 400
+
+
+@pytest.mark.django_db
+class TestForkHelperSource:
+    """Fork helpers shared by the session app and the external API record who made the change."""
+
+    def _issues(self, project, *names):
+        return [Issue.objects.create(name=name, project=project, workspace=project.workspace) for name in names]
+
+    def test_session_custom_relation_is_app(self, session_client, run_activity_inline, workspace, project):
+        from plane.api.views.work_item_relation import BUILT_IN_DEFINITIONS
+
+        issue, other = self._issues(project, "A", "B")
+        url = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/custom-relations/"
+        definition = BUILT_IN_DEFINITIONS["relates_to"]
+        body = {
+            "relation_definition_id": definition["id"],
+            "relation_definition_type": definition["outward"],
+            "work_item_ids": [str(other.id)],
+        }
+        response = session_client.post(url, body, format="json")
+        assert response.status_code == status.HTTP_201_CREATED, response.data
+        activities = IssueActivity.objects.filter(issue=issue, field="relates_to")
+        assert activities.exists()
+        assert set(activities.values_list("source", flat=True)) == {"app"}
+
+    def test_api_custom_relation_is_api(self, api_key_client, run_activity_inline, workspace, project):
+        from plane.api.views.work_item_relation import BUILT_IN_DEFINITIONS
+
+        issue, other = self._issues(project, "A", "B")
+        url = f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/work-items/{issue.id}/work-item-relations/"
+        definition = BUILT_IN_DEFINITIONS["relates_to"]
+        body = {
+            "relation_definition_id": definition["id"],
+            "relation_definition_type": definition["outward"],
+            "work_item_ids": [str(other.id)],
+        }
+        response = api_key_client.post(url, body, format="json")
+        assert response.status_code == status.HTTP_201_CREATED, response.data
+        activities = IssueActivity.objects.filter(issue=issue, field="relates_to")
+        assert activities.exists()
+        assert set(activities.values_list("source", flat=True)) == {"api"}
+
+    def test_api_milestone_assignment_is_api(self, api_key_client, run_activity_inline, workspace, project):
+        from plane.db.models import Milestone
+
+        project.milestone_view = True
+        project.save()
+        milestone = Milestone.objects.create(title="M1", project=project, workspace=workspace)
+        (issue,) = self._issues(project, "A")
+        url = f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/milestones/{milestone.id}/work-items/"
+        response = api_key_client.post(url, {"issues": [str(issue.id)]}, format="json")
+        assert response.status_code == status.HTTP_204_NO_CONTENT, response.data
+        activities = IssueActivity.objects.filter(issue=issue, field="milestone")
+        assert activities.exists()
+        assert set(activities.values_list("source", flat=True)) == {"api"}

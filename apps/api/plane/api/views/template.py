@@ -20,6 +20,7 @@ from plane.app.permissions import ProjectEntityPermission, WorkspaceEntityPermis
 from plane.db.models import Project, Template, Workspace
 from plane.utils import templates
 from plane.utils.host import base_host
+from plane.utils.supervision import source_for
 
 
 def _data(request):
@@ -195,7 +196,11 @@ class TemplateUseAPIEndpoint(BaseAPIView):
             return _missing()
         try:
             result = templates.use_template(
-                template, request.user, _data(request), origin=base_host(request=request, is_app=True)
+                template,
+                request.user,
+                _data(request),
+                origin=base_host(request=request, is_app=True),
+                source=source_for(request),
             )
         except templates.TemplateError as exc:
             return _error(exc)

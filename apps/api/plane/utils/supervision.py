@@ -20,6 +20,13 @@ class SupervisionError(ValueError):
         self.field = field
 
 
+def source_for(request):
+    """ "api" when the request came in with an API key (an agent), otherwise "app" (a person in the browser)."""
+    from plane.api.middleware.api_authentication import APIKeyAuthentication
+
+    return "api" if isinstance(getattr(request, "successful_authenticator", None), APIKeyAuthentication) else "app"
+
+
 def is_agent_activity(activity):
     """An activity is an agent's when it came in through an API key or its actor is a bot user."""
     if activity.source == "api":
