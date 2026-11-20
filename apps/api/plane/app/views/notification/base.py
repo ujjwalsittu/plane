@@ -23,6 +23,7 @@ from plane.db.models import (
     WorkspaceMember,
 )
 from plane.utils.paginator import BasePaginator
+from plane.utils.priority_inbox import action_inbox_response
 from plane.utils.order_queryset import NOTIFICATION_ORDER_BY_ALLOWLIST, sanitize_order_by
 from plane.app.permissions import allow_permission, ROLE
 
@@ -47,6 +48,9 @@ class NotificationViewSet(BaseViewSet, BasePaginator):
 
     @allow_permission(allowed_roles=[ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list(self, request, slug):
+        if request.GET.get("priority") == "action":
+            return action_inbox_response(self, request, slug)
+
         # Get query parameters
         snoozed = request.GET.get("snoozed", "false")
         archived = request.GET.get("archived", "false")

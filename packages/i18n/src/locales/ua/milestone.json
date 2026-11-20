@@ -564,6 +564,7 @@
   },
   "supervision": {
     "title": "Brief",
+    "needs_action": "Needs action",
     "mark_seen": "Mark all as seen",
     "mark_seen_error": "Couldn't mark the Brief as seen.",
     "load_error": "Couldn't load the Brief.",

@@ -7,6 +7,7 @@
 import type { TUnreadNotificationsCount } from "@plane/types";
 
 export enum ENotificationTab {
+  ACTION = "action",
   ALL = "all",
   MENTIONS = "mentions",
 }
@@ -31,9 +32,15 @@ export enum ENotificationQueryParamType {
   NEXT = "next",
 }
 
-export type TNotificationTab = ENotificationTab.ALL | ENotificationTab.MENTIONS;
+export type TNotificationTab = ENotificationTab.ACTION | ENotificationTab.ALL | ENotificationTab.MENTIONS;
 
 export const NOTIFICATION_TABS = [
+  {
+    i18n_label: "supervision.needs_action",
+    value: ENotificationTab.ACTION,
+    // the inbox has no unread count for this tab
+    count: (_unReadNotification: TUnreadNotificationsCount) => 0,
+  },
   {
     i18n_label: "notification.tabs.all",
     value: ENotificationTab.ALL,

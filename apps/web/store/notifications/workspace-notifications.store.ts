@@ -125,10 +125,12 @@ export class WorkspaceNotificationStore implements IWorkspaceNotificationStore {
     );
     const workspaceNotificationIds = workspaceNotifications
       .filter((n) => n.workspace === workspaceId)
-      .filter((n) =>
-        this.currentNotificationTab === ENotificationTab.MENTIONS
-          ? n.is_mentioned_notification
-          : !n.is_mentioned_notification
+      .filter(
+        (n) =>
+          this.currentNotificationTab === ENotificationTab.ACTION ||
+          (this.currentNotificationTab === ENotificationTab.MENTIONS
+            ? n.is_mentioned_notification
+            : !n.is_mentioned_notification)
       )
       .filter((n) => {
         if (!this.filters.archived && !this.filters.snoozed) {
@@ -141,9 +143,9 @@ export class WorkspaceNotificationStore implements IWorkspaceNotificationStore {
           }
         } else {
           if (this.filters.snoozed) {
-            return n.snoozed_till ? true : false;
+            return !!n.snoozed_till;
           } else if (this.filters.archived) {
-            return n.archived_at ? true : false;
+            return !!n.archived_at;
           } else {
             return true;
           }
@@ -206,6 +208,7 @@ export class WorkspaceNotificationStore implements IWorkspaceNotificationStore {
     queryParams.read = this.filters.read === true ? false : undefined;
 
     if (this.currentNotificationTab === ENotificationTab.MENTIONS) queryParams.mentioned = true;
+    if (this.currentNotificationTab === ENotificationTab.ACTION) queryParams.priority = "action";
 
     return queryParams;
   };
@@ -381,9 +384,9 @@ export class WorkspaceNotificationStore implements IWorkspaceNotificationStore {
       runInAction(() => {
         update(
           this.unreadNotificationsCount,
-          this.currentNotificationTab === ENotificationTab.ALL
-            ? "total_unread_notifications_count"
-            : "mention_unread_notifications_count",
+          this.currentNotificationTab === ENotificationTab.MENTIONS
+            ? "mention_unread_notifications_count"
+            : "total_unread_notifications_count",
           () => 0
         );
         Object.values(this.notifications).forEach((notification) =>

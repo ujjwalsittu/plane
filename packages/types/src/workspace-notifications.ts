@@ -72,6 +72,7 @@ export type TNotificationPaginatedInfoQueryParams = {
   snoozed?: boolean;
   archived?: boolean;
   mentioned?: boolean;
+  priority?: "action";
   read?: boolean;
   per_page?: number;
   cursor?: string;
