@@ -96,9 +96,11 @@ def _needs_me(workspace_id, user, now):
             receiver=user,
             sender=MENTION_SENDER,
             read_at__isnull=True,
+            archived_at__isnull=True,
             created_at__gte=now - timedelta(days=MENTION_DAYS),
             entity_identifier__in=visible.values("id"),
         )
+        .filter(Q(snoozed_till__isnull=True) | Q(snoozed_till__lt=now))
         .order_by()
         .values_list("entity_identifier", flat=True)
         .distinct()

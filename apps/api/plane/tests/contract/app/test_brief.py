@@ -163,6 +163,25 @@ def test_done_defaults_to_last_24h_on_first_visit(session_client, workspace, pro
 
 @pytest.mark.contract
 @pytest.mark.django_db
+def test_archived_or_snoozed_mentions_do_not_need_me(session_client, workspace, project, states, create_user):
+    now = timezone.now()
+    archived = _issue(project, states["started"], "archived mention")
+    snoozed = _issue(project, states["started"], "snoozed mention")
+    expired = _issue(project, states["started"], "snooze over")
+    Notification.objects.filter(pk=_mention(workspace, project, archived, create_user).pk).update(archived_at=now)
+    Notification.objects.filter(pk=_mention(workspace, project, snoozed, create_user).pk).update(
+        snoozed_till=now + timedelta(days=1)
+    )
+    Notification.objects.filter(pk=_mention(workspace, project, expired, create_user).pk).update(
+        snoozed_till=now - timedelta(hours=1)
+    )
+
+    response = session_client.get(_url(workspace))
+    assert [row["issue"]["name"] for row in response.data["needs_me"]] == ["snooze over"]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
 def test_old_last_seen_is_clamped_to_a_week(session_client, workspace, project, states, create_user):
     now = timezone.now()
     BriefVisit.objects.create(workspace=workspace, user=create_user, last_seen_at=now - timedelta(days=30))
