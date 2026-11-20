@@ -278,6 +278,8 @@ def workload(team, user):
             issue_assignee__deleted_at__isnull=True,
             issue_assignee__assignee_id__in=team.member_links.values("member_id"),
         )
+        # Clear the default ordering: with distinct() it would join the GROUP BY and split counts.
+        .order_by()
         .values("issue_assignee__assignee_id")
         .annotate(
             open=Count("id", filter=Q(state__group__in=OPEN_GROUPS), distinct=True),

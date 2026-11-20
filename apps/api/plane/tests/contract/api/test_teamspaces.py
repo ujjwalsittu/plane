@@ -114,6 +114,7 @@ def test_team_work_workload_and_pql(api_key_client, session_client, workspace, p
         format="json",
     )
     a1 = _issue(alpha, "A1", "started", [ana])
+    a5 = _issue(alpha, "A5", "unstarted", [ana, ben])
     a2 = _issue(alpha, "A2", "completed", [ben])
     _issue(alpha, "A3", "unstarted", [cy])  # cy is not on the team
     unassigned = _issue(alpha, "A4", "backlog")
@@ -122,24 +123,27 @@ def test_team_work_workload_and_pql(api_key_client, session_client, workspace, p
     base = f"/api/workspaces/{workspace.slug}/teamspaces/{team['id']}"
     # Without projects the team's work is everything assigned to its members.
     rows = session_client.get(f"{base}/work-items/").data["results"]
-    assert {r["name"] for r in rows} == {"A1", "A2", "B1"}
+    assert {r["name"] for r in rows} == {"A1", "A2", "A5", "B1"}
     assert session_client.get(f"{base}/work-items/?view=unassigned").data["results"] == []
 
     # Scoped to Alpha.
     session_client.post(f"{base}/projects/", {"project_ids": [str(alpha.id)]}, format="json")
     rows = session_client.get(f"{base}/work-items/").data["results"]
-    assert {r["id"] for r in rows} == {str(a1.id), str(a2.id)}
+    assert {r["id"] for r in rows} == {str(a1.id), str(a2.id), str(a5.id)}
     open_rows = session_client.get(f"{base}/work-items/?state_group=backlog,unstarted,started").data["results"]
-    assert [r["name"] for r in open_rows] == ["A1"] and open_rows[0]["project_identifier"] == "ALP"
-    assert [r["name"] for r in session_client.get(f"{base}/work-items/?member_id={ben.id}").data["results"]] == ["A2"]
+    assert {r["name"] for r in open_rows} == {"A1", "A5"} and open_rows[0]["project_identifier"] == "ALP"
+    assert {r["name"] for r in session_client.get(f"{base}/work-items/?member_id={ben.id}").data["results"]} == {
+        "A2",
+        "A5",
+    }
     assert [r["id"] for r in session_client.get(f"{base}/work-items/?view=unassigned").data["results"]] == [
         str(unassigned.id)
     ]
 
     workload = session_client.get(f"{base}/workload/").data
     by_member = {row["member_id"]: row for row in workload["members"]}
-    assert by_member[str(ana.id)] == {"member_id": str(ana.id), "open": 1, "started": 1, "completed": 0}
-    assert by_member[str(ben.id)]["completed"] == 1 and by_member[str(ben.id)]["open"] == 0
+    assert by_member[str(ana.id)] == {"member_id": str(ana.id), "open": 2, "started": 1, "completed": 0}
+    assert by_member[str(ben.id)]["completed"] == 1 and by_member[str(ben.id)]["open"] == 1
     assert workload["unassigned_open"] == 1
 
     # PQL: team = "<id>" lists work assigned to team members.
@@ -147,7 +151,7 @@ def test_team_work_workload_and_pql(api_key_client, session_client, workspace, p
     alpha_rows = api_key_client.get(
         f"/api/v1/workspaces/{workspace.slug}/projects/{alpha.id}/work-items/", {"pql": pql}
     ).data["results"]
-    assert {r["name"] for r in alpha_rows} == {"A1", "A2"}
+    assert {r["name"] for r in alpha_rows} == {"A1", "A2", "A5"}
     beta_rows = api_key_client.get(
         f"/api/v1/workspaces/{workspace.slug}/projects/{beta.id}/work-items/", {"pql": pql}
     ).data["results"]
