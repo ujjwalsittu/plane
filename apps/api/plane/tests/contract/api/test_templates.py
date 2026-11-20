@@ -49,6 +49,10 @@ def test_workspace_templates_sdk_shape(api_key_client, workspace, project):
     tid = created.data["id"]
     assert created.data["project"] is None and created.data["template_type"] == "workitem"
     assert created.data["description"] == "For bugs"
+    plain = api_key_client.post(
+        f"{base}/pages/templates/", {"name": "Plain", "description_html": "Just text"}, format="json"
+    )
+    assert plain.data["description_html"] == "<p>Just text</p>" and plain.data["description"] == "Just text"
 
     # Bad bodies are refused.
     for bad in ({"name": "x", "template_data": {"priority": "asap"}}, {"name": "", "template_data": {}}):

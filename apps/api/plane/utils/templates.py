@@ -179,13 +179,14 @@ def _template_data(value):
 
 def _summary(data):
     """The template's summary: description_html, or plain text in description / short_description."""
-    if isinstance(data.get("description_html"), str):
-        return data["description_html"] or "<p></p>"
-    for field in ("description", "short_description"):
+    for field in ("description_html", "description", "short_description"):
         value = data.get(field)
         if isinstance(value, str):
             text = value.strip()
-            return f"<p>{html.escape(text)}</p>" if text else "<p></p>"
+            if not text:
+                return "<p></p>"
+            # The MCP sends a plain-text summary in description_html; keep real HTML as it is.
+            return text if text.startswith("<") else f"<p>{html.escape(text)}</p>"
     return None
 
 
