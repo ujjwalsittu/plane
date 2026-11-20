@@ -372,3 +372,16 @@ def test_untouched_utc_user_gets_kolkata_dates(session_client, workspace, projec
         data = session_client.get(_url(workspace)).data
     assert data["needs_me"][0]["overdue"] is True
     assert [m["title"] for m in data["milestones_due"]] == ["Edge"]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_summary_without_a_key_skips_building_the_brief(session_client, workspace, monkeypatch):
+    from unittest.mock import patch
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with patch("plane.utils.brief.brief_for") as built:
+        response = session_client.get(_url(workspace, "summary/"))
+    assert response.status_code == 200
+    assert response.data == {"text": None, "item_ids": []}
+    built.assert_not_called()

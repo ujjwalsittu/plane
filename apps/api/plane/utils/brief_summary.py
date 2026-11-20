@@ -7,13 +7,13 @@
 The Brief's data stays authoritative; the summary only restates it. Nothing here raises: a missing key, a
 refusal or any API failure yields None and the web shows no summary."""
 
+import hashlib
 import json
 import os
 import re
 
 from django.conf import settings
 from django.core.cache import cache
-from django.utils import timezone
 
 from plane.utils.exception_logger import log_exception
 
@@ -54,9 +54,18 @@ def _item(issue):
     }
 
 
-def _payload(brief):
+def is_enabled():
+    """Whether a summary can be written at all (an API key is configured)."""
+    return bool(os.environ.get("ANTHROPIC_API_KEY", ""))
+
+
+# Timestamps of the request itself: they change on every call, so the cache key leaves them out.
+_VOLATILE = ("since", "now")
+
+
+def _data(brief):
     """Only what the summary needs: identifiers, titles, kinds, dates, project names and counts."""
-    data = {
+    return {
         "since": brief.get("since"),
         "now": brief.get("generated_at"),
         "needs_me": [
@@ -89,12 +98,21 @@ def _payload(brief):
             for m in brief.get("milestones_due", [])
         ],
     }
+
+
+def _compact(data):
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
 
+def _payload(brief):
+    return _compact(_data(brief))
+
+
 def _cache_key(brief, user_id, workspace_id):
-    hour = timezone.now().strftime("%Y%m%d%H")
-    return f"brief-summary:{user_id}:{workspace_id}:{brief.get('since')}:{hour}"
+    """Keyed on what the model is told (minus the request timestamps), so new data means a new summary."""
+    data = {key: value for key, value in _data(brief).items() if key not in _VOLATILE}
+    digest = hashlib.sha256(_compact(data).encode("utf-8")).hexdigest()
+    return f"brief-summary:{user_id}:{workspace_id}:{digest}"
 
 
 def summarize(brief, user_id, workspace_id):

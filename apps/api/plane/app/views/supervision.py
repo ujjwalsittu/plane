@@ -70,6 +70,8 @@ class BriefSummaryEndpoint(_Session, BaseAPIView):
         workspace = _workspace_for(request, slug)
         if workspace is None:
             return Response({"error": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not brief_summary.is_enabled():
+            return Response({"text": None, "item_ids": []})
         data = brief_summary.summarize(brief.brief_for(workspace.id, request.user), request.user.id, workspace.id)
         return Response(data or {"text": None, "item_ids": []})
 

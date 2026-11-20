@@ -94,11 +94,19 @@ class TestBriefSummary:
             brief_summary.summarize(BRIEF, "u2", "w1")
             assert create.call_count == 2
             create.side_effect = anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
-            other = {**BRIEF, "since": "2026-11-18T00:00:00+00:00"}
+            other = {**BRIEF, "needs_me": [{**BRIEF["needs_me"][0], "overdue": True}]}
             assert brief_summary.summarize(other, "u1", "w1") is None
             create.side_effect = None
             create.return_value = _response("OSMG-12 is fine.")
             assert brief_summary.summarize(other, "u1", "w1")["text"] == "OSMG-12 is fine."
+
+    def test_cache_key_follows_the_data_not_the_clock(self):
+        key = brief_summary._cache_key(BRIEF, "u1", "w1")
+        later = {**BRIEF, "since": "2026-11-19T00:05:00+00:00", "generated_at": "2026-11-20T10:30:00+00:00"}
+        assert brief_summary._cache_key(later, "u1", "w1") == key
+        renamed = {**BRIEF, "needs_me": [{**BRIEF["needs_me"][0], "issue": {**ISSUE, "name": "Fix logout"}}]}
+        assert brief_summary._cache_key(renamed, "u1", "w1") != key
+        assert brief_summary._cache_key(BRIEF, "u2", "w1") != key
 
     def test_no_key_returns_none(self, monkeypatch):
         for value in (None, ""):
