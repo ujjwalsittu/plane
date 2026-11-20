@@ -312,8 +312,27 @@ def test_today_uses_the_users_timezone(session_client, workspace, project, state
     assert data["needs_me"][0]["overdue"] is True  # May 10 is yesterday for this person
     assert [m["title"] for m in data["milestones_due"]] == ["Edge"]  # May 11 + 7 reaches May 18
 
-    create_user.user_timezone = "UTC"
+    create_user.user_timezone = "Europe/London"  # still May 10 there
     create_user.save()
     with mock.patch("plane.utils.brief.timezone.now", return_value=fixed):
         data = session_client.get(_url(workspace)).data
     assert data["needs_me"][0]["overdue"] is False and data["milestones_due"] == []
+
+
+def test_untouched_utc_user_gets_kolkata_dates(session_client, workspace, project, states, create_user):
+    from datetime import datetime
+    from unittest import mock
+    from zoneinfo import ZoneInfo
+
+    assert create_user.user_timezone == "UTC"
+    fixed = datetime(2026, 5, 10, 20, 0, tzinfo=ZoneInfo("UTC"))  # already May 11 in Kolkata
+    item = _issue(project, states["started"], "due on utc day", target_date=fixed.date())
+    _assign(item, create_user)
+    soon = Milestone.objects.create(
+        title="Edge", project=project, workspace=workspace, target_date=datetime(2026, 5, 18).date()
+    )
+    _issue(project, states["started"], "open", milestone=soon)
+    with mock.patch("plane.utils.brief.timezone.now", return_value=fixed):
+        data = session_client.get(_url(workspace)).data
+    assert data["needs_me"][0]["overdue"] is True
+    assert [m["title"] for m in data["milestones_due"]] == ["Edge"]

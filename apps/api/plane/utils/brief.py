@@ -33,13 +33,26 @@ def _visible_issues(user, workspace_id):
     return Issue.issue_objects.filter(workspace_id=workspace_id, id__in=visible)
 
 
-def _local_date(user, now):
-    """Today's date in the person's own timezone (UTC when unset or unknown)."""
+FALLBACK_ZONE = "Asia/Kolkata"
+
+
+def zone_for(user):
+    """The person's timezone for everything date-based (the Brief and its Slack messages).
+
+    Plane's ``user_timezone`` defaults to "UTC" and few people change it, so exactly "UTC" is treated as
+    unset and means Asia/Kolkata (our team is in India). Anything empty or unknown does too."""
+    name = user.user_timezone
+    if not name or name == "UTC":
+        name = FALLBACK_ZONE
     try:
-        zone = ZoneInfo(user.user_timezone or "UTC")
-    except (ZoneInfoNotFoundError, ValueError):
-        zone = ZoneInfo("UTC")
-    return now.astimezone(zone).date()
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return ZoneInfo(FALLBACK_ZONE)
+
+
+def _local_date(user, now):
+    """Today's date in the person's own timezone."""
+    return now.astimezone(zone_for(user)).date()
 
 
 def _since(workspace_id, user, since):

@@ -7,7 +7,6 @@
 # Python imports
 import uuid
 from datetime import date, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # Django imports
 from django.conf import settings
@@ -19,29 +18,14 @@ from celery import shared_task
 # Module imports
 from plane.db.models import BriefVisit, DecisionRequest, Notification, SlackConnection, SlackUserLink
 from plane.utils import slack_app
-from plane.utils.brief import _milestones_due, brief_for
+from plane.utils.brief import _milestones_due, brief_for, zone_for
 from plane.utils.exception_logger import log_exception
 
 BRIEF_HOUR = 9
 TOP = 5
-FALLBACK_ZONE = "Asia/Kolkata"
 MAX_NAME = 120
 MAX_BUTTON = 75
 RATE_LIMITED = "ratelimited"
-
-
-def zone_for(user):
-    """The person's timezone for scheduling Slack messages.
-
-    Plane's ``user_timezone`` defaults to "UTC" and few people change it, so exactly "UTC" is treated as
-    unset and means Asia/Kolkata (our team is in India). Anything empty or unknown does too."""
-    name = user.user_timezone
-    if not name or name == "UTC":
-        name = FALLBACK_ZONE
-    try:
-        return ZoneInfo(name)
-    except (ZoneInfoNotFoundError, ValueError, OSError):
-        return ZoneInfo(FALLBACK_ZONE)
 
 
 def escape_mrkdwn(value):

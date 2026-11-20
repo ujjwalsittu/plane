@@ -13,7 +13,6 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import pytest
-from freezegun import freeze_time
 
 from plane.bgtasks import supervision_task
 from plane.db.models import (
@@ -31,7 +30,15 @@ from plane.db.models import (
     User,
 )
 from plane.utils import slack_app
-from plane.utils.brief import brief_for
+from plane.utils.brief import brief_for, zone_for
+
+
+def freeze_time(value):
+    """Pin timezone.now(). freezegun is avoided: it leaks into DRF's throttle timer for later tests."""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return patch("django.utils.timezone.now", return_value=value)
+
 
 SECRET = "signing-secret"
 INTERACTIVITY_URL = "/api/slack/interactivity/"
@@ -221,7 +228,7 @@ class TestLocalZone:
     )
     def test_zone_for(self, name, expected):
         user = MagicMock(user_timezone=name)
-        assert supervision_task.zone_for(user).key == expected
+        assert zone_for(user).key == expected
 
 
 @pytest.mark.unit
