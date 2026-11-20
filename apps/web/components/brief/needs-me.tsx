@@ -16,11 +16,13 @@ export function NeedsMeColumn({
   workspaceSlug,
   rows,
   decisions,
+  decisionsError,
   onAnswered,
 }: {
   workspaceSlug: string;
   rows: TBriefNeedsMe[];
-  decisions: TDecisionRequest[];
+  decisions: TDecisionRequest[] | undefined;
+  decisionsError: boolean;
   onAnswered: () => void;
 }) {
   const { t } = useTranslation();
@@ -28,7 +30,7 @@ export function NeedsMeColumn({
   return (
     <BriefColumn title={t("supervision.needs_me")} count={rows.length} empty={t("supervision.needs_me_empty")}>
       {rows.map((row) => {
-        const decision = row.decision_id ? decisions.find((d) => d.id === row.decision_id) : undefined;
+        const decision = row.decision_id ? decisions?.find((d) => d.id === row.decision_id) : undefined;
         const due = renderFormattedDate(row.due);
         return (
           <div key={row.issue.id} className="flex flex-col gap-2 px-4 py-3">
@@ -44,6 +46,11 @@ export function NeedsMeColumn({
                 <span className="text-caption-md-regular text-tertiary">{t("supervision.due", { date: due })}</span>
               )}
             </div>
+            {row.decision_id && !decision && (
+              <p className="text-caption-md-regular text-tertiary">
+                {decisionsError ? t("supervision.decisions_error") : t("supervision.decisions_loading")}
+              </p>
+            )}
             {decision && (
               <DecisionAnswer
                 workspaceSlug={workspaceSlug}

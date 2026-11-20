@@ -483,7 +483,7 @@ export type TBlockedReasonKind = "blocked_by" | "waiting_on" | "stale";
 
 export type TBlockedItem = {
   issue: TSupervisionWorkItem;
-  reasons: { kind: TBlockedReasonKind; detail: string; since: string | null }[];
+  reasons: { kind: TBlockedReasonKind; detail: string; since: string | null; hidden: boolean }[];
 };
 
 export type TBriefDone = {

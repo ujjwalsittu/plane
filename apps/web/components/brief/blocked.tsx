@@ -19,10 +19,12 @@ export function BlockedColumn({ workspaceSlug, rows }: { workspaceSlug: string; 
           <ul className="flex flex-col gap-0.5">
             {row.reasons.map((reason) => (
               <li
-                key={`${reason.kind}-${reason.detail}-${reason.since}`}
+                key={`${reason.kind}-${reason.since}-${reason.detail}`}
                 className="text-caption-md-regular text-tertiary"
               >
-                {t(`supervision.reason_${reason.kind}`, { detail: reason.detail })}
+                {reason.hidden
+                  ? t("supervision.reason_blocked_hidden")
+                  : t(`supervision.reason_${reason.kind}`, { detail: reason.detail })}
               </li>
             ))}
           </ul>

@@ -30,9 +30,11 @@ export const BriefRoot = observer(function BriefRoot({ workspaceSlug }: { worksp
     error,
     mutate: refreshBrief,
   } = useSWR(briefKey(workspaceSlug), () => service.getBrief(workspaceSlug));
-  const { data: decisions, mutate: refreshDecisions } = useSWR(decisionsKey(workspaceSlug), () =>
-    service.listOpenDecisions(workspaceSlug)
-  );
+  const {
+    data: decisions,
+    error: decisionsError,
+    mutate: refreshDecisions,
+  } = useSWR(decisionsKey(workspaceSlug), () => service.listOpenDecisions(workspaceSlug));
   const [marking, setMarking] = useState(false);
 
   const refresh = async () => {
@@ -54,7 +56,7 @@ export const BriefRoot = observer(function BriefRoot({ workspaceSlug }: { worksp
   if (error) {
     return <p className="px-6 py-6 text-body-sm-regular text-tertiary">{t("supervision.load_error")}</p>;
   }
-  if (!brief) return null;
+  if (!brief) return <p className="px-6 py-6 text-body-sm-regular text-tertiary">{t("supervision.loading")}</p>;
 
   const since = renderFormattedDate(brief.since);
   return (
@@ -79,7 +81,8 @@ export const BriefRoot = observer(function BriefRoot({ workspaceSlug }: { worksp
         <NeedsMeColumn
           workspaceSlug={workspaceSlug}
           rows={brief.needs_me}
-          decisions={decisions ?? []}
+          decisions={decisions}
+          decisionsError={!!decisionsError}
           onAnswered={() => void refresh()}
         />
         <BlockedColumn workspaceSlug={workspaceSlug} rows={brief.blocked} />

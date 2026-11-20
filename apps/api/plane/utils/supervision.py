@@ -143,8 +143,10 @@ def blocked_items(workspace_id, user):
     }
     reasons = {}
 
-    def add(issue_id, kind, detail, since):
-        reasons.setdefault(issue_id, []).append({"kind": kind, "detail": detail, "since": _iso(since)})
+    def add(issue_id, kind, detail, since, hidden=False):
+        reasons.setdefault(issue_id, []).append(
+            {"kind": kind, "detail": detail, "since": _iso(since), "hidden": hidden}
+        )
 
     relations = (
         IssueRelation.objects.filter(
@@ -170,8 +172,8 @@ def blocked_items(workspace_id, user):
         if blocker.id in visible_blockers:
             detail = f"{blocker.project.identifier}-{blocker.sequence_id} {blocker.name}"
         else:
-            detail = "Blocked by an item in another project"
-        add(rel.issue_id, "blocked_by", detail, rel.created_at)
+            detail = ""
+        add(rel.issue_id, "blocked_by", detail, rel.created_at, hidden=not detail)
 
     waits = WorkItemWaiting.objects.filter(
         workspace_id=workspace_id, issue_id__in=list(items), resolved_at__isnull=True

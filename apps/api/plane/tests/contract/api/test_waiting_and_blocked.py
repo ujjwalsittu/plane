@@ -163,9 +163,9 @@ def test_non_member_sees_nothing_and_no_foreign_blocker_titles(workspace, projec
     viewer = _outsider(workspace, "viewer@example.com", role=15, project=project)
     rows = _by_id(blocked_items(workspace.id, viewer))
     assert str(hidden_blocker.id) not in rows
-    detail = rows[str(blocked.id)]["reasons"][0]["detail"]
-    assert "Secret" not in detail and "SEC-" not in detail
-    assert detail == "Blocked by an item in another project"
+    reason = rows[str(blocked.id)]["reasons"][0]
+    assert "Secret" not in reason["detail"] and "SEC-" not in reason["detail"]
+    assert reason["detail"] == "" and reason["hidden"] is True
 
     # The owner, a member of both, still gets the real title.
     owner_detail = _by_id(blocked_items(workspace.id, create_user))[str(blocked.id)]["reasons"][0]["detail"]

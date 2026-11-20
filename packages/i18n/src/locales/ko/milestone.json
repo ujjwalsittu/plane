@@ -592,7 +592,10 @@
     "answer_submit": "Answer",
     "answer_error": "Couldn't send your answer.",
     "answer_already": "This decision was already answered.",
-    "decision_from": "Asked by {name}",
-    "item_count": "{count, plural, one{# item} other{# items}}"
+    "item_count": "{count, plural, one{# item} other{# items}}",
+    "reason_blocked_hidden": "Blocked by an item you can't see",
+    "decisions_loading": "Loading decision…",
+    "decisions_error": "Couldn't load this decision. Reload to try again.",
+    "loading": "Loading…"
   }
 }

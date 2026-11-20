@@ -38,7 +38,12 @@ export function DecisionAnswer({
       await service.answerDecision(workspaceSlug, projectId, issueId, decision.id, answer);
       onAnswered();
     } catch (error) {
-      setToast({ type: "error", title: (error as { error?: string })?.error ?? t("supervision.answer_error") });
+      const failure = error as { error?: string; conflict?: boolean };
+      const already = !!failure?.conflict;
+      setToast({
+        type: "error",
+        title: already ? t("supervision.answer_already") : (failure?.error ?? t("supervision.answer_error")),
+      });
       // Someone else may have answered first; refresh so the row reflects it.
       onAnswered();
     } finally {

@@ -43,18 +43,24 @@ export class SupervisionService extends APIService {
     return this.call(this.get(`${this.base(workspaceSlug)}/decisions/`, { params: { status: "open" } }));
   }
 
-  answerDecision(
+  /** Rejects with the error body; `conflict: true` is added when the decision was already answered (409). */
+  async answerDecision(
     workspaceSlug: string,
     projectId: string,
     issueId: string,
     decisionId: string,
     answer: string
   ): Promise<TDecisionRequest> {
-    return this.call(
-      this.post(`${this.base(workspaceSlug)}/projects/${projectId}/issues/${issueId}/decisions/${decisionId}/answer/`, {
-        answer,
-      })
-    );
+    try {
+      const response = await this.post(
+        `${this.base(workspaceSlug)}/projects/${projectId}/issues/${issueId}/decisions/${decisionId}/answer/`,
+        { answer }
+      );
+      return response?.data as TDecisionRequest;
+    } catch (error) {
+      const response = (error as { response?: { status?: number; data?: object } })?.response;
+      throw response?.status === 409 ? { ...response.data, conflict: true } : response?.data;
+    }
   }
 
   getWaiting(workspaceSlug: string, projectId: string, issueId: string): Promise<TWorkItemWaiting | null> {
