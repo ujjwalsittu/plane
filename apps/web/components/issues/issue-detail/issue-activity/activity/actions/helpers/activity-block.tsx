@@ -11,6 +11,7 @@ import { ActivityTimelineItem, ActivityTimelineTimestamp } from "@plane/blocks/a
 import { renderFormattedTime, renderFormattedDate, calculateTimeAgo } from "@plane/utils";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { usePlatformOS } from "@/hooks/use-platform-os";
+import { IssueActivityAgentBadge } from "@/components/issues/issue-detail-widgets/supervision/activity-agent-badge";
 // local imports
 import { IssueUser } from "../";
 import { IssueCreatorDisplay } from "./issue-creator";
@@ -53,6 +54,7 @@ export function IssueActivityBlockComponent(props: TIssueActivityBlockComponent)
         </ActivityTimelineTimestamp>
       }
     >
+      <IssueActivityAgentBadge activityId={activityId} />
       {children}
     </ActivityTimelineItem>
   );

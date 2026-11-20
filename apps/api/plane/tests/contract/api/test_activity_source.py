@@ -136,3 +136,20 @@ class TestForkHelperSource:
         activities = IssueActivity.objects.filter(issue=issue, field="milestone")
         assert activities.exists()
         assert set(activities.values_list("source", flat=True)) == {"api"}
+
+    def test_activity_feed_includes_source(self, session_client, workspace, project, create_user):
+        (issue,) = self._issues(project, "A")
+        IssueActivity.objects.create(
+            issue=issue,
+            project=project,
+            workspace=workspace,
+            verb="updated",
+            field="name",
+            actor=create_user,
+            source="api",
+        )
+        url = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/history/"
+        response = session_client.get(url, {"activity_type": "issue-property"})
+        assert response.status_code == status.HTTP_200_OK, response.data
+        row = next(row for row in response.data if row["field"] == "name")
+        assert row["source"] == "api" and row["actor_detail"]["is_bot"] is False
