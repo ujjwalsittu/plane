@@ -14,6 +14,7 @@ from plane.db.models import (
     Issue,
     IssueActivity,
     IssueComment,
+    Notification,
     Project,
     ProjectMember,
     State,
@@ -180,3 +181,35 @@ def test_decisions_for_respects_visibility(api_key_client, workspace, project, i
     assert decisions_for(workspace.id, person) == []
     # Nobody else sees someone else's decisions.
     assert decisions_for(workspace.id, create_user) == []
+
+
+def _action_ids(user, workspace):
+    response = _client(user).get(f"/api/workspaces/{workspace.slug}/users/notifications/?priority=action")
+    assert response.status_code == 200
+    return [row["id"] for row in response.data]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_answered_or_withdrawn_decision_leaves_the_inbox(api_key_client, workspace, project, issue):
+    from plane.bgtasks.supervision_task import _create_decision_notification
+
+    person = _person(workspace, "alice@example.com", project)
+    answered_id = _ask(api_key_client, workspace, project, issue, person).data["id"]
+    withdrawn_id = _ask(api_key_client, workspace, project, issue, person).data["id"]
+    for pk in (answered_id, withdrawn_id):
+        _create_decision_notification(DecisionRequest.objects.select_related("issue__project").get(pk=pk))
+    assert len(_action_ids(person, workspace)) == 2
+
+    with (
+        patch("plane.bgtasks.issue_activities_task.issue_activity.delay"),
+        patch("plane.bgtasks.webhook_task.model_activity.delay"),
+    ):
+        answer_url = _url(workspace, project, issue, f"{answered_id}/answer/")
+        assert _client(person).post(answer_url, {"answer": "Yes"}, format="json").status_code == 200
+    remaining = Notification.objects.filter(entity_name="decision", read_at__isnull=True)
+    assert [row.data["decision"]["id"] for row in remaining] == [withdrawn_id]
+    assert len(_action_ids(person, workspace)) == 1
+
+    assert _client(person).post(_url(workspace, project, issue, f"{withdrawn_id}/withdraw/")).status_code == 200
+    assert _action_ids(person, workspace) == []

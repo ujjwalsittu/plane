@@ -102,6 +102,15 @@ def create_decision(issue, data, actor, source):
     return decision
 
 
+def _close_notifications(decision, now):
+    """Mark the decision's inbox rows read, so an answered or withdrawn decision leaves the inbox."""
+    from plane.db.models import Notification
+
+    Notification.objects.filter(
+        entity_name="decision", data__decision__id=str(decision.id), read_at__isnull=True
+    ).update(read_at=now)
+
+
 def answer_decision(decision, user, answer, source="app", origin=None):
     """Record `user`'s answer and write it onto the work item as a comment."""
     from plane.db.models import DecisionRequest, IssueActivity, IssueComment
@@ -128,6 +137,7 @@ def answer_decision(decision, user, answer, source="app", origin=None):
         locked.answered_at = timezone.now()
         locked.updated_by = user
         locked.save()
+        _close_notifications(locked, locked.answered_at)
         issue = locked.issue
         comment = IssueComment.objects.create(
             issue=issue,
@@ -202,6 +212,7 @@ def withdraw_decision(decision, user):
         locked.status = "withdrawn"
         locked.updated_by = user
         locked.save()
+        _close_notifications(locked, timezone.now())
     return locked
 
 
