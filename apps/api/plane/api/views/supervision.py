@@ -41,7 +41,7 @@ class WorkItemWaitingAPIEndpoint(BaseAPIView):
             .first()
         )
         if row is None:
-            return Response({"error": "Work item is not waiting on anyone"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(None)
         return Response(supervision.waiting_payload(row))
 
     def put(self, request, slug, project_id, issue_id):

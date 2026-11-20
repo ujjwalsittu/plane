@@ -7,7 +7,7 @@
 import uuid
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils import timezone
 
@@ -97,17 +97,24 @@ def set_waiting(issue, data, actor):
     if not user_id and not text:
         raise SupervisionError("Provide waiting_on_user or waiting_on_text", field="waiting_on_user")
 
-    with transaction.atomic():
-        row = WorkItemWaiting.objects.filter(issue=issue, resolved_at__isnull=True).first()
-        if row is None:
-            row = WorkItemWaiting(issue=issue, project_id=issue.project_id, workspace_id=issue.workspace_id)
-            row.created_by = actor
-        row.waiting_on_user_id = user_id
-        row.waiting_on_text = text
-        row.note = note
-        row.updated_by = actor
-        row.save()
-    return row
+    def _apply():
+        with transaction.atomic():
+            row = WorkItemWaiting.objects.select_for_update().filter(issue=issue, resolved_at__isnull=True).first()
+            if row is None:
+                row = WorkItemWaiting(issue=issue, project_id=issue.project_id, workspace_id=issue.workspace_id)
+                row.created_by = actor
+            row.waiting_on_user_id = user_id
+            row.waiting_on_text = text
+            row.note = note
+            row.updated_by = actor
+            row.save()
+            return row
+
+    try:
+        return _apply()
+    except IntegrityError:
+        # A concurrent PUT inserted the open row first; retry, which now updates it.
+        return _apply()
 
 
 def clear_waiting(issue):
@@ -151,14 +158,20 @@ def blocked_items(workspace_id, user):
         .select_related("related_issue", "related_issue__project")
         .order_by("created_at")
     )
+    relations = list(relations)
+    # Blocker titles are only disclosed for blockers the viewer can see.
+    visible_blockers = set(
+        Issue.issue_objects.filter(
+            visible_issue_q(user), pk__in=[rel.related_issue_id for rel in relations]
+        ).values_list("pk", flat=True)
+    )
     for rel in relations:
         blocker = rel.related_issue
-        add(
-            rel.issue_id,
-            "blocked_by",
-            f"{blocker.project.identifier}-{blocker.sequence_id} {blocker.name}",
-            rel.created_at,
-        )
+        if blocker.id in visible_blockers:
+            detail = f"{blocker.project.identifier}-{blocker.sequence_id} {blocker.name}"
+        else:
+            detail = "Blocked by an item in another project"
+        add(rel.issue_id, "blocked_by", detail, rel.created_at)
 
     waits = WorkItemWaiting.objects.filter(
         workspace_id=workspace_id, issue_id__in=list(items), resolved_at__isnull=True

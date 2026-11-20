@@ -7,6 +7,7 @@
 from datetime import timedelta
 
 import pytest
+from rest_framework.test import APIClient
 from django.utils import timezone
 
 from plane.db.models import (
@@ -71,7 +72,9 @@ def test_waiting_on_person_and_external(api_key_client, session_client, workspac
     assert session_client.get(twin).data["waiting_on_text"] == "Legal"
 
     assert api_key_client.delete(url).status_code == 204
-    assert api_key_client.get(url).status_code == 404
+    # Nothing open is a 200 with a null body; 404 is reserved for a missing work item.
+    empty = api_key_client.get(url)
+    assert empty.status_code == 200 and empty.data is None
     assert str(issue.id) not in _by_id(blocked_items(workspace.id, create_user))
 
 
@@ -134,3 +137,92 @@ def test_completed_items_never_blocked(workspace, project, create_user):
     activity = IssueActivity.objects.create(issue=done, project=project, workspace=workspace, verb="updated")
     IssueActivity.objects.filter(pk=activity.pk).update(created_at=timezone.now() - timedelta(days=30))
     assert str(done.id) not in _by_id(blocked_items(workspace.id, create_user))
+
+
+def _outsider(workspace, email, role=None, project=None):
+    user = User.objects.create(email=email, username=email.split("@")[0], first_name="U")
+    WorkspaceMember.objects.create(workspace=workspace, member=user, role=15)
+    if project is not None:
+        ProjectMember.objects.create(project=project, member=user, workspace=workspace, role=role)
+    return user
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_non_member_sees_nothing_and_no_foreign_blocker_titles(workspace, project, create_user):
+    secret = Project.objects.create(name="Secret", identifier="SEC", workspace=workspace, created_by=create_user)
+    ProjectMember.objects.create(project=secret, member=create_user, workspace=workspace, role=20)
+    hidden_blocker = _issue(secret, "started", "Secret roadmap")
+    blocked = _issue(project, "unstarted", "Blocked")
+    IssueRelation.objects.create(
+        issue=blocked, related_issue=hidden_blocker, relation_type="blocked_by", project=project, workspace=workspace
+    )
+    WorkItemWaiting.objects.create(issue=hidden_blocker, project=secret, waiting_on_text="Legal")
+
+    # A member of `project` only: sees the blocked item but not the other project's title.
+    viewer = _outsider(workspace, "viewer@example.com", role=15, project=project)
+    rows = _by_id(blocked_items(workspace.id, viewer))
+    assert str(hidden_blocker.id) not in rows
+    detail = rows[str(blocked.id)]["reasons"][0]["detail"]
+    assert "Secret" not in detail and "SEC-" not in detail
+    assert detail == "Blocked by an item in another project"
+
+    # The owner, a member of both, still gets the real title.
+    owner_detail = _by_id(blocked_items(workspace.id, create_user))[str(blocked.id)]["reasons"][0]["detail"]
+    assert "Secret roadmap" in owner_detail
+
+    # A workspace member of no project sees nothing at all.
+    stranger = _outsider(workspace, "stranger@example.com")
+    assert blocked_items(workspace.id, stranger) == []
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_stale_falls_back_to_created_at_without_activity(workspace, project, create_user):
+    old = _issue(project, "started", "Old")
+    new = _issue(project, "started", "New")
+    IssueActivity.objects.filter(issue__in=[old, new]).delete()
+    Issue.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=30))
+    rows = _by_id(blocked_items(workspace.id, create_user))
+    assert [r["kind"] for r in rows[str(old.id)]["reasons"]] == ["stale"]
+    assert str(new.id) not in rows
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_non_started_items_never_stale(workspace, project, create_user):
+    for group in ("backlog", "unstarted"):
+        issue = _issue(project, group, group)
+        Issue.objects.filter(pk=issue.pk).update(created_at=timezone.now() - timedelta(days=60))
+        IssueActivity.objects.filter(issue=issue).delete()
+    assert blocked_items(workspace.id, create_user) == []
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_cancelled_and_deleted_blockers_do_not_block(workspace, project, create_user):
+    blocked = _issue(project, "unstarted", "Blocked")
+    cancelled = _issue(project, "cancelled", "Cancelled blocker")
+    deleted = _issue(project, "started", "Deleted blocker")
+    for blocker in (cancelled, deleted):
+        IssueRelation.objects.create(
+            issue=blocked, related_issue=blocker, relation_type="blocked_by", project=project, workspace=workspace
+        )
+    deleted.delete()
+    assert str(blocked.id) not in _by_id(blocked_items(workspace.id, create_user))
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_guest_who_cannot_view_issue_gets_404(workspace, project, create_user):
+    project.guest_view_all_features = False
+    project.save()
+    issue = _issue(project, "started")  # not created by the guest
+    guest = _outsider(workspace, "guest@example.com", role=5, project=project)
+    client = APIClient()
+    client.force_authenticate(user=guest)
+    twin = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/waiting/"
+    assert client.get(twin).status_code == 404
+    # Writes are refused outright for guests by the permission class.
+    assert client.put(twin, {"waiting_on_text": "x"}, format="json").status_code == 403
+    assert not WorkItemWaiting.objects.filter(issue=issue).exists()
