@@ -124,3 +124,18 @@ class TestSlackApp:
         assert count == 1
         links = SlackUserLink.objects.filter(workspace=workspace)
         assert [(link.user, link.slack_user_id) for link in links] == [(create_user, "U1")]
+
+    def test_link_users_keeps_links_when_rate_limited(self, workspace, create_user):
+        other = User.objects.create(email="other@example.com", username="other")
+        WorkspaceMember.objects.create(workspace=workspace, member=other, role=15)
+        connection, _ = _connect(workspace)
+        SlackUserLink.objects.create(workspace=workspace, user=other, slack_user_id="U2")
+        SlackUserLink.objects.create(workspace=workspace, user=create_user, slack_user_id="U1")
+
+        with patch("plane.utils.slack_app.requests.post", return_value=_resp({"ok": False, "error": "ratelimited"})):
+            count = slack_app.link_users(connection)
+
+        assert count == 2
+        assert SlackUserLink.objects.filter(workspace=workspace).count() == 2
+        connection.refresh_from_db()
+        assert connection.status == "ok"

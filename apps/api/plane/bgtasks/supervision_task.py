@@ -208,9 +208,16 @@ def _send_connection_milestone_alerts(connection, now):
 
 @shared_task
 def send_milestone_alerts():
-    """Daily: DM people with open items in milestones due tomorrow or already overdue."""
+    """Daily: re-link people by email (new members, changed emails), then DM people with open items in
+    milestones due tomorrow or already overdue."""
     now = timezone.now()
     for connection in SlackConnection.objects.filter(status="ok").select_related("workspace"):
+        try:
+            slack_app.link_users(connection)
+        except Exception as exc:  # a failed re-link keeps the old links and must not stop the alerts
+            log_exception(exc)
+        if connection.status == "broken":
+            continue
         try:
             _send_connection_milestone_alerts(connection, now)
         except Exception as exc:

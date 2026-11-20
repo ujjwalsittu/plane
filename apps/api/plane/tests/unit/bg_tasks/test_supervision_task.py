@@ -64,6 +64,12 @@ class FakeSlack:
             return _resp({"ok": False, "error": "ratelimited"})
         if method == "conversations.open":
             return _resp({"ok": True, "channel": {"id": "D" + kwargs["data"]["users"]}})
+        if method == "users.lookupByEmail":
+            # People keep the Slack id they are linked with; anyone else isn't in the Slack team.
+            link = SlackUserLink.objects.filter(user__email=kwargs["data"]["email"]).first()
+            if link is None:
+                return _resp({"ok": False, "error": "users_not_found"})
+            return _resp({"ok": True, "user": {"id": link.slack_user_id}})
         return _resp({"ok": True})
 
     def posts(self):
@@ -278,6 +284,27 @@ class TestMilestoneAlerts:
         text = slack.posts()[0]["blocks"]
         assert "Beta" in text and "Alpha" in text
         assert "Later" not in text and "Done" not in text
+
+    def test_alerts_relink_first_and_survive_a_failed_relink(self, workspace, project, states, linked):
+        milestone = Milestone.objects.create(
+            title="Beta", project=project, workspace=workspace, target_date=date(2026, 11, 22)
+        )
+        _issue(project, states["started"], "In Beta", milestone=milestone)
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack), freeze_time("2026-11-21T03:30:00Z"):
+            supervision_task.send_milestone_alerts()
+        methods = [method for method, _ in slack.calls]
+        assert methods.index("users.lookupByEmail") < methods.index("chat.postMessage")
+        assert len(slack.posts()) == 1
+
+        slack = FakeSlack()
+        with (
+            patch("plane.utils.slack_app.requests.post", side_effect=slack),
+            patch.object(supervision_task.slack_app, "link_users", side_effect=RuntimeError("boom")),
+            freeze_time("2026-11-21T03:30:00Z"),
+        ):
+            supervision_task.send_milestone_alerts()
+        assert len(slack.posts()) == 1
 
     def test_no_alert_when_nothing_is_due(self, workspace, project, states, linked):
         slack = FakeSlack()
