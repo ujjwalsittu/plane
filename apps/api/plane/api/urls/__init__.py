@@ -25,8 +25,10 @@ from .initiative import urlpatterns as initiative_patterns
 from .release import urlpatterns as release_patterns
 from .template import urlpatterns as template_patterns
 from .teamspace import urlpatterns as teamspace_patterns
+from .work_item_count import urlpatterns as work_item_count_patterns
 
 urlpatterns = [
+    *work_item_count_patterns,
     *asset_patterns,
     *cycle_patterns,
     *intake_patterns,

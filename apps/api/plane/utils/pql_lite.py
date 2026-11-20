@@ -9,6 +9,8 @@ Supported, joined with AND:
 * ``type = "<uuid>"`` / ``type IN ("<uuid>", ...)``
 * ``milestone = "<uuid>"`` / ``milestone IN (...)``
 * ``parent = "<uuid>"``
+* ``project = "<uuid>"`` / ``project IN (...)``
+* ``( ... )`` -- a parenthesised group of the above
 * ``childOf("<PROJECT>-<N>")`` -- direct children of a work item
 * ``team = "<uuid>"`` / ``team IN (...)`` -- assigned to a member of the team(s)
 * ``cf["<property id>"] = <value>`` / ``cf["<property id>"] IN ("<value>", ...)`` -- custom
@@ -30,12 +32,12 @@ from django.db.models import Q
 from plane.db.models import Issue, IssueProperty, IssuePropertyValue
 
 SUPPORTED = (
-    'type = "<id>", type IN ("<id>", ...), milestone = "<id>", milestone IN (...), '
+    'type = "<id>", type IN ("<id>", ...), milestone = "<id>", milestone IN (...), project = "<id>", '
     'parent = "<id>", childOf("<PROJECT>-<N>"), team = "<id>", team IN (...) '
     'and cf["<property id>"] = <value> / IN (...), joined with AND'
 )
 
-_FIELDS = {"type": "type_id", "milestone": "milestone_id", "parent": "parent_id"}
+_FIELDS = {"type": "type_id", "milestone": "milestone_id", "parent": "parent_id", "project": "project_id"}
 _COMPARISON = re.compile(r"^(?P<field>\w+)\s*(?P<op>=|IN)\s*(?P<value>.+)$", re.IGNORECASE)
 _CHILD_OF = re.compile(r'^childOf\(\s*"(?P<identifier>[^"]+)"\s*\)$', re.IGNORECASE)
 _STRING = re.compile(r'"([^"]*)"')
@@ -134,10 +136,30 @@ def _custom_q(match, slug):
     return Q(pk__in=rows.values("issue_id"))
 
 
+def _wrapped(clause):
+    """True when the clause is one parenthesised group: "( ... )" whose first "(" closes last."""
+    if not (clause.startswith("(") and clause.endswith(")")):
+        return False
+    depth, in_quote = 0, False
+    for i, ch in enumerate(clause):
+        if ch == '"':
+            in_quote = not in_quote
+        elif not in_quote and ch == "(":
+            depth += 1
+        elif not in_quote and ch == ")":
+            depth -= 1
+            if depth == 0 and i != len(clause) - 1:
+                return False
+    return True
+
+
 def pql_to_q(pql, slug):
     """Translate ``pql`` into a Q for Issue querysets of workspace ``slug``."""
     q = Q()
     for clause in _split_and(pql.strip()):
+        if _wrapped(clause):
+            q &= pql_to_q(clause[1:-1], slug)
+            continue
         child_of = _CHILD_OF.match(clause)
         if child_of:
             identifier = child_of.group("identifier")
