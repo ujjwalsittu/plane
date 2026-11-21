@@ -4,7 +4,14 @@
 
 from django.urls import path
 
-from plane.api.views.agents import WorkspaceAgentsAPIEndpoint
+from plane.api.views.agents import (
+    AgentRunAPIEndpoint,
+    AgentRunsAPIEndpoint,
+    AgentRunStepsAPIEndpoint,
+    WorkspaceAgentsAPIEndpoint,
+)
+
+_runs = "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/agent-runs"
 
 urlpatterns = [
     path(
@@ -17,4 +24,25 @@ urlpatterns = [
         WorkspaceAgentsAPIEndpoint.as_view(http_method_names=["get"]),
         name="agents-no-slash",
     ),
+    *[
+        route
+        for suffix, tag in (("/", ""), ("", "-no-slash"))
+        for route in (
+            path(
+                f"{_runs}{suffix}",
+                AgentRunsAPIEndpoint.as_view(http_method_names=["get", "post"]),
+                name=f"work-item-agent-runs{tag}",
+            ),
+            path(
+                f"{_runs}/<uuid:run_id>{suffix}",
+                AgentRunAPIEndpoint.as_view(http_method_names=["get", "patch"]),
+                name=f"work-item-agent-run{tag}",
+            ),
+            path(
+                f"{_runs}/<uuid:run_id>/steps{suffix}",
+                AgentRunStepsAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"work-item-agent-run-steps{tag}",
+            ),
+        )
+    ],
 ]

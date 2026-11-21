@@ -99,3 +99,25 @@ class TestAIConfig:
     def test_check_spend_without_limit_never_blocks(self, workspace, monkeypatch):
         monkeypatch.setattr(ai_config, "spent_this_month_cents", lambda ws: 10**9)
         ai_config.check_spend(workspace, extra_cents=10**9)
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+def test_spent_sums_this_months_run_cost_only(workspace, create_user):
+    from datetime import datetime, timedelta, timezone
+
+    from plane.db.models import AgentRun, Issue, Project, State
+
+    project = Project.objects.create(name="Alpha", identifier="ALP", workspace=workspace, created_by=create_user)
+    state = State.objects.create(name="Started", group="started", project=project, workspace=workspace)
+    issue = Issue.objects.create(name="Item", project=project, workspace=workspace, state=state)
+
+    def run(cost):
+        return AgentRun.objects.create(project=project, issue=issue, actor=create_user, cost_cents=cost)
+
+    run(30)
+    run(12)
+    run(None)
+    last_month = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0) - timedelta(days=1)
+    AgentRun.objects.filter(pk=run(500).pk).update(created_at=last_month)
+    assert ai_config.spent_this_month_cents(workspace) == 42

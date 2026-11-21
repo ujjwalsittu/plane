@@ -4,14 +4,22 @@
 
 """Session-authenticated (web app) agent management."""
 
+import uuid
+
 from rest_framework import status
 from rest_framework.response import Response
 
-from plane.api.views.agents import agent_list, workspace_for
+from plane.api.views.agents import (
+    AgentRunAPIEndpoint,
+    AgentRunsAPIEndpoint,
+    agent_list,
+    workspace_for,
+)
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
-from plane.db.models import WorkspaceAgent
-from plane.utils import agents, ai_config
+from plane.api.views.issue import visible_issue_q
+from plane.db.models import Issue, WorkspaceAgent
+from plane.utils import agent_runs, agents, ai_config
 
 
 class _Session:
@@ -125,3 +133,30 @@ class AISettingsEndpoint(_Session, BaseAPIView):
 
     def delete(self, request, slug):
         return self._respond(request, slug, lambda ws: ai_config.clear_api_key(ws, request.user))
+
+
+class AgentRunsEndpoint(_Session, AgentRunsAPIEndpoint):
+    pass
+
+
+class AgentRunEndpoint(_Session, AgentRunAPIEndpoint):
+    pass
+
+
+class LiveAgentRunsEndpoint(_Session, BaseAPIView):
+    """Live runs for the given work items, keyed by work item id, for list and Brief badges."""
+
+    MAX_IDS = 200
+
+    def get(self, request, slug):
+        workspace = self._workspace(request, slug)
+        if workspace is None:
+            return _not_found()
+        ids = []
+        for raw in (request.query_params.get("issue_ids") or "").split(",")[: self.MAX_IDS]:
+            try:
+                ids.append(uuid.UUID(raw.strip()))
+            except ValueError:
+                continue
+        visible = Issue.issue_objects.filter(visible_issue_q(request.user), workspace=workspace, pk__in=ids)
+        return Response(agent_runs.live_runs_for(list(visible.values_list("pk", flat=True).distinct())))

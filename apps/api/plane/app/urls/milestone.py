@@ -388,6 +388,21 @@ urlpatterns = [
         name="app-agent-rotate-token",
     ),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/agent-runs/",
+        agent_views.AgentRunsEndpoint.as_view(http_method_names=["get"]),
+        name="app-work-item-agent-runs",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/agent-runs/<uuid:run_id>/",
+        agent_views.AgentRunEndpoint.as_view(http_method_names=["get"]),
+        name="app-work-item-agent-run",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-runs/live/",
+        agent_views.LiveAgentRunsEndpoint.as_view(http_method_names=["get"]),
+        name="app-agent-runs-live",
+    ),
+    path(
         "workspaces/<str:slug>/ai-settings/",
         agent_views.AISettingsEndpoint.as_view(http_method_names=["get", "put", "delete"]),
         name="app-ai-settings",

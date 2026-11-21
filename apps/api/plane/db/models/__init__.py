@@ -122,4 +122,4 @@ from .sticky import Sticky
 
 from .description import Description, DescriptionVersion
 
-from .agents import WorkspaceAIConfig, WorkspaceAgent
+from .agents import AgentRun, AgentRunStep, WorkspaceAIConfig, WorkspaceAgent

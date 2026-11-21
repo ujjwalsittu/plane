@@ -11,6 +11,7 @@ from django.db.models import Q
 
 # Module imports
 from .base import BaseModel
+from .project import ProjectBaseModel
 
 
 def default_approval_actions():
@@ -72,3 +73,86 @@ class WorkspaceAIConfig(BaseModel):
         verbose_name = "Workspace AI Config"
         verbose_name_plural = "Workspace AI Configs"
         db_table = "workspace_ai_configs"
+
+
+class AgentRun(ProjectBaseModel):
+    """One run of an agent (or a person's own Claude Code session) on a work item."""
+
+    KIND_CHOICES = (("managed", "Managed"), ("external", "External"))
+    STATUS_CHOICES = (
+        ("queued", "Queued"),
+        ("running", "Running"),
+        ("waiting", "Waiting"),
+        ("succeeded", "Succeeded"),
+        ("failed", "Failed"),
+        ("cancelled", "Cancelled"),
+    )
+
+    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="agent_runs")
+    agent = models.ForeignKey(
+        "db.WorkspaceAgent", on_delete=models.SET_NULL, null=True, blank=True, related_name="runs"
+    )
+    # Who reports the run: the agent's bot user, or a person's own token for a Claude Code session
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reported_agent_runs")
+    delegated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="delegated_agent_runs"
+    )
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES, default="external")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="queued")
+    title = models.CharField(max_length=255, blank=True, default="")
+    instructions = models.TextField(blank=True, default="")
+    external_session_id = models.CharField(max_length=255, blank=True, default="")
+    external_url = models.URLField(max_length=1000, blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    last_event_at = models.DateTimeField(null=True, blank=True)
+    # Money is integer cents, USD only
+    cost_cents = models.PositiveIntegerField(null=True, blank=True)
+    input_tokens = models.PositiveBigIntegerField(default=0)
+    output_tokens = models.PositiveBigIntegerField(default=0)
+    summary = models.TextField(blank=True, default="")
+    error = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Agent Run"
+        verbose_name_plural = "Agent Runs"
+        db_table = "agent_runs"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["issue", "-created_at"], name="agent_run_issue_created_idx")]
+
+    def __str__(self):
+        return f"{self.issue_id} {self.status}"
+
+
+class AgentRunStep(BaseModel):
+    KIND_CHOICES = (
+        ("message", "Message"),
+        ("tool", "Tool"),
+        ("status", "Status"),
+        ("pr", "Pull request"),
+        ("commit", "Commit"),
+        ("error", "Error"),
+    )
+
+    run = models.ForeignKey("db.AgentRun", on_delete=models.CASCADE, related_name="steps")
+    seq = models.PositiveIntegerField()
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES, default="message")
+    text = models.TextField(blank=True, default="")
+    data = models.JSONField(default=dict)
+    external_event_id = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Agent Run Step"
+        verbose_name_plural = "Agent Run Steps"
+        db_table = "agent_run_steps"
+        ordering = ("seq",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "seq"], condition=Q(deleted_at__isnull=True), name="agent_run_step_unique_seq"
+            ),
+            models.UniqueConstraint(
+                fields=["run", "external_event_id"],
+                condition=Q(deleted_at__isnull=True) & ~Q(external_event_id=""),
+                name="agent_run_step_unique_external_event",
+            ),
+        ]
