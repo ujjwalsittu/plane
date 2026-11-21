@@ -430,5 +430,27 @@ def approvals_for(workspace, user, status_filter=None):
     return rows
 
 
+def owner_in_project(approval):
+    """True when the person asked may see the project the held action touches (or it has no project).
+
+    A workspace admin can own an agent without being in its projects; they may still decide, but the Brief,
+    Slack and inbox must not show them names or identifiers from that project."""
+    return (
+        approval.project_id is None
+        or ProjectMember.objects.filter(
+            project_id=approval.project_id, member_id=approval.asked_user_id, is_active=True
+        ).exists()
+    )
+
+
+def display_summary(approval):
+    """The summary shown to the owner: the full one inside their projects, otherwise only the action and
+    the project name."""
+    if owner_in_project(approval):
+        return approval.summary
+    what = "delete an item" if approval.action == "delete" else "change dates on an item"
+    return f"{what} in {approval.project.name}"
+
+
 def can_view(approval, user):
     return user.id in (approval.asked_user_id, approval.agent.user_id) or _is_admin(approval.workspace_id, user)

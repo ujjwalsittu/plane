@@ -152,7 +152,7 @@ def _approval_rows(workspace_id, user, now):
 
     The work item is included only when the person can see it; an approval can also be about a cycle or module."""
     from plane.db.models import AgentApproval
-    from plane.utils.guardrails import EXPIRE_DAYS
+    from plane.utils.guardrails import EXPIRE_DAYS, display_summary, owner_in_project
 
     approvals = list(
         AgentApproval.objects.filter(
@@ -161,7 +161,7 @@ def _approval_rows(workspace_id, user, now):
             status="open",
             created_at__gte=now - timedelta(days=EXPIRE_DAYS),
         )
-        .select_related("agent", "agent__user")
+        .select_related("agent", "agent__user", "project")
         .order_by("created_at")
     )
     issues = {
@@ -172,7 +172,8 @@ def _approval_rows(workspace_id, user, now):
     }
     rows = []
     for approval in approvals:
-        issue = issues.get(approval.issue_id)
+        inside = owner_in_project(approval)
+        issue = issues.get(approval.issue_id) if inside else None
         rows.append(
             {
                 "issue": work_item_payload(issue) if issue else None,
@@ -180,7 +181,7 @@ def _approval_rows(workspace_id, user, now):
                 "decision_id": None,
                 "approval": {
                     "id": str(approval.id),
-                    "summary": approval.summary,
+                    "summary": display_summary(approval),
                     "action": approval.action,
                     "agent": {
                         "id": str(approval.agent_id),

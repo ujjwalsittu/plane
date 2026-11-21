@@ -26,7 +26,7 @@ from plane.db.models import AgentApproval, DecisionRequest, SlackConnection, Sla
 from plane.utils import slack_app
 from plane.utils.agents import AgentError
 from plane.utils.decisions import answer_decision
-from plane.utils.guardrails import decide_approval
+from plane.utils.guardrails import decide_approval, display_summary
 from plane.utils.supervision import SupervisionError
 
 logger = logging.getLogger("plane.api")
@@ -69,7 +69,10 @@ def _replace_approval(approval, text):
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": escape_mrkdwn(f"{approval.agent.name} wants to {approval.summary}")},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": escape_mrkdwn(f"{approval.agent.name} wants to {display_summary(approval)}"),
+                },
             },
             {"type": "section", "text": {"type": "mrkdwn", "text": escape_mrkdwn(text)}},
         ],
@@ -84,7 +87,7 @@ def _decide_approval(payload, match):
     except ValueError:
         _reply(response_url, _ephemeral("Unknown approval"))
         return
-    approval = AgentApproval.objects.filter(pk=approval_id).select_related("agent").first()
+    approval = AgentApproval.objects.filter(pk=approval_id).select_related("agent", "project").first()
     team_id = (payload.get("team") or {}).get("id") or (payload.get("user") or {}).get("team_id")
     slack_user = (payload.get("user") or {}).get("id")
     # The approval's own workspace must be the one connected to the Slack team that sent this.

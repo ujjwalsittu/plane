@@ -16,6 +16,7 @@ from rest_framework.test import APIClient
 
 from plane.bgtasks import supervision_task
 from plane.db.models import (
+    Cycle,
     AgentApproval,
     AgentRun,
     APIActivityLog,
@@ -166,6 +167,97 @@ class TestApprovalNotification:
             with patch("django.db.transaction.on_commit", side_effect=lambda fn: fn()):
                 _, approval = _held_delete(workspace, project, client)
         delay.assert_called_once_with(str(approval.id))
+
+
+def _leave_project(project, user):
+    ProjectMember.objects.filter(project=project, member=user).update(is_active=False)
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestApprovalScoping:
+    """An owner who is not in the agent's project (a workspace admin) never sees names from it."""
+
+    def test_owner_outside_the_project_sees_no_item_details(
+        self, mock_celery, settings, workspace, create_user, project, linked
+    ):
+        settings.WEB_URL = "https://plane.example.com"
+        _, client, _ = _agent(workspace, create_user, project)
+        issue, approval = _held_delete(workspace, project, client)
+        _leave_project(project, create_user)
+        leaked = ["Old", "thing", "ALP-1", "ALP-"]
+
+        rows = [r for r in brief_for(workspace.id, create_user)["needs_me"] if r["why"] == "approval"]
+        assert len(rows) == 1 and rows[0]["issue"] is None
+        assert rows[0]["approval"]["summary"] == "delete an item in Alpha"
+
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack):
+            supervision_task.notify_approval(str(approval.id))
+        post = slack.posts()[0]
+        assert post["text"] == "Bot wants to delete an item in Alpha"
+        note = Notification.objects.get(receiver=create_user, entity_name="approval")
+        assert note.title == "Bot wants to delete an item in Alpha"
+        assert note.project_id is None and note.entity_identifier is None and note.data["issue"] is None
+        brief_text = json.dumps(
+            supervision_task.build_brief_blocks(workspace.slug, brief_for(workspace.id, create_user))
+        )
+        assert "Bot wants to delete an item in Alpha" in brief_text
+        for text in (post["blocks"], json.dumps(note.data), note.title, brief_text, json.dumps(rows)):
+            assert not any(word in text for word in leaked), text
+        # still decidable
+        assert _approve_http(create_user, workspace, approval).status_code == 200
+
+    def test_cycle_approval_has_no_work_item(self, mock_celery, settings, workspace, create_user, project, linked):
+        settings.WEB_URL = "https://plane.example.com"
+        agent, _, _ = _agent(workspace, create_user, project)
+        cycle = Cycle.objects.create(name="Sprint 1", project=project, workspace=workspace, owned_by=create_user)
+        approval = AgentApproval.objects.create(
+            workspace=workspace,
+            project=project,
+            agent=agent,
+            asked_user=create_user,
+            action="delete",
+            summary=f'delete cycle "{cycle.name}"',
+            method="DELETE",
+            path="/x/",
+        )
+        rows = [r for r in brief_for(workspace.id, create_user)["needs_me"] if r["why"] == "approval"]
+        assert len(rows) == 1 and rows[0]["issue"] is None
+        assert rows[0]["approval"]["summary"] == 'delete cycle "Sprint 1"'
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack):
+            supervision_task.notify_approval(str(approval.id))
+        blocks = json.loads(slack.posts()[0]["blocks"])
+        assert "Sprint 1" in blocks[0]["text"]["text"] and "On <" not in blocks[0]["text"]["text"]
+        assert blocks[1]["elements"][0]["action_id"] == f"approval:{approval.id}:approve"
+        note = Notification.objects.get(receiver=create_user, entity_name="approval")
+        assert note.entity_identifier is None and note.data["issue"] is None and note.project_id == project.id
+
+    def test_cycle_approval_outside_the_project_is_generic(self, mock_celery, workspace, create_user, project, linked):
+        agent, _, _ = _agent(workspace, create_user, project)
+        approval = AgentApproval.objects.create(
+            workspace=workspace,
+            project=project,
+            agent=agent,
+            asked_user=create_user,
+            action="delete",
+            summary='delete cycle "Sprint 1"',
+            method="DELETE",
+            path="/x/",
+        )
+        _leave_project(project, create_user)
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack):
+            supervision_task.notify_approval(str(approval.id))
+        assert "Sprint 1" not in slack.posts()[0]["blocks"]
+        assert "Sprint 1" not in Notification.objects.get(entity_name="approval").title
+
+
+def _approve_http(user, workspace, approval):
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client.post(f"/api/workspaces/{workspace.slug}/approvals/{approval.id}/reject/")
 
 
 def _signed(payload, secret=SECRET):

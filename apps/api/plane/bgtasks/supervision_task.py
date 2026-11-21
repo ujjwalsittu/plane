@@ -21,6 +21,7 @@ from plane.db.models import AgentApproval, BriefVisit, DecisionRequest, Notifica
 from plane.utils import slack_app
 from plane.utils.brief import DEFAULT_WINDOW_HOURS, _milestones_due, brief_for, last_seen, zone_for
 from plane.utils.exception_logger import log_exception
+from plane.utils.guardrails import display_summary, owner_in_project
 
 BRIEF_HOUR = 9
 TOP = 5
@@ -324,11 +325,11 @@ def notify_decision(decision_id):
 
 
 def _approval_title(approval):
-    return f"{approval.agent.name} wants to {approval.summary}"
+    return f"{approval.agent.name} wants to {display_summary(approval)}"
 
 
 def _approval_blocks(approval):
-    issue = approval.issue
+    issue = approval.issue if owner_in_project(approval) else None
     slug = approval.workspace.slug
     where = ""
     if issue is not None:
@@ -362,20 +363,21 @@ def _create_approval_notification(approval):
         receiver_id=approval.asked_user_id, entity_name="approval", data__approval__id=str(approval.id)
     ).exists():
         return
-    issue = approval.issue
+    inside = owner_in_project(approval)
+    issue = approval.issue if inside else None
     Notification.objects.create(
         workspace_id=approval.workspace_id,
-        project_id=approval.project_id,
+        project_id=approval.project_id if inside else None,
         sender="approval",
         triggered_by_id=approval.agent.user_id,
         receiver_id=approval.asked_user_id,
-        entity_identifier=approval.issue_id,
+        entity_identifier=issue.id if issue else None,
         entity_name="approval",
         title=_approval_title(approval)[:500],
         data={
             "approval": {
                 "id": str(approval.id),
-                "summary": approval.summary,
+                "summary": display_summary(approval),
                 "action": approval.action,
                 "agent": approval.agent.name,
             },
@@ -400,7 +402,7 @@ def notify_approval(approval_id):
         return
     approval = (
         AgentApproval.objects.filter(pk=pk)
-        .select_related("issue", "issue__project", "workspace", "asked_user", "agent")
+        .select_related("issue", "issue__project", "workspace", "asked_user", "agent", "project")
         .first()
     )
     if approval is None or approval.status != "open":
