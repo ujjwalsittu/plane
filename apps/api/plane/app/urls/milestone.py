@@ -387,4 +387,9 @@ urlpatterns = [
         agent_views.AgentRotateTokenEndpoint.as_view(http_method_names=["post"]),
         name="app-agent-rotate-token",
     ),
+    path(
+        "workspaces/<str:slug>/ai-settings/",
+        agent_views.AISettingsEndpoint.as_view(http_method_names=["get", "put", "delete"]),
+        name="app-ai-settings",
+    ),
 ]

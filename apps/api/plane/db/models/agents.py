@@ -52,3 +52,23 @@ class WorkspaceAgent(BaseModel):
 
     def __str__(self):
         return f"{self.workspace_id} {self.name}"
+
+
+class WorkspaceAIConfig(BaseModel):
+    """A workspace's own Claude key (encrypted), model and monthly spend limit for AI features and agent runs."""
+
+    STATUS_CHOICES = (("ok", "Ok"), ("broken", "Broken"), ("unset", "Unset"))
+
+    workspace = models.OneToOneField("db.Workspace", on_delete=models.CASCADE, related_name="ai_config")
+    api_key_encrypted = models.TextField(blank=True, default="")
+    # Money is integer cents, USD only; null means no limit
+    monthly_limit_cents = models.PositiveIntegerField(null=True, blank=True)
+    model = models.CharField(max_length=100, blank=True, default="")
+    ma_environment_id = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="unset")
+    last_error = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Workspace AI Config"
+        verbose_name_plural = "Workspace AI Configs"
+        db_table = "workspace_ai_configs"

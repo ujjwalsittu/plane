@@ -11,7 +11,7 @@ from plane.api.views.agents import agent_list, workspace_for
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import WorkspaceAgent
-from plane.utils import agents
+from plane.utils import agents, ai_config
 
 
 class _Session:
@@ -95,3 +95,33 @@ class AgentRotateTokenEndpoint(_Session, BaseAPIView):
         except agents.AgentError as exc:
             return Response({exc.field: exc.message}, status=exc.status_code)
         return Response({"token": token})
+
+
+class AISettingsEndpoint(_Session, BaseAPIView):
+    """The workspace's Claude key, model and monthly limit (admins only). Never returns the key."""
+
+    def _workspace(self, request, slug):
+        workspace = super()._workspace(request, slug)
+        if workspace is not None:
+            agents._require_admin(workspace, request.user)
+        return workspace
+
+    def _respond(self, request, slug, apply=None):
+        try:
+            workspace = self._workspace(request, slug)
+            if workspace is None:
+                return _not_found()
+            if apply:
+                apply(workspace)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response(ai_config.settings_payload(workspace))
+
+    def get(self, request, slug):
+        return self._respond(request, slug)
+
+    def put(self, request, slug):
+        return self._respond(request, slug, lambda ws: ai_config.update_settings(ws, _data(request), request.user))
+
+    def delete(self, request, slug):
+        return self._respond(request, slug, lambda ws: ai_config.clear_api_key(ws, request.user))

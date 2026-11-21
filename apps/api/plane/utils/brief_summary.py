@@ -9,17 +9,15 @@ refusal or any API failure yields None and the web shows no summary."""
 
 import hashlib
 import json
-import os
 import re
 
-from django.conf import settings
 from django.core.cache import cache
 
+from plane.utils.ai_config import anthropic_client_for, model_for
 from plane.utils.exception_logger import log_exception
 
 BETA = "server-side-fallback-2026-07-01"
 CACHE_SECONDS = 60 * 60
-CLIENT_TIMEOUT_SECONDS = 30
 IDENTIFIER_RE = re.compile(r"\b[A-Z][A-Z0-9]*-\d+\b")
 
 SYSTEM_PROMPT = (
@@ -54,9 +52,9 @@ def _item(issue):
     }
 
 
-def is_enabled():
-    """Whether a summary can be written at all (an API key is configured)."""
-    return bool(os.environ.get("ANTHROPIC_API_KEY", ""))
+def is_enabled(workspace):
+    """Whether a summary can be written at all (the workspace or the instance has a Claude key)."""
+    return anthropic_client_for(workspace) is not None
 
 
 # Timestamps of the request itself: they change on every call, so the cache key leaves them out.
@@ -115,13 +113,13 @@ def _cache_key(brief, user_id, workspace_id):
     return f"brief-summary:{user_id}:{workspace_id}:{digest}"
 
 
-def summarize(brief, user_id, workspace_id):
+def summarize(brief, user_id, workspace):
     """{"text": str, "item_ids": [str]} for the brief, or None (no key, refusal, any API failure)."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
+    client = anthropic_client_for(workspace)
+    if client is None:
         return None
 
-    key = _cache_key(brief, user_id, workspace_id)
+    key = _cache_key(brief, user_id, workspace.id)
     cached = cache.get(key)
     if cached is not None:
         return cached
@@ -129,9 +127,8 @@ def summarize(brief, user_id, workspace_id):
     import anthropic
 
     try:
-        client = anthropic.Anthropic(api_key=api_key, timeout=CLIENT_TIMEOUT_SECONDS, max_retries=1)
         response = client.beta.messages.create(
-            model=settings.CLAUDE_MODEL,
+            model=model_for(workspace),
             max_tokens=1024,
             output_config={"effort": "low"},
             betas=[BETA],
