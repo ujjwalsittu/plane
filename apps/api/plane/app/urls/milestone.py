@@ -47,6 +47,7 @@ from plane.app.views.initiative import (
     InitiativeProjectEndpoint,
     InitiativeWorkItemEndpoint,
 )
+from plane.app.views import agents as agent_views
 from plane.app.views import release as release_views
 from plane.app.views import supervision as supervision_views
 from plane.app.views import template as template_views
@@ -370,5 +371,20 @@ urlpatterns = [
         "workspaces/<str:slug>/slack/",
         supervision_views.SlackConnectionEndpoint.as_view(http_method_names=["get", "put", "delete"]),
         name="app-slack-connection",
+    ),
+    path(
+        "workspaces/<str:slug>/agents/",
+        agent_views.AgentsEndpoint.as_view(http_method_names=["get", "post"]),
+        name="app-agents",
+    ),
+    path(
+        "workspaces/<str:slug>/agents/<uuid:agent_id>/",
+        agent_views.AgentEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="app-agent",
+    ),
+    path(
+        "workspaces/<str:slug>/agents/<uuid:agent_id>/rotate-token/",
+        agent_views.AgentRotateTokenEndpoint.as_view(http_method_names=["post"]),
+        name="app-agent-rotate-token",
     ),
 ]
