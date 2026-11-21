@@ -8,6 +8,9 @@ from plane.api.views.events import WorkspaceEventsAPIEndpoint, workspace_events_
 from plane.api.views.agents import (
     AgentApprovalAPIEndpoint,
     AgentRunAPIEndpoint,
+    AgentRunCancelAPIEndpoint,
+    AgentRunDelegateAPIEndpoint,
+    AgentRunFollowUpAPIEndpoint,
     AgentRunsAPIEndpoint,
     AgentRunStepsAPIEndpoint,
     WorkspaceAgentsAPIEndpoint,
@@ -62,6 +65,21 @@ urlpatterns = [
                 f"{_runs}/<uuid:run_id>/steps{suffix}",
                 AgentRunStepsAPIEndpoint.as_view(http_method_names=["post"]),
                 name=f"work-item-agent-run-steps{tag}",
+            ),
+            path(
+                f"{_runs}/delegate{suffix}",
+                AgentRunDelegateAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"work-item-agent-run-delegate{tag}",
+            ),
+            path(
+                f"{_runs}/<uuid:run_id>/follow-up{suffix}",
+                AgentRunFollowUpAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"work-item-agent-run-follow-up{tag}",
+            ),
+            path(
+                f"{_runs}/<uuid:run_id>/cancel{suffix}",
+                AgentRunCancelAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"work-item-agent-run-cancel{tag}",
             ),
         )
     ],

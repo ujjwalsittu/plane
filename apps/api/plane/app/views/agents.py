@@ -11,6 +11,9 @@ from rest_framework.response import Response
 
 from plane.api.views.agents import (
     AgentRunAPIEndpoint,
+    AgentRunCancelAPIEndpoint,
+    AgentRunDelegateAPIEndpoint,
+    AgentRunFollowUpAPIEndpoint,
     AgentRunsAPIEndpoint,
     agent_list,
     workspace_for,
@@ -162,6 +165,18 @@ class AgentRunsEndpoint(_Session, AgentRunsAPIEndpoint):
 
 
 class AgentRunEndpoint(_Session, AgentRunAPIEndpoint):
+    pass
+
+
+class AgentRunDelegateEndpoint(_Session, AgentRunDelegateAPIEndpoint):
+    pass
+
+
+class AgentRunFollowUpEndpoint(_Session, AgentRunFollowUpAPIEndpoint):
+    pass
+
+
+class AgentRunCancelEndpoint(_Session, AgentRunCancelAPIEndpoint):
     pass
 
 

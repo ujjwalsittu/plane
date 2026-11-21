@@ -391,6 +391,7 @@ CELERY_IMPORTS = (
     "plane.bgtasks.events_task",
     # Cloud agents on Claude Managed Agents
     "plane.bgtasks.cloud_agents_task",
+    "plane.bgtasks.agent_runs_task",
 )
 
 FILE_SIZE_LIMIT = int(os.environ.get("FILE_SIZE_LIMIT", 5242880))

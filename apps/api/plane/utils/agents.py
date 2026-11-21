@@ -45,7 +45,10 @@ def _sync_cloud_agent(agent):
 
 
 def on_agent_deactivated(agent):
-    """Hook for work that must stop with the agent (runs, sessions). Filled in by the run integration."""
+    """Work that stops with the agent: its open cloud runs are cancelled and their sessions interrupted."""
+    from plane.utils.managed_agents import cancel_agent_runs
+
+    cancel_agent_runs(agent)
 
 
 def _require_admin(workspace, actor):

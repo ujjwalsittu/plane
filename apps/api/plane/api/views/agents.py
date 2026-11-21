@@ -11,7 +11,7 @@ from plane.api.views.base import BaseAPIView
 from plane.api.views.issue import guest_cannot_view_issue
 from plane.app.permissions import ProjectEntityPermission
 from plane.db.models import AgentApproval, AgentRun, Issue, Workspace, WorkspaceAgent
-from plane.utils import agent_runs, agents, guardrails
+from plane.utils import agent_runs, agents, guardrails, managed_agents
 
 
 def workspace_for(request, slug):
@@ -123,6 +123,52 @@ class AgentRunStepsAPIEndpoint(AgentRunAPIEndpoint):
         if step is None:
             return Response({"duplicate": True}, status=status.HTTP_200_OK)
         return Response(agent_runs.step_payload(step), status=status.HTTP_201_CREATED)
+
+
+class AgentRunDelegateAPIEndpoint(BaseAPIView):
+    """Delegate the work item to a cloud agent: Plane starts a Claude Managed Agents session with it as the brief."""
+
+    permission_classes = [ProjectEntityPermission]
+    model = AgentRun
+
+    def post(self, request, slug, project_id, issue_id):
+        issue = _issue(request, slug, project_id, issue_id)
+        if issue is None:
+            return _missing()
+        data = _data(request)
+        try:
+            agent_id = agents._uuid(data.get("agent_id"), "agent_id")
+            agent = WorkspaceAgent.objects.filter(workspace_id=issue.workspace_id, pk=agent_id).first()
+            if agent is None:
+                raise agents.AgentError("Unknown agent", 400, "agent_id")
+            run = managed_agents.start_managed_run(issue, agent, request.user, data.get("instructions", ""))
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response(agent_runs.run_payload(run, steps=True), status=status.HTTP_201_CREATED)
+
+
+class AgentRunFollowUpAPIEndpoint(AgentRunAPIEndpoint):
+    def post(self, request, slug, project_id, issue_id, run_id):
+        run = self._run(request, slug, project_id, issue_id, run_id)
+        if run is None:
+            return _missing("Run")
+        try:
+            run = managed_agents.send_follow_up(run, request.user, _data(request).get("text"))
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response(agent_runs.run_payload(run, steps=True))
+
+
+class AgentRunCancelAPIEndpoint(AgentRunAPIEndpoint):
+    def post(self, request, slug, project_id, issue_id, run_id):
+        run = self._run(request, slug, project_id, issue_id, run_id)
+        if run is None:
+            return _missing("Run")
+        try:
+            run = managed_agents.cancel_run(run, request.user)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response(agent_runs.run_payload(run, steps=True))
 
 
 class AgentApprovalAPIEndpoint(BaseAPIView):

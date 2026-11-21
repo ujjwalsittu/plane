@@ -116,8 +116,11 @@ def add_step(run, kind, text, data=None, external_event_id=""):
     for _ in range(3):
         try:
             with transaction.atomic():
-                # The run row lock serialises concurrent writers so seq stays gapless
-                AgentRun.objects.select_for_update().get(pk=run.pk)
+                # The run row lock serialises concurrent writers so seq stays gapless, and a finished run
+                # takes no more steps even when the finish lands between the caller's check and this write
+                locked = AgentRun.objects.select_for_update().get(pk=run.pk)
+                if locked.status in TERMINAL_STATUSES:
+                    raise AgentError("The run has already finished", 409, "status")
                 steps = AgentRunStep.objects.filter(run=run)
                 if external_event_id and steps.filter(external_event_id=external_event_id).exists():
                     return None
@@ -138,21 +141,75 @@ def add_step(run, kind, text, data=None, external_event_id=""):
 def finish_run(run, status, summary="", error="", cost_cents=None):
     if status not in TERMINAL_STATUSES:
         raise AgentError("Status must be succeeded, failed or cancelled", 400, "status")
-    if run.status in TERMINAL_STATUSES:
-        raise AgentError("The run has already finished", 409, "status")
-    now = timezone.now()
-    run.status = status
-    run.ended_at = now
-    run.last_event_at = now
-    run.summary = _text(summary, "summary", TEXT_MAX)
-    run.error = _text(error, "error", TEXT_MAX)
-    fields = ["status", "ended_at", "last_event_at", "summary", "error", "updated_at"]
+    summary = _text(summary, "summary", TEXT_MAX)
+    error = _text(error, "error", TEXT_MAX)
     cost = _cost(cost_cents)
-    if cost is not None:
-        run.cost_cents = cost
-        fields.append("cost_cents")
-    run.save(update_fields=fields)
+    with transaction.atomic():
+        # Under the run row lock, so two finishers (the sync and a person cancelling) can't both win
+        if AgentRun.objects.select_for_update().get(pk=run.pk).status in TERMINAL_STATUSES:
+            raise AgentError("The run has already finished", 409, "status")
+        now = timezone.now()
+        run.status = status
+        run.ended_at = now
+        run.last_event_at = now
+        run.summary = summary
+        run.error = error
+        fields = ["status", "ended_at", "last_event_at", "summary", "error", "updated_at"]
+        if cost is not None:
+            run.cost_cents = cost
+            fields.append("cost_cents")
+        run.save(update_fields=fields)
     on_run_changed(run, "finished")
+    return run
+
+
+MANAGED_FIELDS = {"delegated_by", "external_session_id", "external_url", "status", "input_tokens", "output_tokens"}
+PATCH_STATUSES = ("running", "waiting")
+
+
+def update_managed_run(run, **fields):
+    """Plane's own writes to a cloud run (no actor check): delegated_by, external_session_id, external_url, a
+    non-terminal status, token totals and cost_cents. A status change touches last_event_at and is one feed
+    event. Finishing goes through finish_run."""
+    cost_given = "cost_cents" in fields
+    cost = _cost(fields.pop("cost_cents", None))
+    unknown = set(fields) - MANAGED_FIELDS
+    if unknown:
+        raise AgentError(f"Unknown run fields: {', '.join(sorted(unknown))}", 400)
+    if "status" in fields and fields["status"] not in OPEN_STATUSES:
+        raise AgentError("Use finish_run to end a run", 400, "status")
+    with transaction.atomic():
+        locked = AgentRun.objects.select_for_update().get(pk=run.pk)
+        if locked.status in TERMINAL_STATUSES:
+            raise AgentError("The run has already finished", 409, "status")
+        changed = "status" in fields and fields["status"] != locked.status
+        update = ["updated_at"]
+        for name, value in fields.items():
+            setattr(run, name, value)
+            update.append(name)
+        if cost_given:
+            run.cost_cents = cost
+            update.append("cost_cents")
+        if changed:
+            run.last_event_at = timezone.now()
+            update.append("last_event_at")
+        run.save(update_fields=update)
+    if changed:
+        on_run_changed(run, "updated")
+    return run
+
+
+def reopen_run(run):
+    """A succeeded cloud run that got a follow-up is running again."""
+    with transaction.atomic():
+        if AgentRun.objects.select_for_update().get(pk=run.pk).status != "succeeded":
+            raise AgentError("Only a succeeded run can be reopened", 409, "status")
+        now = timezone.now()
+        run.status = "running"
+        run.ended_at = None
+        run.last_event_at = now
+        run.save(update_fields=["status", "ended_at", "last_event_at", "updated_at"])
+    on_run_changed(run, "updated")
     return run
 
 
@@ -161,8 +218,8 @@ def update_run(run, data, actor):
     if run.actor_id != actor.id:
         raise AgentError("Only the run's reporter can change it", 403)
     new_status = data.get("status")
-    if new_status is not None and new_status not in dict(AgentRun.STATUS_CHOICES):
-        raise AgentError("Invalid status", 400, "status")
+    if new_status is not None and new_status not in (*PATCH_STATUSES, *TERMINAL_STATUSES):
+        raise AgentError("Status must be running, waiting, succeeded, failed or cancelled", 400, "status")
     if new_status in TERMINAL_STATUSES:
         return finish_run(
             run,
@@ -174,9 +231,10 @@ def update_run(run, data, actor):
     if run.status in TERMINAL_STATUSES:
         raise AgentError("The run has already finished", 409, "status")
     fields = ["updated_at"]
-    if new_status in OPEN_STATUSES and new_status != run.status:
+    if new_status in PATCH_STATUSES and new_status != run.status:
         run.status = new_status
-        fields.append("status")
+        run.last_event_at = timezone.now()
+        fields += ["status", "last_event_at"]
     if "summary" in data:
         run.summary = _text(data["summary"], "summary", TEXT_MAX)
         fields.append("summary")

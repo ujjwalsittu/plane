@@ -403,6 +403,21 @@ urlpatterns = [
         name="app-work-item-agent-run",
     ),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/agent-runs/delegate/",
+        agent_views.AgentRunDelegateEndpoint.as_view(http_method_names=["post"]),
+        name="app-work-item-agent-run-delegate",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/agent-runs/<uuid:run_id>/follow-up/",
+        agent_views.AgentRunFollowUpEndpoint.as_view(http_method_names=["post"]),
+        name="app-work-item-agent-run-follow-up",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/agent-runs/<uuid:run_id>/cancel/",
+        agent_views.AgentRunCancelEndpoint.as_view(http_method_names=["post"]),
+        name="app-work-item-agent-run-cancel",
+    ),
+    path(
         "workspaces/<str:slug>/agent-runs/live/",
         agent_views.LiveAgentRunsEndpoint.as_view(http_method_names=["get"]),
         name="app-agent-runs-live",

@@ -139,21 +139,23 @@ def update_settings(workspace, data, actor):
     return config
 
 
+def agent_cloud_ready(agent):
+    """The agent has its Managed Agents agent and a vault holding its current active token."""
+    token_id = (
+        APIToken.objects.filter(user_id=agent.user_id, is_active=True)
+        .order_by("-created_at")
+        .values_list("id", flat=True)
+        .first()
+    )
+    has_handles = bool(agent.ma_agent_id and agent.ma_vault_id)
+    return has_handles and token_id is not None and agent.ma_vault_token_id == token_id
+
+
 def cloud_agents_ready(workspace, config):
-    """The cloud environment is set and every active agent has its Managed Agents agent and a vault holding its
-    current active token."""
+    """The cloud environment is set and every active agent is ready (see agent_cloud_ready)."""
     if not config.ma_environment_id:
         return False
-    for agent in WorkspaceAgent.objects.filter(workspace=workspace, is_active=True):
-        token_id = (
-            APIToken.objects.filter(user_id=agent.user_id, is_active=True)
-            .order_by("-created_at")
-            .values_list("id", flat=True)
-            .first()
-        )
-        if not agent.ma_agent_id or not agent.ma_vault_id or token_id is None or agent.ma_vault_token_id != token_id:
-            return False
-    return True
+    return all(agent_cloud_ready(agent) for agent in WorkspaceAgent.objects.filter(workspace=workspace, is_active=True))
 
 
 def settings_payload(workspace):
