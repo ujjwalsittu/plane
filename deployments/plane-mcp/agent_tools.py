@@ -112,7 +112,7 @@ def _register_agent_run(mcp: FastMCP) -> None:
         status: str = "",
         summary: str = "",
         error: str = "",
-        cost_cents: int = 0,
+        cost_cents: int | None = None,
     ) -> Any:
         _, slug = get_plane_client_context()
         if err := needs(action, project_id=project_id, workitem_id=workitem_id):
@@ -154,7 +154,7 @@ def _register_agent_run(mcp: FastMCP) -> None:
             body["summary"] = summary
         if error:
             body["error"] = error
-        if cost_cents:
+        if cost_cents is not None:
             body["cost_cents"] = cost_cents
         return _request("PATCH", _run_path(slug, project_id, workitem_id, run_id), body=body)
 

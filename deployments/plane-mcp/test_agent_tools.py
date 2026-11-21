@@ -183,6 +183,13 @@ class AgentToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(sent["url"].endswith(f"/agent-runs/{RUN}/"))
         self.assertEqual(sent["json"], {"status": "succeeded", "summary": "done", "cost_cents": 42})
 
+    async def test_finish_reports_zero_cost_and_omits_cost_when_not_given(self):
+        common = dict(action="finish", project_id=PROJECT, workitem_id=ITEM, run_id=RUN, status="succeeded")
+        await self.call("agent_run", cost_cents=0, **common)
+        await self.call("agent_run", **common)
+        self.assertEqual(self.requests[0]["json"], {"status": "succeeded", "cost_cents": 0})
+        self.assertEqual(self.requests[1]["json"], {"status": "succeeded"})
+
     async def test_list_and_retrieve_are_gets(self):
         await self.call("agent_run", action="list", project_id=PROJECT, workitem_id=ITEM)
         await self.call("agent_run", action="retrieve", project_id=PROJECT, workitem_id=ITEM, run_id=RUN)
