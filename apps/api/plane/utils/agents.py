@@ -36,6 +36,13 @@ class AgentError(ValueError):
         self.field = field
 
 
+def _sync_cloud_agent(agent, **kwargs):
+    """Keep the agent's Managed Agents agent and vault in step; a no-op until cloud agents are set up."""
+    from plane.utils.managed_agents import on_agent_changed
+
+    on_agent_changed(agent, **kwargs)
+
+
 def on_agent_deactivated(agent):
     """Hook for work that must stop with the agent (runs, sessions). Filled in by the run integration."""
 
@@ -193,6 +200,7 @@ def create_agent(workspace, data, actor):
             token = _new_token(agent)
     except IntegrityError:
         raise AgentError("An agent with this name already exists", 400, "name")
+    _sync_cloud_agent(agent, token=token)
     return agent, token
 
 
@@ -222,6 +230,7 @@ def update_agent(agent, data, actor):
         agent.save()
         if "project_ids" in data:
             _set_project_membership(agent, _clean_projects(agent.workspace, actor, data["project_ids"]))
+    _sync_cloud_agent(agent)
     return agent
 
 
@@ -235,6 +244,7 @@ def deactivate_agent(agent, actor):
         ProjectMember.objects.filter(member=agent.user).update(is_active=False)
         WorkspaceMember.objects.filter(member=agent.user, workspace=agent.workspace).update(is_active=False)
     on_agent_deactivated(agent)
+    _sync_cloud_agent(agent, deactivated=True)
     return agent
 
 
@@ -245,7 +255,9 @@ def rotate_token(agent, actor):
         raise AgentError("The agent is deactivated", 400)
     with transaction.atomic():
         APIToken.objects.filter(user=agent.user, is_active=True).update(is_active=False)
-        return _new_token(agent)
+        token = _new_token(agent)
+    _sync_cloud_agent(agent, token=token)
+    return token
 
 
 def agent_for_user(user):

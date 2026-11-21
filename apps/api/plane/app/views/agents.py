@@ -19,7 +19,7 @@ from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.api.views.issue import visible_issue_q
 from plane.db.models import AgentApproval, Issue, WorkspaceAgent
-from plane.utils import agent_runs, agents, ai_config, guardrails
+from plane.utils import agent_runs, agents, ai_config, guardrails, managed_agents
 
 
 class _Session:
@@ -148,6 +148,13 @@ class AISettingsEndpoint(_Session, BaseAPIView):
 
     def delete(self, request, slug):
         return self._respond(request, slug, lambda ws: ai_config.clear_api_key(ws, request.user))
+
+
+class CloudAgentsSetupEndpoint(AISettingsEndpoint):
+    """Set up cloud agents on Claude Managed Agents: the workspace environment, then every active agent."""
+
+    def post(self, request, slug):
+        return self._respond(request, slug, lambda ws: managed_agents.setup_cloud_agents(ws, request.user))
 
 
 class AgentRunsEndpoint(_Session, AgentRunsAPIEndpoint):

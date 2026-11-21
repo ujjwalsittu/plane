@@ -623,3 +623,6 @@ SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 
 # The model behind the Brief's AI summary. The key itself comes from ANTHROPIC_API_KEY.
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
+
+# The Plane MCP server cloud agents (Claude Managed Agents) reach Plane through, with each agent's own token.
+PLANE_MCP_URL = os.environ.get("PLANE_MCP_URL", "")

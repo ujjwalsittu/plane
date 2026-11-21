@@ -28,7 +28,8 @@ class TestAISettingsEndpoint:
         assert response.status_code == 200
         assert response.data["has_key"] is True and response.data["status"] == "ok"
         assert response.data["model"] == "claude-x" and response.data["monthly_limit_cents"] == 5000
-        assert response.data["spent_this_month_cents"] == 0 and response.data["cloud_agents_ready"] is True
+        # A key alone isn't enough: cloud agents need their own setup (see test_managed_agents).
+        assert response.data["spent_this_month_cents"] == 0 and response.data["cloud_agents_ready"] is False
         assert "sk-ant-secret" not in str(session_client.get(URL).data)
 
         response = session_client.put(URL, {"monthly_limit_cents": None}, format="json")

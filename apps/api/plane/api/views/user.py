@@ -10,7 +10,7 @@ from drf_spectacular.utils import OpenApiResponse
 # Module imports
 from plane.api.serializers import UserLiteSerializer
 from plane.api.views.base import BaseAPIView
-from plane.db.models import User
+from plane.db.models import APIToken, User
 from plane.utils.openapi.decorators import user_docs
 from plane.utils.openapi import USER_EXAMPLE
 
@@ -45,5 +45,15 @@ class UserEndpoint(BaseAPIView):
         Retrieve the authenticated user's profile information including basic details.
         Returns user data based on the current authentication context.
         """
-        serializer = UserLiteSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = dict(UserLiteSerializer(request.user).data)
+        # A workspace-bound token (an agent's) says which workspace it belongs to, so the Plane MCP server can
+        # default to it. request.auth is the token string for API-key requests.
+        if isinstance(request.auth, str):
+            slug = (
+                APIToken.objects.filter(token=request.auth, workspace__isnull=False)
+                .values_list("workspace__slug", flat=True)
+                .first()
+            )
+            if slug:
+                data["token_workspace_slug"] = slug
+        return Response(data, status=status.HTTP_200_OK)

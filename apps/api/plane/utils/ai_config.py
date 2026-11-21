@@ -8,9 +8,9 @@ import os
 from datetime import datetime, timezone
 
 from django.conf import settings
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
-from plane.db.models import AgentRun, WorkspaceAIConfig
+from plane.db.models import AgentRun, WorkspaceAgent, WorkspaceAIConfig
 from plane.license.utils.encryption import decrypt_data, encrypt_data
 from plane.utils.agents import AgentError, _require_admin
 
@@ -139,6 +139,14 @@ def update_settings(workspace, data, actor):
     return config
 
 
+def cloud_agents_ready(workspace, config):
+    """The cloud environment is set and every active agent has its Managed Agents agent and vault."""
+    if not config.ma_environment_id:
+        return False
+    missing = Q(ma_agent_id="") | Q(ma_vault_id="")
+    return not WorkspaceAgent.objects.filter(missing, workspace=workspace, is_active=True).exists()
+
+
 def settings_payload(workspace):
     """Never includes the key."""
     config = get_config(workspace)
@@ -151,5 +159,5 @@ def settings_payload(workspace):
         "model": config.model,
         "monthly_limit_cents": config.monthly_limit_cents,
         "spent_this_month_cents": spent_this_month_cents(workspace),
-        "cloud_agents_ready": config.status != "broken" and (has_key or bool(instance_key())),
+        "cloud_agents_ready": cloud_agents_ready(workspace, config),
     }

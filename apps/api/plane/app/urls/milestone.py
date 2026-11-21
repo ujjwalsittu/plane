@@ -413,6 +413,11 @@ urlpatterns = [
         name="app-ai-settings",
     ),
     path(
+        "workspaces/<str:slug>/ai-settings/cloud-agents/",
+        agent_views.CloudAgentsSetupEndpoint.as_view(http_method_names=["post"]),
+        name="app-ai-settings-cloud-agents",
+    ),
+    path(
         "workspaces/<str:slug>/approvals/",
         agent_views.AgentApprovalsEndpoint.as_view(http_method_names=["get"]),
         name="app-agent-approvals",
