@@ -114,7 +114,7 @@ class APITokenLogMiddleware:
             return "[Could not decode content]"
 
     # Headers whose values must never be persisted in plaintext logs
-    SENSITIVE_HEADERS = frozenset({"x-api-key", "authorization", "cookie"})
+    SENSITIVE_HEADERS = frozenset({"x-api-key", "authorization", "cookie", "x-plane-approval"})
 
     def _redacted_headers(self, request):
         """
@@ -136,28 +136,27 @@ class APITokenLogMiddleware:
             return
 
         try:
-            log_data = {
-                # Tokenize the (high-entropy) API key into a stable, non-reversible
-                # identifier so logs can be correlated to a token without ever
-                # persisting the raw key. A keyed HMAC is used rather than a bare
-                # hash so the digest cannot be precomputed from a known key value.
-                "token_identifier": hmac.new(
-                    settings.SECRET_KEY.encode(), api_key.encode(), hashlib.sha256
-                ).hexdigest(),
-                "path": request.path,
-                "method": request.method,
-                "query_params": request.META.get("QUERY_STRING", ""),
-                "headers": self._redacted_headers(request),
-                "body": self._safe_decode_body(request_body) if request_body else None,
-                "response_body": self._safe_decode_body(response.content) if response.content else None,
-                "response_code": response.status_code,
-                "ip_address": get_client_ip(request=request),
-                "user_agent": request.META.get("HTTP_USER_AGENT", None),
-            }
-
-            process_logs.delay(log_data=log_data)
-
+            process_logs.delay(log_data=self.log_data(request, response, request_body, api_key))
         except Exception as e:
             log_exception(e)
 
         return None
+
+    def log_data(self, request, response, request_body, api_key):
+        """The APIActivityLog row for one API-key request (also used for replayed agent approvals)."""
+        return {
+            # Tokenize the (high-entropy) API key into a stable, non-reversible
+            # identifier so logs can be correlated to a token without ever
+            # persisting the raw key. A keyed HMAC is used rather than a bare
+            # hash so the digest cannot be precomputed from a known key value.
+            "token_identifier": hmac.new(settings.SECRET_KEY.encode(), api_key.encode(), hashlib.sha256).hexdigest(),
+            "path": request.path,
+            "method": request.method,
+            "query_params": request.META.get("QUERY_STRING", ""),
+            "headers": self._redacted_headers(request),
+            "body": self._safe_decode_body(request_body) if request_body else None,
+            "response_body": self._safe_decode_body(response.content) if response.content else None,
+            "response_code": response.status_code,
+            "ip_address": get_client_ip(request=request),
+            "user_agent": request.META.get("HTTP_USER_AGENT", None),
+        }

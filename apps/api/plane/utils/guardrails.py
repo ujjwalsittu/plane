@@ -20,7 +20,17 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import APIException, AuthenticationFailed, PermissionDenied
 
-from plane.db.models import AgentApproval, APIToken, Issue, Project, WorkspaceAgent, WorkspaceMember
+from plane.db.models import (
+    AgentApproval,
+    APIToken,
+    Cycle,
+    Issue,
+    Module,
+    Project,
+    ProjectMember,
+    WorkspaceAgent,
+    WorkspaceMember,
+)
 from plane.utils.agents import ADMIN, AgentError, agent_for_user
 from plane.utils.exception_logger import log_exception
 
@@ -110,32 +120,99 @@ def _approved_replay(request, agent):
     ).exists()
 
 
-def _scope(request, agent):
+def _match(request):
     match = getattr(request, "resolver_match", None)
     if match is None:
         try:
             match = resolve(request.path_info)
         except Resolver404:
             match = None
+    return match
+
+
+def _require_member(match, agent):
+    """A gated request must stay inside the agent's workspace and its projects; nothing about the target leaks."""
     kwargs = match.kwargs if match else {}
+    if kwargs.get("slug") and kwargs["slug"] != agent.workspace.slug:
+        raise PermissionDenied("This agent can't act outside its workspace")
+    if (
+        kwargs.get("project_id")
+        and not ProjectMember.objects.filter(
+            project_id=kwargs["project_id"],
+            project__workspace_id=agent.workspace_id,
+            member_id=agent.user_id,
+            is_active=True,
+        ).exists()
+    ):
+        raise PermissionDenied("This agent is not a member of this project")
+
+
+RESOURCE_NAMES = {
+    "issue-attachments": "attachment",
+    "archived-cycles": "cycle",
+    "archived-modules": "module",
+    "work-items": "work item",
+    "issues": "work item",
+}
+
+
+def _resource(path, pk):
+    """The singular name of the path segment just before the id, e.g. comments/<pk> -> comment."""
+    segments = path.strip("/").split("/")
+    if str(pk) in segments:
+        segment = segments[segments.index(str(pk)) - 1]
+        return RESOURCE_NAMES.get(segment, segment[:-1] if segment.endswith("s") else segment)
+    return "item"
+
+
+def _ref(issue):
+    return f"{issue.project.identifier}-{issue.sequence_id}"
+
+
+def _describe(match, agent, action, method, path, body):
+    """(project, issue, summary) for the approval: says exactly what will run, in the owner's words."""
+    kwargs = match.kwargs if match else {}
+    view = getattr(getattr(match, "func", None), "view_class", None)
     project = issue = None
     if kwargs.get("project_id"):
         project = Project.objects.filter(workspace_id=agent.workspace_id, pk=kwargs["project_id"]).first()
-    issue_id = kwargs.get("issue_id") or kwargs.get("pk")
-    if project and issue_id:
-        issue = Issue.issue_objects.filter(project=project, pk=issue_id).select_related("project").first()
-    return project, issue
+    issues = Issue.objects.filter(project=project).select_related("project") if project else Issue.objects.none()
+    if path.rstrip("/").endswith("/unarchive"):
+        verb = "unarchive"
+    elif method == "POST":
+        verb = "archive"
+    else:
+        verb = "delete"
 
+    target = path
+    if project and getattr(view, "__name__", "") == "IssueDetailAPIEndpoint" and kwargs.get("pk"):
+        # The work item itself
+        issue = issues.filter(pk=kwargs["pk"]).first()
+        if issue:
+            target = f'{_ref(issue)} "{issue.name}"'
+    elif project and kwargs.get("issue_id"):
+        # Something hanging off a work item: a comment, link or attachment, or its place in a cycle or module
+        issue = issues.filter(pk=kwargs["issue_id"]).first()
+        ref = _ref(issue) if issue else "a work item"
+        for key, model, label in (("cycle_id", Cycle, "cycle"), ("module_id", Module, "module")):
+            if kwargs.get(key) and action == "delete":
+                container = model.objects.filter(project=project, pk=kwargs[key]).first()
+                name = f' "{container.name}"' if container else ""
+                return project, issue, f"remove {ref} from {label}{name}"
+        target = f"{_resource(path, kwargs['pk'])} on {ref}" if kwargs.get("pk") else ref
+    elif project and kwargs.get("pk"):
+        resource = _resource(path, kwargs["pk"])
+        model = {"cycle": Cycle, "module": Module}.get(resource)
+        named = model.objects.filter(project=project, pk=kwargs["pk"]).first() if model else None
+        target = f'{resource} "{named.name}"' if named else resource
 
-def _summary(action, method, path, body, issue):
-    target = f'{issue.project.identifier}-{issue.sequence_id} "{issue.name}"' if issue else path
     if action == "delete":
-        return f"{'archive' if method == 'POST' else 'delete'} {target}"
+        return project, issue, f"{verb} {target}"
     dates = [f"{k} to {body[k] or 'none'}" for k in sorted(DATE_KEYS) if isinstance(body, dict) and k in body]
-    return f"change dates on {target}" + (f" ({', '.join(dates)})" if dates else "")
+    return project, issue, f"change dates on {target}" + (f" ({', '.join(dates)})" if dates else "")
 
 
-def _open_approval(request, agent, action):
+def _open_approval(request, agent, action, match):
     """The open approval for this exact request (method, path, query and body), created if there is none."""
     method = request.method.upper()
     path = request.path
@@ -156,7 +233,7 @@ def _open_approval(request, agent, action):
             None,
         )
         if approval is None:
-            project, issue = _scope(request, agent)
+            project, issue, summary = _describe(match, agent, action, method, path, body)
             approval = AgentApproval(
                 workspace_id=agent.workspace_id,
                 project=project,
@@ -164,7 +241,7 @@ def _open_approval(request, agent, action):
                 agent=agent,
                 asked_user_id=agent.owner_id,
                 action=action,
-                summary=_summary(action, method, path, body, issue),
+                summary=summary,
                 method=method,
                 path=path,
                 query=query,
@@ -202,7 +279,9 @@ def check_request(request, user):
     if action in (agent.approval_actions or []):
         if _approved_replay(request, agent):
             return
-        raise ApprovalRequired(_open_approval(request, agent, action))
+        match = _match(request)
+        _require_member(match, agent)
+        raise ApprovalRequired(_open_approval(request, agent, action, match))
     if action == "delete" and agent.permission == "contribute":
         raise PermissionDenied("This agent can't delete or archive")
 
@@ -247,6 +326,20 @@ def _response_body(response):
         return {"detail": str(data)}
 
 
+def _log_replay(request, response, approval, api_key):
+    """The replay skips Django middleware, so write its API activity log row the way the middleware would."""
+    from plane.bgtasks.logger_task import log_to_postgres
+    from plane.middleware.logger import APITokenLogMiddleware
+
+    try:
+        if hasattr(response, "render") and not getattr(response, "is_rendered", True):
+            response.render()
+        body = json.dumps(approval.body).encode() if approval.body is not None else None
+        log_to_postgres(APITokenLogMiddleware(None).log_data(request, response, body, api_key))
+    except Exception as exc:
+        log_exception(exc)
+
+
 def replay(approval):
     """Run the held request once, through the same API-key auth, as the agent. Records the outcome."""
     from rest_framework.test import APIRequestFactory
@@ -277,6 +370,7 @@ def replay(approval):
             with crum.impersonate(agent.user):
                 response = match.func(request, *match.args, **match.kwargs)
             result_status, result_body = response.status_code, _response_body(response)
+            _log_replay(request, response, approval, token.token)
         except Resolver404:
             result_status, result_body = 404, {"error": "Not found"}
         except Exception as exc:

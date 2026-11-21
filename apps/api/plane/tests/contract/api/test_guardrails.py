@@ -14,7 +14,20 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from plane.bgtasks.issue_activities_task import issue_activity
-from plane.db.models import AgentApproval, Issue, IssueActivity, Project, ProjectMember, State, User, WorkspaceMember
+from plane.db.models import (
+    AgentApproval,
+    APIActivityLog,
+    Cycle,
+    CycleIssue,
+    Issue,
+    IssueActivity,
+    IssueComment,
+    Project,
+    ProjectMember,
+    State,
+    User,
+    WorkspaceMember,
+)
 from plane.utils import agents, guardrails
 
 pytestmark = [pytest.mark.contract, pytest.mark.django_db]
@@ -251,3 +264,53 @@ def test_classify():
     for req, expected in cases:
         with patch("plane.utils.guardrails._json_body", lambda r: r._body):
             assert guardrails.classify(req) == expected
+
+
+def test_gate_stays_inside_the_agents_projects(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project)
+    beta = Project.objects.create(name="Beta", identifier="BET", workspace=workspace, created_by=create_user)
+    ProjectMember.objects.create(project=beta, member=create_user, workspace=workspace, role=20)
+    secret = Issue.objects.create(name="Secret plan", project=beta, workspace=workspace)
+    url = _issue_url(workspace, beta, secret)
+    with patch("plane.utils.guardrails.on_approval_created") as hook:
+        deleted = client.delete(url)
+        dated = client.patch(url, {"target_date": "2026-12-31"}, format="json")
+    for response in (deleted, dated):
+        assert response.status_code == 403 and "approval_id" not in response.data
+        assert "Secret" not in str(response.data) and "BET" not in str(response.data)
+    assert AgentApproval.objects.count() == 0 and hook.call_count == 0
+    assert Issue.issue_objects.filter(pk=secret.pk).exists()
+
+
+def test_summary_names_the_sub_resource(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project)
+    issue = _agent_issue(client, workspace, project)
+    ref = f"ALP-{issue.sequence_id}"
+    comment = IssueComment.objects.create(
+        workspace=workspace, project=project, issue=issue, comment_html="<p>hi</p>", created_by=create_user
+    )
+    base = f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}"
+    gated = client.delete(f"{base}/issues/{issue.id}/comments/{comment.id}/")
+    approval = AgentApproval.objects.get(pk=gated.data["approval_id"])
+    assert approval.summary == f"delete comment on {ref}"
+    assert "Agent item" not in str(gated.data)
+
+    cycle = Cycle.objects.create(name="Sprint 1", project=project, workspace=workspace, owned_by=create_user)
+    CycleIssue.objects.create(cycle=cycle, issue=issue, project=project, workspace=workspace)
+    gated = client.delete(f"{base}/cycles/{cycle.id}/cycle-issues/{issue.id}/")
+    assert AgentApproval.objects.get(pk=gated.data["approval_id"]).summary == f'remove {ref} from cycle "Sprint 1"'
+
+    gated = client.delete(_issue_url(workspace, project, issue))
+    assert AgentApproval.objects.get(pk=gated.data["approval_id"]).summary == f'delete {ref} "Agent item"'
+
+
+def test_replay_is_logged_without_the_signature(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project)
+    issue = _agent_issue(client, workspace, project)
+    approval_id = client.delete(_issue_url(workspace, project, issue)).data["approval_id"]
+    assert _approve(create_user, workspace, approval_id).status_code == 200
+    log = APIActivityLog.objects.get(path=_issue_url(workspace, project, issue), method="DELETE", response_code=204)
+    assert "[REDACTED]" in log.headers
+    signature = signing.dumps(str(approval_id), salt="agent-approval")
+    assert signature.split(":")[0] not in log.headers
+    assert "plane_api_" not in log.headers
