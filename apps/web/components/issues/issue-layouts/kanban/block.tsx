@@ -34,6 +34,7 @@ import useIssuePeekOverviewRedirection from "@/hooks/use-issue-peek-overview-red
 import { usePlatformOS } from "@/hooks/use-platform-os";
 // local components
 import type { TRenderQuickActions } from "../list/list-view-types";
+import { AgentLiveDot } from "@/components/issues/issue-detail-widgets/agent-runs";
 import { IssueProperties } from "../properties/all-properties";
 
 interface IssueBlockProps {
@@ -71,6 +72,7 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
   const [isMenuActive, setIsMenuActive] = useState(false);
   // hooks
   const { isMobile } = usePlatformOS();
+  const { workspaceSlug } = useParams();
 
   const customActionButton = (
     // The quick-action menu grafts its trigger behaviour (and accessible name) onto this element via
@@ -125,8 +127,11 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
       </div>
 
       <Tooltip label={issue.name} layout="stacked" disabled={isMobile}>
-        <div className="w-full text-body-sm-medium break-words text-primary">
-          <span>{issue.name}</span>
+        <div className="flex w-full items-start gap-1.5 text-body-sm-medium break-words text-primary">
+          <span className="min-w-0 flex-1">{issue.name}</span>
+          {!issue.tempId && (
+            <AgentLiveDot className="mt-1.5" workspaceSlug={workspaceSlug?.toString()} issueId={issue.id} />
+          )}
         </div>
       </Tooltip>
 

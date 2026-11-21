@@ -28,6 +28,7 @@ import useSize from "@/hooks/use-window-size";
 import { WorkItemVersionService } from "@/services/issue";
 // local imports
 import { IssueDetailWidgets } from "../issue-detail-widgets";
+import { AgentWorkingPill } from "../issue-detail-widgets/agent-runs";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
@@ -122,6 +123,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
               <IssueTypeSwitcher issueId={issueId} disabled={isArchived || !isEditable} />
             </div>
             <div className="flex shrink-0 items-center gap-3">
+              <AgentWorkingPill workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
               <NameDescriptionUpdateStatus isSubmitting={isSubmitting} />
             </div>
           </div>

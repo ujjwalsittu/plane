@@ -4,15 +4,18 @@
  * See the LICENSE file for details.
  */
 
+import { Avatar } from "@makeplane/propel/components/avatar";
 import { Badge } from "@makeplane/propel/components/badge";
 import { useTranslation } from "@plane/i18n";
 import type { TBriefDone } from "@plane/types";
-import { renderFormattedDate } from "@plane/utils";
+import { getFileURL, renderFormattedDate } from "@plane/utils";
+import { useMember } from "@/hooks/store/use-member";
 import { BriefColumn, WorkItemLink } from "./column";
 
 /** Work items finished since the last visit, grouped by project, marked as done by an agent or a person. */
 export function DoneColumn({ workspaceSlug, groups }: { workspaceSlug: string; groups: TBriefDone[] }) {
   const { t } = useTranslation();
+  const { getUserDetails } = useMember();
   const total = groups.reduce((sum, group) => sum + group.items.length, 0);
   return (
     <BriefColumn title={t("supervision.done")} count={total} empty={t("supervision.done_empty")}>
@@ -32,7 +35,18 @@ export function DoneColumn({ workspaceSlug, groups }: { workspaceSlug: string; g
                     size="sm"
                     label={t(item.by.is_agent ? "supervision.agent" : "supervision.person")}
                   />
-                  {item.by.display_name && (
+                  {item.by.is_agent && item.by.display_name && (
+                    <span className="flex items-center gap-1.5 text-caption-md-regular text-secondary">
+                      <Avatar
+                        size="sm"
+                        alt={item.by.display_name}
+                        src={getFileURL(getUserDetails(item.by.id ?? "")?.avatar_url ?? "") || undefined}
+                        fallback={item.by.display_name[0]?.toUpperCase()}
+                      />
+                      {item.by.display_name}
+                    </span>
+                  )}
+                  {!item.by.is_agent && item.by.display_name && (
                     <span className="text-caption-md-regular text-tertiary">
                       {t("supervision.done_by", { name: item.by.display_name })}
                     </span>

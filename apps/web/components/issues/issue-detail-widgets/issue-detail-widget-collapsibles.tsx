@@ -12,6 +12,7 @@ import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useTimeLineRelationOptions } from "@/components/relations";
 // local imports
+import { AgentRunsCollapsible } from "./agent-runs";
 import { AttachmentsCollapsible } from "./attachments";
 import { LinksCollapsible } from "./links";
 import { CustomRelationsCollapsible } from "./custom-relations";
@@ -96,6 +97,7 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
         issueId={issueId}
         disabled={disabled}
       />
+      <AgentRunsCollapsible workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       <WorkLogsCollapsible workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       <WorkItemPagesCollapsible
         workspaceSlug={workspaceSlug}

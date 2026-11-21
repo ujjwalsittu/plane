@@ -5,7 +5,7 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TAgentAuditEntry, TAISettings, TWorkspaceAgent, TWorkspaceAgentPayload } from "@plane/types";
+import type { TAgentAuditEntry, TAgentRun, TAISettings, TWorkspaceAgent, TWorkspaceAgentPayload } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 /** A new agent comes back with its token, which is never returned again. */
@@ -67,6 +67,42 @@ export class AgentsService extends APIService {
 
   clearAIKey(workspaceSlug: string): Promise<TAISettings> {
     return this.call(this.delete(this.url(workspaceSlug, "ai-settings/")));
+  }
+
+  private runsUrl(workspaceSlug: string, projectId: string, issueId: string, path = "") {
+    return this.url(workspaceSlug, `projects/${projectId}/issues/${issueId}/agent-runs/${path}`);
+  }
+
+  getRuns(workspaceSlug: string, projectId: string, issueId: string): Promise<TAgentRun[]> {
+    return this.call(this.get(this.runsUrl(workspaceSlug, projectId, issueId)));
+  }
+
+  getRun(workspaceSlug: string, projectId: string, issueId: string, runId: string): Promise<TAgentRun> {
+    return this.call(this.get(this.runsUrl(workspaceSlug, projectId, issueId, `${runId}/`)));
+  }
+
+  delegate(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    data: { agent_id: string; instructions: string }
+  ): Promise<TAgentRun> {
+    return this.call(this.post(this.runsUrl(workspaceSlug, projectId, issueId, "delegate/"), data));
+  }
+
+  followUp(workspaceSlug: string, projectId: string, issueId: string, runId: string, text: string): Promise<TAgentRun> {
+    return this.call(this.post(this.runsUrl(workspaceSlug, projectId, issueId, `${runId}/follow-up/`), { text }));
+  }
+
+  cancelRun(workspaceSlug: string, projectId: string, issueId: string, runId: string): Promise<TAgentRun> {
+    return this.call(this.post(this.runsUrl(workspaceSlug, projectId, issueId, `${runId}/cancel/`)));
+  }
+
+  /** The live run per work item id, for up to 200 ids in one request. */
+  getLiveRuns(workspaceSlug: string, issueIds: string[]): Promise<Record<string, TAgentRun>> {
+    return this.call(
+      this.get(this.url(workspaceSlug, "agent-runs/live/"), { params: { issue_ids: issueIds.join(",") } })
+    );
   }
 
   setupCloudAgents(workspaceSlug: string): Promise<TAISettings> {

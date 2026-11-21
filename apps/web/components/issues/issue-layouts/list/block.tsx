@@ -22,6 +22,7 @@ import { Spinner } from "@plane/blocks/spinner";
 import { cn, generateWorkItemLink } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
+import { AgentLiveDot } from "@/components/issues/issue-detail-widgets/agent-runs";
 import { IssueProperties } from "@/components/issues/issue-layouts/properties";
 import { IssueIdentifier } from "@/components/issues/issue-detail/issue-identifier";
 // hooks
@@ -277,6 +278,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             <Tooltip label={issue.name} layout="stacked" align="start" disabled={isCurrentBlockDragging || isMobile}>
               <p className="cursor-pointer truncate text-body-xs-medium text-primary">{issue.name}</p>
             </Tooltip>
+            {!issue?.tempId && <AgentLiveDot className="ml-1.5" workspaceSlug={workspaceSlug} issueId={issue.id} />}
           </div>
           {!issue?.tempId && (
             <div
