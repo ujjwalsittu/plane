@@ -14,6 +14,13 @@ Here only a 401 or 403 from Plane means the key is bad. Anything else is
 unknown key gets a retryable 503 instead of a 401. A key validated in the
 last minute is not re-checked at all, which also keeps the checks from
 adding to Plane's rate limit.
+
+Cloud agents can only send `Authorization: Bearer <token>`, so the workspace
+does not have to come from `x-workspace-slug`: when that header is absent the
+slug is the `token_workspace_slug` Plane reports for a workspace-bound token
+on /api/v1/users/me/. It is cached next to the validation, so it costs no
+extra request. A token bound to no workspace and sent without the header is
+rejected.
 """
 
 import asyncio
@@ -38,8 +45,8 @@ RETRIES = 3
 
 VALID, INVALID, UNAVAILABLE = "valid", "invalid", "unavailable"
 
-# sha256(key) -> unix time of the last successful validation
-_validated_at: dict[str, float] = {}
+# sha256(key) -> (unix time of the last successful validation, workspace slug the token is bound to or None)
+_validated: dict[str, tuple[float, str | None]] = {}
 
 
 class PlaneUnavailableError(Exception):
@@ -55,7 +62,7 @@ class PlaneHeaderAuthProvider(TokenVerifier):
         super().__init__(required_scopes=required_scopes)
         self.timeout_seconds = timeout_seconds
 
-    async def _check_once(self, token: str) -> str:
+    async def _check_once(self, token: str) -> tuple[str, str | None]:
         base_url = (os.getenv("PLANE_INTERNAL_BASE_URL") or os.getenv("PLANE_BASE_URL", DEFAULT_PLANE_BASE_URL)).rstrip(
             "/"
         )
@@ -67,42 +74,50 @@ class PlaneHeaderAuthProvider(TokenVerifier):
                 )
         except httpx.RequestError as e:
             logger.warning("API key validation request failed: %s", e)
-            return UNAVAILABLE
+            return UNAVAILABLE, None
         if response.status_code == 200:
-            return VALID
+            try:
+                slug = response.json().get("token_workspace_slug") or None
+            except (ValueError, AttributeError):
+                slug = None
+            return VALID, slug
         if response.status_code in (401, 403):
             logger.warning("API key rejected by Plane: %s", response.status_code)
-            return INVALID
+            return INVALID, None
         logger.warning("Plane could not validate the API key right now: %s", response.status_code)
-        return UNAVAILABLE
+        return UNAVAILABLE, None
 
-    async def _validate_api_key(self, token: str) -> str:
+    async def _validate_api_key(self, token: str) -> tuple[str, str | None]:
         for attempt in range(RETRIES):
-            result = await self._check_once(token)
+            result, slug = await self._check_once(token)
             if result != UNAVAILABLE:
-                return result
+                return result, slug
             if attempt < RETRIES - 1:
                 await asyncio.sleep(1.5 * (attempt + 1))
-        return UNAVAILABLE
+        return UNAVAILABLE, None
 
-    async def _key_is_valid(self, token: str) -> bool:
-        """True / False when known; raises PlaneUnavailableError when not."""
+    async def _key_state(self, token: str, need_slug: bool = False) -> tuple[bool, str | None]:
+        """(is the key valid, the workspace slug it is bound to). Raises PlaneUnavailableError when unknown.
+
+        need_slug: the caller has no slug of its own, so a cached validation without one is not enough.
+        """
         key = _fingerprint(token)
-        last = _validated_at.get(key)
+        last, cached_slug = _validated.get(key, (None, None))
         now = time.time()
-        if last and now - last < FRESH_SECONDS:
-            return True
+        usable = not need_slug or cached_slug
+        if last and now - last < FRESH_SECONDS and usable:
+            return True, cached_slug
 
-        result = await self._validate_api_key(token)
+        result, slug = await self._validate_api_key(token)
         if result == VALID:
-            _validated_at[key] = now
-            return True
+            _validated[key] = (now, slug)
+            return True, slug
         if result == INVALID:
-            _validated_at.pop(key, None)
-            return False
-        if last and now - last < GRACE_SECONDS:
+            _validated.pop(key, None)
+            return False, None
+        if last and now - last < GRACE_SECONDS and usable:
             logger.warning("Plane unavailable; accepting an API key validated %ds ago", int(now - last))
-            return True
+            return True, cached_slug
         raise PlaneUnavailableError("Plane is unavailable; retry shortly")
 
     async def verify_token(self, token: str) -> AccessToken | None:
@@ -111,19 +126,25 @@ class PlaneHeaderAuthProvider(TokenVerifier):
 
             headers = get_http_headers()
 
-            if token:
-                workspace_slug = headers.get("x-workspace-slug")
-                if not workspace_slug:
-                    logger.warning("x-api-key header found but x-workspace-slug is missing")
+            # An x-api-key header wins; otherwise the Authorization bearer token (what `token` is) is the key.
+            api_key = headers.get("x-api-key") or token
+            if api_key:
+                header_slug = headers.get("x-workspace-slug")
+                valid, token_slug = await self._key_state(api_key, need_slug=not header_slug)
+                if not valid:
+                    logger.warning("API key validation against Plane API failed")
                     return None
 
-                if not await self._key_is_valid(token):
-                    logger.warning("API key validation against Plane API failed")
+                workspace_slug = header_slug or token_slug
+                if not workspace_slug:
+                    logger.warning(
+                        "No workspace: x-workspace-slug is missing and the token is not bound to a workspace"
+                    )
                     return None
 
                 logger.info("API key validated")
                 return AccessToken(
-                    token=token,
+                    token=api_key,
                     client_id="api_key_header_user",
                     scopes=["read", "write"],
                     expires_at=int(time.time() + 3600),

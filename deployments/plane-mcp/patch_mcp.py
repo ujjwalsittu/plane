@@ -8,6 +8,7 @@
 - milestone create/update: description
 - workitem create/update: completed_at (for imports)
 - workitem_property options: color
+- agent_run, approval and event tools (agent_tools.py), registered next to the upstream resources
 
 The SDK's request models drop unknown fields (extra="ignore"); the patched ones allow them, and the
 tools pass the new arguments through. Every replacement must find its anchor, so a new MCP version
@@ -16,6 +17,7 @@ that moves the code fails the image build instead of shipping a half-applied pat
 
 import pathlib
 import re
+import shutil
 import sys
 
 SITE = pathlib.Path("/usr/local/lib/python3.11/site-packages/plane/models")
@@ -143,5 +145,12 @@ replace(
     '                "target_date": opt(target_date),\n                "completed_at": opt(completed_at),\n'
     '                "sort_order": opt(sort_order),\n',
 )
+
+# --- agent tools --------------------------------------------------------------------------------
+# Runs, approvals and events: the module is copied in and its RESOURCES appended to the registry.
+shutil.copy("/tmp/agent_tools.py", TOOLS / "agent_tools.py")
+registry = TOOLS / "registry.py"
+replace(registry, "from plane_mcp.tools import (\n    collection,\n", "from plane_mcp.tools import agent_tools\nfrom plane_mcp.tools import (\n    collection,\n")
+replace(registry, "    template,\n    collection,\n)\n", "    template,\n    collection,\n    *agent_tools.RESOURCES,\n)\n")
 
 print("patch_mcp: applied")
