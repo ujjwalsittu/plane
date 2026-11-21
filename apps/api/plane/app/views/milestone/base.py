@@ -11,6 +11,7 @@ from plane.app.permissions import ROLE, allow_permission
 from plane.app.serializers import IssueTypeSerializer, MilestoneSerializer
 from plane.app.views.base import BaseAPIView, BaseViewSet
 from plane.db.models import Issue, Milestone, Project
+from plane.utils.events import emit_milestone_event
 from plane.utils.host import base_host
 from plane.utils.milestone import (
     default_epic_flag,
@@ -47,6 +48,7 @@ class MilestoneViewSet(BaseViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         milestone = serializer.save(project=project, workspace_id=project.workspace_id)
         enable_milestones(project)
+        emit_milestone_event(request, milestone, "created")
         return Response(
             self.serializer_class(self.get_queryset().get(pk=milestone.pk)).data,
             status=status.HTTP_201_CREATED,
@@ -59,6 +61,7 @@ class MilestoneViewSet(BaseViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
+        emit_milestone_event(request, milestone, "updated")
         return Response(self.serializer_class(self.get_queryset().get(pk=pk)).data, status=status.HTTP_200_OK)
 
     @allow_permission([ROLE.ADMIN], creator=True, model=Milestone)
@@ -69,6 +72,7 @@ class MilestoneViewSet(BaseViewSet):
         # Archived and draft items keep no reference to a deleted milestone either.
         Issue.all_objects.filter(milestone=milestone).update(milestone=None)
         milestone.delete()
+        emit_milestone_event(request, milestone, "deleted")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

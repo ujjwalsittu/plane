@@ -39,6 +39,26 @@ export const INDIVIDUAL_WEBHOOK_OPTIONS: {
     label: "Work item comments",
     description: "Comment posted, updated, or deleted",
   },
+  {
+    key: "decision",
+    label: "Decisions",
+    description: "Decision asked, answered, or withdrawn",
+  },
+  {
+    key: "approval",
+    label: "Agent approvals",
+    description: "Agent action waiting for approval, approved, rejected, or run",
+  },
+  {
+    key: "agent_run",
+    label: "Agent runs",
+    description: "Agent run started, progressed, or finished",
+  },
+  {
+    key: "milestone",
+    label: "Milestones",
+    description: "Milestone created, updated, or deleted",
+  },
 ];
 
 type Props = {

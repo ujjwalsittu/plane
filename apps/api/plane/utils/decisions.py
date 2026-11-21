@@ -20,6 +20,22 @@ MAX_ANSWER_LENGTH = 5000
 MAX_QUESTION_LENGTH = 2000
 
 
+def _emit_decision(decision, action, actor, source="app"):
+    """One feed event per decision step. The question and answer stay out of the data."""
+    from plane.utils.events import emit_event
+
+    emit_event(
+        decision.workspace_id,
+        "decision",
+        action,
+        decision.id,
+        project_id=decision.project_id,
+        actor=actor,
+        is_agent=source == "api" or bool(getattr(actor, "is_bot", False)),
+        data={"issue_id": str(decision.issue_id), "asked_user": str(decision.asked_user_id), "status": decision.status},
+    )
+
+
 def on_decision_created(decision):
     """Called right after a decision is created: tell the asked person (Slack DM and inbox row)."""
     from plane.bgtasks.supervision_task import notify_decision
@@ -110,6 +126,7 @@ def create_decision(issue, data, actor, source):
     )
     # Looked up at call time so tests can patch it; fires only for committed rows.
     transaction.on_commit(lambda: on_decision_created(decision))
+    _emit_decision(decision, "created", actor, source)
     return decision
 
 
@@ -180,6 +197,7 @@ def answer_decision(decision, user, answer, source="app", origin=None):
             source=source,
         )
         _dispatch_comment_created(comment, user, source, origin)
+    _emit_decision(locked, "answered", user, source)
     return locked
 
 
@@ -232,6 +250,7 @@ def withdraw_decision(decision, user):
         locked.updated_by = user
         locked.save()
         _close_notifications(locked, timezone.now())
+    _emit_decision(locked, "withdrawn", user)
     return locked
 
 

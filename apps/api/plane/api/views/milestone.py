@@ -27,6 +27,7 @@ from plane.db.models import (
     Workspace,
     WorkspaceMember,
 )
+from plane.utils.events import emit_milestone_event
 from plane.utils.host import base_host
 from plane.utils.project_overview import (
     OverviewError,
@@ -123,6 +124,7 @@ class MilestoneListCreateAPIEndpoint(BaseAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         milestone = serializer.save(project=project, workspace_id=project.workspace_id)
         enable_milestones(project)
+        emit_milestone_event(request, milestone, "created")
         return Response(
             MilestoneSerializer(milestone_queryset(slug, project_id).get(pk=milestone.pk)).data,
             status=status.HTTP_201_CREATED,
@@ -146,6 +148,7 @@ class MilestoneDetailAPIEndpoint(BaseAPIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
+        emit_milestone_event(request, milestone, "updated")
         return Response(
             MilestoneSerializer(milestone_queryset(slug, project_id).get(pk=milestone_id)).data,
             status=status.HTTP_200_OK,
@@ -159,6 +162,7 @@ class MilestoneDetailAPIEndpoint(BaseAPIView):
         )
         Issue.all_objects.filter(milestone=milestone).update(milestone=None)
         milestone.delete()
+        emit_milestone_event(request, milestone, "deleted")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

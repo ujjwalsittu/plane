@@ -25,5 +25,9 @@ export const getCurrentHookAsCSV = (
   module: webhook?.module?.toString() || "",
   cycle: webhook?.cycle?.toString() || "",
   issue_comment: webhook?.issue_comment?.toString() || "",
+  decision: webhook?.decision?.toString() || "",
+  approval: webhook?.approval?.toString() || "",
+  agent_run: webhook?.agent_run?.toString() || "",
+  milestone: webhook?.milestone?.toString() || "",
   workspace: currentWorkspace?.name || "",
 });

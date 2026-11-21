@@ -4,6 +4,7 @@
 
 from django.urls import path
 
+from plane.api.views.events import WorkspaceEventsAPIEndpoint, workspace_events_stream
 from plane.api.views.agents import (
     AgentApprovalAPIEndpoint,
     AgentRunAPIEndpoint,
@@ -35,6 +36,14 @@ urlpatterns = [
         AgentApprovalAPIEndpoint.as_view(http_method_names=["get"]),
         name="agent-approval-no-slash",
     ),
+    path("workspaces/<str:slug>/events/", WorkspaceEventsAPIEndpoint.as_view(http_method_names=["get"]), name="events"),
+    path(
+        "workspaces/<str:slug>/events",
+        WorkspaceEventsAPIEndpoint.as_view(http_method_names=["get"]),
+        name="events-no-slash",
+    ),
+    path("workspaces/<str:slug>/events/stream/", workspace_events_stream, name="events-stream"),
+    path("workspaces/<str:slug>/events/stream", workspace_events_stream, name="events-stream-no-slash"),
     *[
         route
         for suffix, tag in (("/", ""), ("", "-no-slash"))

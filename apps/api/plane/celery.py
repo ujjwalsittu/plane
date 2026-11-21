@@ -110,6 +110,10 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.guardrails_task.expire_agent_approvals",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45
     },
+    "prune-events": {
+        "task": "plane.bgtasks.events_task.prune_events",
+        "schedule": crontab(hour=4, minute=0),  # UTC 04:00
+    },
     "check-every-day-to-delete-exporter-history": {
         "task": "plane.bgtasks.exporter_expired_task.delete_old_s3_link",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45

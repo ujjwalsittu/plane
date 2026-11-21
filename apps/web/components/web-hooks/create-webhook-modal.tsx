@@ -55,6 +55,10 @@ export function CreateWebhookModal(props: ICreateWebhookModal) {
         module: true,
         issue: true,
         issue_comment: true,
+        decision: true,
+        approval: true,
+        agent_run: true,
+        milestone: true,
       };
     else
       payload = {
@@ -64,6 +68,10 @@ export function CreateWebhookModal(props: ICreateWebhookModal) {
         module: formData.module ?? false,
         issue: formData.issue ?? false,
         issue_comment: formData.issue_comment ?? false,
+        decision: formData.decision ?? false,
+        approval: formData.approval ?? false,
+        agent_run: formData.agent_run ?? false,
+        milestone: formData.milestone ?? false,
       };
 
     await createWebhook(workspaceSlug.toString(), payload)
@@ -78,6 +86,7 @@ export function CreateWebhookModal(props: ICreateWebhookModal) {
 
         const csvData = getCurrentHookAsCSV(currentWorkspace, webHook, secretKey ?? undefined);
         csvDownload(csvData, `webhook-secret-key-${Date.now()}`);
+        return webHook;
       })
       .catch((error) => {
         setToast({

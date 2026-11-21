@@ -63,6 +63,26 @@ def on_approval_created(approval):
     transaction.on_commit(lambda: notify_approval.delay(approval_id))
 
 
+def _emit_approval(approval, action, actor):
+    """One feed event per approval step. The data holds ids and the status only, no summary or titles."""
+    from plane.utils.events import emit_event
+
+    emit_event(
+        approval.workspace_id,
+        "approval",
+        action,
+        approval.id,
+        project_id=approval.project_id,
+        actor=actor,
+        data={
+            "agent_id": str(approval.agent_id),
+            "issue_id": str(approval.issue_id) if approval.issue_id else None,
+            "kind": approval.action,
+            "status": approval.status,
+        },
+    )
+
+
 # --- classifying a request --------------------------------------------------------------------
 
 
@@ -257,6 +277,7 @@ def _open_approval(request, agent, action, match):
     if created:
         try:
             on_approval_created(approval)
+            _emit_approval(approval, "created", agent.user)
         except Exception as exc:
             log_exception(exc)
     return approval
@@ -315,6 +336,7 @@ def decide_approval(approval, user, approve):
             approval.save(update_fields=["status", "decided_by", "decided_at", "updated_at"])
     if not was_open or approval.status == "expired":
         raise AgentError("This approval has already been decided or has expired", 409, "status")
+    _emit_approval(approval, approval.status, user)
     if approve:
         replay(approval)
     return approval
@@ -384,6 +406,7 @@ def replay(approval):
     approval.result_body = result_body
     approval.status = "executed" if result_status and 200 <= result_status < 300 else "failed"
     approval.save(update_fields=["result_status", "result_body", "status", "updated_at"])
+    _emit_approval(approval, approval.status, agent.user)
     return approval
 
 

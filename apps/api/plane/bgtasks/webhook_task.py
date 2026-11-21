@@ -389,6 +389,40 @@ def webhook_send_task(
         return
 
 
+def _event_project_id(event, event_id):
+    """The project a recorded change belongs to, or None when it cannot be found (then nothing is recorded)."""
+    if event == "project":
+        return event_id
+    model = {"issue": Issue, "module": Module, "cycle": Cycle, "issue_comment": IssueComment}[event]
+    manager = getattr(model, "all_objects", model.objects)
+    return manager.filter(pk=event_id).values_list("project_id", flat=True).first()
+
+
+def record_workspace_event(event, verb, field, old_value, new_value, actor_id, slug, event_id):
+    """Add the change to the workspace event log. `is_agent` is true when the actor is a bot user: only the actor id
+    reaches this task, so a person's request made with their own API key is not told apart here."""
+    if event not in ("project", "issue", "module", "cycle", "issue_comment"):
+        return
+    from plane.db.models import Workspace
+    from plane.utils.events import emit_event
+
+    workspace_id = Workspace.objects.filter(slug=slug).values_list("id", flat=True).first()
+    project_id = _event_project_id(event, event_id)
+    if workspace_id is None or project_id is None:
+        return
+    actor = User.objects.filter(pk=actor_id).first() if actor_id else None
+    data = {"field": field, "old_value": old_value, "new_value": new_value} if field else {}
+    emit_event(
+        workspace_id,
+        event,
+        verb,
+        event_id,
+        project_id=project_id,
+        actor=actor,
+        data=json.loads(json.dumps(data, cls=DjangoJSONEncoder)),
+    )
+
+
 @shared_task
 def webhook_activity(
     event: str,
@@ -429,6 +463,11 @@ def webhook_activity(
         The function silently returns on ObjectDoesNotExist exceptions to handle
         race conditions where objects might have been deleted.
     """
+    try:
+        record_workspace_event(event, verb, field, old_value, new_value, actor_id, slug, event_id)
+    except Exception as e:
+        log_exception(e)
+
     try:
         webhooks = Webhook.objects.filter(workspace__slug=slug, is_active=True)
 

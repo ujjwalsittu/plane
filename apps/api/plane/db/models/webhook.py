@@ -41,6 +41,10 @@ class Webhook(BaseModel):
     module = models.BooleanField(default=False)
     cycle = models.BooleanField(default=False)
     issue_comment = models.BooleanField(default=False)
+    decision = models.BooleanField(default=False)
+    approval = models.BooleanField(default=False)
+    agent_run = models.BooleanField(default=False)
+    milestone = models.BooleanField(default=False)
     is_internal = models.BooleanField(default=False)
     version = models.CharField(default="v1", max_length=50)
 

@@ -11,6 +11,10 @@ export interface IWebhook {
   is_active: boolean;
   issue: boolean;
   issue_comment: boolean;
+  decision: boolean;
+  approval: boolean;
+  agent_run: boolean;
+  milestone: boolean;
   module: boolean;
   project: boolean;
   secret_key?: string;

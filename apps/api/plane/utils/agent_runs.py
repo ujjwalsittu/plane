@@ -26,7 +26,24 @@ COST_MAX_CENTS = 2_000_000_000
 
 
 def on_run_changed(run, action):
-    """Hook called on create ("created"), each step ("step") and finish ("finished"). Task 6 emits events here."""
+    """Hook called on create ("created"), each step ("step") and finish ("finished"): one feed event each.
+    A step event carries only the run's step count and status, never step text, to keep the feed small."""
+    from plane.utils.events import emit_event
+
+    data = {"issue_id": str(run.issue_id), "status": run.status, "kind": run.kind}
+    if action == "step":
+        data["steps"] = run.steps.count()
+    elif action == "finished":
+        data["cost_cents"] = run.cost_cents
+    emit_event(
+        run.workspace_id,
+        "agent_run",
+        action,
+        run.id,
+        project_id=run.project_id,
+        actor=run.actor,
+        data=data,
+    )
 
 
 def _text(value, field, limit, required=False):

@@ -388,6 +388,7 @@ CELERY_IMPORTS = (
     "plane.bgtasks.github_webhook_task",
     # Agent approval expiry
     "plane.bgtasks.guardrails_task",
+    "plane.bgtasks.events_task",
 )
 
 FILE_SIZE_LIMIT = int(os.environ.get("FILE_SIZE_LIMIT", 5242880))

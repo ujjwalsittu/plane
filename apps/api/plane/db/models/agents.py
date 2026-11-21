@@ -209,3 +209,43 @@ class AgentApproval(BaseModel):
 
     def __str__(self):
         return f"{self.agent_id} {self.action} {self.status}"
+
+
+class WorkspaceEvent(models.Model):
+    """Durable per-workspace change log. Not a BaseModel: agents page through it with the integer id as cursor."""
+
+    EVENT_CHOICES = (
+        ("issue", "Issue"),
+        ("issue_comment", "Issue comment"),
+        ("project", "Project"),
+        ("cycle", "Cycle"),
+        ("module", "Module"),
+        ("milestone", "Milestone"),
+        ("decision", "Decision"),
+        ("approval", "Approval"),
+        ("agent_run", "Agent run"),
+    )
+
+    id = models.BigAutoField(primary_key=True)
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="workspace_events")
+    project_id = models.UUIDField(null=True, blank=True)
+    event = models.CharField(max_length=32, choices=EVENT_CHOICES)
+    action = models.CharField(max_length=32)
+    entity_id = models.UUIDField()
+    actor_id = models.UUIDField(null=True, blank=True)
+    is_agent = models.BooleanField(default=False)
+    data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Workspace Event"
+        verbose_name_plural = "Workspace Events"
+        db_table = "workspace_events"
+        ordering = ("id",)
+        indexes = [
+            models.Index(fields=["workspace", "id"], name="workspace_event_ws_id_idx"),
+            models.Index(fields=["created_at"], name="workspace_event_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.workspace_id} {self.event}.{self.action}"
