@@ -17,7 +17,8 @@ export type TWorkspaceSettingsTabs =
   | "export"
   | "webhooks"
   | "github"
-  | "slack";
+  | "slack"
+  | "agents";
 export type TWorkspaceSettingsItem = {
   key: TWorkspaceSettingsTabs;
   i18n_label: string;

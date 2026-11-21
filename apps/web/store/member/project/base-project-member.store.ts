@@ -142,7 +142,9 @@ export class BaseProjectMemberStore implements IBaseProjectMemberStore {
     const projectId = this.routerStore.projectId;
     if (!projectId) return null;
 
-    const members = Object.values(this.projectMemberMap?.[projectId] ?? {});
+    const members = Object.values(this.projectMemberMap?.[projectId] ?? {}).filter(
+      (m) => !this.memberRoot?.memberMap?.[m.member]?.is_bot
+    );
     if (members.length === 0) return null;
 
     // Access the filters directly to ensure MobX tracking
@@ -236,7 +238,8 @@ export class BaseProjectMemberStore implements IBaseProjectMemberStore {
    */
   getProjectMemberIds = computedFn((projectId: string, includeGuestUsers: boolean): string[] | null => {
     if (!this.projectMemberMap?.[projectId]) return null;
-    let members = this.getProjectMemberships(projectId);
+    // agents are never assignees
+    let members = this.getProjectMemberships(projectId).filter((m) => !this.memberRoot?.memberMap?.[m.member]?.is_bot);
     if (includeGuestUsers === false) {
       members = members.filter((m) => m.role !== EUserPermissions.GUEST);
     }

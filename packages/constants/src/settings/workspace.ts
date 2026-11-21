@@ -76,6 +76,13 @@ export const WORKSPACE_SETTINGS: Record<TWorkspaceSettingsTabs, TWorkspaceSettin
     access: [EUserWorkspaceRoles.ADMIN],
     highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/settings/slack/`,
   },
+  agents: {
+    key: "agents",
+    i18n_label: "agents.settings_short_title",
+    href: `/settings/agents`,
+    access: [EUserWorkspaceRoles.ADMIN],
+    highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/settings/agents/`,
+  },
 };
 
 export const WORKSPACE_SETTINGS_ACCESS = Object.fromEntries(
@@ -94,5 +101,6 @@ export const GROUPED_WORKSPACE_SETTINGS: Record<WORKSPACE_SETTINGS_CATEGORY, TWo
     WORKSPACE_SETTINGS["webhooks"],
     WORKSPACE_SETTINGS["github"],
     WORKSPACE_SETTINGS["slack"],
+    WORKSPACE_SETTINGS["agents"],
   ],
 };

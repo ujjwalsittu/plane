@@ -566,3 +566,101 @@ export type TSlackConnection = {
   linked_users: number;
   last_error: string;
 };
+
+export type TAgentPermission = "read" | "contribute" | "manage";
+
+export type TAgentApprovalAction = "delete" | "change_dates";
+
+/** An agent of the workspace: a bot user with its owner, permission and project access. */
+export type TWorkspaceAgent = {
+  id: string;
+  name: string;
+  description: string;
+  avatar_url: string | null;
+  user_id: string;
+  owner: { id: string; display_name: string };
+  permission: TAgentPermission;
+  approval_actions: TAgentApprovalAction[];
+  run_budget_cents: number;
+  is_active: boolean;
+  project_ids: string[];
+  last_active_at: string | null;
+};
+
+/** The create/update body. Dollars are converted to `run_budget_cents` by the form. */
+export type TWorkspaceAgentPayload = {
+  name: string;
+  description: string;
+  avatar_url: string;
+  owner: string;
+  project_ids: string[];
+  permission: TAgentPermission;
+  approval_actions: TAgentApprovalAction[];
+  run_budget_cents: number;
+};
+
+/** The workspace's Claude key, model and monthly limit. The server never returns the key. */
+export type TAISettings = {
+  has_key: boolean;
+  uses_instance_key: boolean;
+  status: string;
+  last_error: string | null;
+  model: string;
+  monthly_limit_cents: number | null;
+  spent_this_month_cents: number;
+  cloud_agents_ready: boolean;
+};
+
+export type TAgentRunKind = "managed" | "external";
+
+export type TAgentRunStatus = "queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled";
+
+export type TAgentRunStepKind = "message" | "tool" | "status" | "pr" | "commit" | "error";
+
+export type TAgentRunStep = {
+  id: string;
+  seq: number;
+  kind: TAgentRunStepKind;
+  text: string;
+  data: Record<string, unknown> | null;
+  external_event_id: string | null;
+  created_at: string;
+};
+
+export type TAgentRun = {
+  id: string;
+  issue_id: string;
+  project_id: string;
+  kind: TAgentRunKind;
+  status: TAgentRunStatus;
+  title: string;
+  agent: { id: string; name: string; avatar_url: string | null } | null;
+  actor: { id: string; display_name: string; is_agent: boolean };
+  delegated_by: { id: string; display_name: string } | null;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  cost_cents: number;
+  summary: string;
+  error: string;
+  external_url: string;
+  is_live: boolean;
+  links: { kind: "pull_request" | "commit"; ref: string; title: string; url: string; repository: string }[];
+  /** Only on a single run's response. */
+  steps?: TAgentRunStep[];
+};
+
+/** One row of an agent's audit trail, newest first. */
+export type TAgentAuditEntry =
+  | { at: string; kind: "request"; method: string; path: string; status: number }
+  | {
+      at: string;
+      kind: "approval";
+      id: string;
+      action: TAgentApprovalAction;
+      summary: string;
+      status: string;
+      decided_by: string | null;
+      decided_at: string | null;
+    }
+  | { at: string; kind: "run"; id: string; issue_id: string; title: string; status: TAgentRunStatus };
