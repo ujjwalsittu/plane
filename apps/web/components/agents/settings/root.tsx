@@ -96,25 +96,27 @@ export const AgentsSettingsRoot = observer(function AgentsSettingsRoot({ workspa
         />
       </section>
 
-      <AgentForm
-        key={form.agent?.id ?? "new"}
-        workspaceSlug={workspaceSlug}
-        isOpen={form.open}
-        agent={form.agent}
-        onClose={() => setForm((current) => ({ ...current, open: false }))}
-        onCreated={(created) => {
-          const { token, ...agent } = created;
-          setForm({ open: false, agent: null });
-          setReveal({ token, agentName: agent.name });
-          void mutateAgents();
-          // a new agent changes whether cloud agents are ready
-          void mutateSettings();
-        }}
-        onUpdated={() => {
-          setForm({ open: false, agent: null });
-          void mutateAgents();
-        }}
-      />
+      {form.open && (
+        <AgentForm
+          key={form.agent?.id ?? "new"}
+          workspaceSlug={workspaceSlug}
+          isOpen={form.open}
+          agent={form.agent}
+          onClose={() => setForm((current) => ({ ...current, open: false }))}
+          onCreated={(created) => {
+            const { token, ...agent } = created;
+            setForm({ open: false, agent: null });
+            setReveal({ token, agentName: agent.name });
+            void mutateAgents();
+            // a new agent changes whether cloud agents are ready
+            void mutateSettings();
+          }}
+          onUpdated={() => {
+            setForm({ open: false, agent: null });
+            void mutateAgents();
+          }}
+        />
+      )}
       <AgentTokenReveal
         token={reveal?.token ?? null}
         agentName={reveal?.agentName ?? ""}

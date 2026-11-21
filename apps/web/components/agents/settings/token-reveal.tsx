@@ -43,11 +43,9 @@ export function AgentTokenReveal({ token, agentName, onClose }: Props) {
   return (
     <Dialog
       open={!!token}
-      // Only the button closes it, so the token is not dismissed by a stray click before it is stored.
+      // Only the button closes it: ignore Escape and outside presses so the token is not lost before it is stored.
       disablePointerDismissal
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
+      onOpenChange={() => {}}
     >
       <DialogContent size="sm">
         <DialogMain>
