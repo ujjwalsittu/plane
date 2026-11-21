@@ -469,12 +469,23 @@ export type TDecisionRequest = {
   issue?: TSupervisionWorkItem;
 };
 
-export type TBriefWhy = "assigned" | "mentioned" | "decision";
+export type TBriefWhy = "assigned" | "mentioned" | "decision" | "approval";
+
+/** An agent's risky action held for its owner to approve (a Brief row, not the full approval record). */
+export type TAgentApproval = {
+  id: string;
+  summary: string;
+  action: "delete" | "change_dates";
+  agent: { id: string; name: string; avatar_url: string | null };
+  created_at: string;
+};
 
 export type TBriefNeedsMe = {
-  issue: TSupervisionWorkItem;
+  /** Null for an approval about something that is not a work item you can see (a cycle, a module). */
+  issue: TSupervisionWorkItem | null;
   why: TBriefWhy;
   decision_id: string | null;
+  approval?: TAgentApproval;
   due: string | null;
   overdue: boolean;
 };

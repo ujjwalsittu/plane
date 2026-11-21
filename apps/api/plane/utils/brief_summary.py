@@ -33,7 +33,8 @@ SYSTEM_PROMPT = (
 def _ids(brief):
     found = set()
     for row in brief.get("needs_me", []):
-        found.add(row["issue"]["identifier"])
+        if row["issue"]:
+            found.add(row["issue"]["identifier"])
     for row in brief.get("blocked", []):
         found.add(row["issue"]["identifier"])
     for group in brief.get("done", []):
@@ -69,6 +70,7 @@ def _data(brief):
         "needs_me": [
             {**_item(r["issue"]), "why": r["why"], "due": r["due"], "overdue": r["overdue"]}
             for r in brief.get("needs_me", [])
+            if r["issue"]  # an approval about a cycle or module has no work item to name
         ],
         "blocked": [
             {**_item(r["issue"]), "reasons": [{"kind": x["kind"], "since": x["since"]} for x in r["reasons"]]}

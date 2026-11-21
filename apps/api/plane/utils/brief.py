@@ -142,7 +142,57 @@ def _needs_me(workspace_id, user, now):
             }
         )
     # Overdue first, then soonest due, undated last (ISO dates sort as text).
+    rows += _approval_rows(workspace_id, user, now)
     rows.sort(key=lambda row: (not row["overdue"], row["due"] is None, row["due"] or ""))
+    return rows
+
+
+def _approval_rows(workspace_id, user, now):
+    """Open approvals waiting on ``user`` (an agent's risky action held for them), oldest first.
+
+    The work item is included only when the person can see it; an approval can also be about a cycle or module."""
+    from plane.db.models import AgentApproval
+    from plane.utils.guardrails import EXPIRE_DAYS
+
+    approvals = list(
+        AgentApproval.objects.filter(
+            workspace_id=workspace_id,
+            asked_user=user,
+            status="open",
+            created_at__gte=now - timedelta(days=EXPIRE_DAYS),
+        )
+        .select_related("agent", "agent__user")
+        .order_by("created_at")
+    )
+    issues = {
+        issue.id: issue
+        for issue in _visible_issues(user, workspace_id)
+        .filter(id__in=[a.issue_id for a in approvals if a.issue_id])
+        .select_related("state", "project")
+    }
+    rows = []
+    for approval in approvals:
+        issue = issues.get(approval.issue_id)
+        rows.append(
+            {
+                "issue": work_item_payload(issue) if issue else None,
+                "why": "approval",
+                "decision_id": None,
+                "approval": {
+                    "id": str(approval.id),
+                    "summary": approval.summary,
+                    "action": approval.action,
+                    "agent": {
+                        "id": str(approval.agent_id),
+                        "name": approval.agent.name,
+                        "avatar_url": approval.agent.user.avatar_url,
+                    },
+                    "created_at": _iso(approval.created_at),
+                },
+                "due": None,
+                "overdue": False,
+            }
+        )
     return rows
 
 

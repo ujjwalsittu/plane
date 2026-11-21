@@ -383,6 +383,11 @@ urlpatterns = [
         name="app-agent",
     ),
     path(
+        "workspaces/<str:slug>/agents/<uuid:agent_id>/audit/",
+        agent_views.AgentAuditEndpoint.as_view(http_method_names=["get"]),
+        name="app-agent-audit",
+    ),
+    path(
         "workspaces/<str:slug>/agents/<uuid:agent_id>/rotate-token/",
         agent_views.AgentRotateTokenEndpoint.as_view(http_method_names=["post"]),
         name="app-agent-rotate-token",

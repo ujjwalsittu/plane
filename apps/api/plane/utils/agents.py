@@ -9,7 +9,17 @@ import uuid
 from django.db import IntegrityError, transaction
 from django.db.models import Max
 
-from plane.db.models import APIToken, Project, ProjectMember, User, WorkspaceAgent, WorkspaceMember
+from plane.db.models import (
+    AgentApproval,
+    AgentRun,
+    APIActivityLog,
+    APIToken,
+    Project,
+    ProjectMember,
+    User,
+    WorkspaceAgent,
+    WorkspaceMember,
+)
 
 ADMIN = 20
 MEMBER = 15
@@ -33,6 +43,10 @@ def on_agent_deactivated(agent):
 def _require_admin(workspace, actor):
     if not WorkspaceMember.objects.filter(workspace=workspace, member=actor, role=ADMIN, is_active=True).exists():
         raise AgentError("Only workspace admins can manage agents", 403)
+
+
+def require_admin(workspace, actor):
+    _require_admin(workspace, actor)
 
 
 def _uuid(value, field):
@@ -260,3 +274,52 @@ def agent_payload(agent):
         "project_ids": sorted(str(p) for p in project_ids),
         "last_active_at": last_active.isoformat() if last_active else None,
     }
+
+
+AUDIT_LIMIT = 200
+
+
+def audit_for(agent, limit=AUDIT_LIMIT):
+    """What an agent did, newest first: its API requests (across every token it ever had, revoked ones
+    included, so history survives rotation), the approvals it asked for and its runs."""
+    tokens = list(APIToken.objects.filter(user_id=agent.user_id).values_list("token", flat=True))
+    rows = [
+        {
+            "at": log.created_at.isoformat(),
+            "kind": "request",
+            "method": log.method,
+            "path": log.path,
+            "status": log.response_code,
+        }
+        for log in APIActivityLog.objects.filter(token_identifier__in=tokens).order_by("-created_at")[:limit]
+    ]
+    rows += [
+        {
+            "at": approval.created_at.isoformat(),
+            "kind": "approval",
+            "id": str(approval.id),
+            "action": approval.action,
+            "summary": approval.summary,
+            "status": approval.status,
+            "decided_by": (approval.decided_by.display_name or approval.decided_by.email)
+            if approval.decided_by
+            else None,
+            "decided_at": approval.decided_at.isoformat() if approval.decided_at else None,
+        }
+        for approval in AgentApproval.objects.filter(agent=agent)
+        .select_related("decided_by")
+        .order_by("-created_at")[:limit]
+    ]
+    rows += [
+        {
+            "at": run.created_at.isoformat(),
+            "kind": "run",
+            "id": str(run.id),
+            "issue_id": str(run.issue_id),
+            "title": run.title,
+            "status": run.status,
+        }
+        for run in AgentRun.objects.filter(agent=agent).order_by("-created_at")[:limit]
+    ]
+    rows.sort(key=lambda row: row["at"], reverse=True)
+    return rows[:limit]

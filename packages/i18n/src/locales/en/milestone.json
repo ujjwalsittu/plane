@@ -655,5 +655,15 @@
       "disconnect_error": "Couldn't disconnect Slack.",
       "load_error": "Couldn't load the Slack connection."
     }
+  },
+  "agents": {
+    "approval": {
+      "why": "Needs approval",
+      "wants_to": "{agent} wants to {summary}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "error": "Could not record your decision",
+      "already": "This approval was already decided or has expired"
+    }
   }
 }

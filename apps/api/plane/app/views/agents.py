@@ -92,6 +92,21 @@ class AgentEndpoint(_Session, BaseAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class AgentAuditEndpoint(_Session, BaseAPIView):
+    """An agent's audit trail (workspace admins only): requests, approvals and runs, newest first."""
+
+    def get(self, request, slug, agent_id):
+        workspace = self._workspace(request, slug)
+        agent = self._agent(workspace, agent_id) if workspace else None
+        if agent is None:
+            return _not_found("Agent")
+        try:
+            agents.require_admin(workspace, request.user)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response(agents.audit_for(agent))
+
+
 class AgentRotateTokenEndpoint(_Session, BaseAPIView):
     def post(self, request, slug, agent_id):
         workspace = self._workspace(request, slug)

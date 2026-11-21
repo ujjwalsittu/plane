@@ -165,6 +165,9 @@ export function NotificationContent({
 }) {
   if (notification.entity_name === "decision")
     return <DecisionNotificationContent notification={notification} isUnread={isUnread} />;
+  // An agent's held action: the title is "{agent} wants to {summary}" (written by supervision_task.py)
+  if (notification.entity_name === "approval")
+    return <span className={cn("text-primary", isUnread ? "font-semibold" : "font-medium")}>{notification.title}</span>;
   const { data, triggered_by_details: triggeredBy } = notification;
   const emphasisClassName = isUnread ? "font-semibold" : "font-medium";
   const notificationField = data?.issue_activity?.field;

@@ -8,7 +8,7 @@ import { API_BASE_URL } from "@plane/constants";
 import type { TBrief, TBriefSummary, TDecisionRequest, TWorkItemWaiting } from "@plane/types";
 import { APIService } from "@/services/api.service";
 
-/** The Brief, decision requests and "waiting on" markers. */
+/** The Brief, decision requests, agent approvals and "waiting on" markers. */
 export class SupervisionService extends APIService {
   constructor() {
     super(API_BASE_URL);
@@ -61,6 +61,16 @@ export class SupervisionService extends APIService {
         { answer }
       );
       return response?.data as TDecisionRequest;
+    } catch (error) {
+      const response = (error as { response?: { status?: number; data?: object } })?.response;
+      throw response?.status === 409 ? { ...response.data, conflict: true } : response?.data;
+    }
+  }
+
+  /** Rejects with the error body; `conflict: true` is added when the approval was already decided (409). */
+  async decideApproval(workspaceSlug: string, approvalId: string, approve: boolean): Promise<void> {
+    try {
+      await this.post(`${this.base(workspaceSlug)}/approvals/${approvalId}/${approve ? "approve" : "reject"}/`);
     } catch (error) {
       const response = (error as { response?: { status?: number; data?: object } })?.response;
       throw response?.status === 409 ? { ...response.data, conflict: true } : response?.data;

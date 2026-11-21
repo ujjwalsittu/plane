@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Slack's interactivity endpoint: a person answers a decision by clicking a button in their DM."""
+"""Slack's interactivity endpoint: a person answers a decision or approves an agent's action from their DM."""
 
 # Python imports
 import json
@@ -22,14 +22,17 @@ import requests
 
 # Module imports
 from plane.bgtasks.supervision_task import escape_mrkdwn, web_url
-from plane.db.models import DecisionRequest, SlackConnection, SlackUserLink
+from plane.db.models import AgentApproval, DecisionRequest, SlackConnection, SlackUserLink
 from plane.utils import slack_app
+from plane.utils.agents import AgentError
 from plane.utils.decisions import answer_decision
+from plane.utils.guardrails import decide_approval
 from plane.utils.supervision import SupervisionError
 
 logger = logging.getLogger("plane.api")
 
 ACTION_RE = re.compile(r"^decision:([0-9a-fA-F-]{36}):(\d{1,3})$")
+APPROVAL_RE = re.compile(r"^approval:([0-9a-fA-F-]{36}):(approve|reject)$")
 RESPONSE_URL_PREFIX = "https://hooks.slack.com/"
 RESPONSE_TIMEOUT = 2.5  # Slack wants our answer to the click within 3 seconds
 
@@ -59,6 +62,63 @@ def _replace(decision, text):
     }
 
 
+def _replace_approval(approval, text):
+    return {
+        "replace_original": True,
+        "text": text,
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": escape_mrkdwn(f"{approval.agent.name} wants to {approval.summary}")},
+            },
+            {"type": "section", "text": {"type": "mrkdwn", "text": escape_mrkdwn(text)}},
+        ],
+    }
+
+
+def _decide_approval(payload, match):
+    """An Approve / Reject click: decided as the linked person, who must be the owner or a workspace admin."""
+    response_url = payload.get("response_url")
+    try:
+        approval_id = uuid.UUID(match.group(1))
+    except ValueError:
+        _reply(response_url, _ephemeral("Unknown approval"))
+        return
+    approval = AgentApproval.objects.filter(pk=approval_id).select_related("agent").first()
+    team_id = (payload.get("team") or {}).get("id") or (payload.get("user") or {}).get("team_id")
+    slack_user = (payload.get("user") or {}).get("id")
+    # The approval's own workspace must be the one connected to the Slack team that sent this.
+    connection = (
+        SlackConnection.objects.filter(workspace_id=approval.workspace_id, team_id=team_id or "").first()
+        if approval
+        else None
+    )
+    if approval is None or connection is None:
+        return
+    link = (
+        SlackUserLink.objects.filter(workspace_id=approval.workspace_id, slack_user_id=slack_user or "")
+        .select_related("user")
+        .first()
+    )
+    if link is None:
+        _reply(response_url, _ephemeral("Link your account first: your Slack email must match your Plane email."))
+        return
+    approve = match.group(2) == "approve"
+    try:
+        decided = decide_approval(approval, link.user, approve)
+    except AgentError as exc:
+        if exc.status_code == 409:
+            approval.refresh_from_db()
+            _reply(response_url, _replace_approval(approval, f"Already {approval.status}"))
+        else:
+            _reply(response_url, _ephemeral(exc.message))
+        return
+    text = "Approved" if approve else "Rejected"
+    if decided.status == "failed":
+        text += ", but the action failed"
+    _reply(response_url, _replace_approval(decided, text))
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class SlackInteractivityView(View):
     """No session: Slack calls this, and the signed body is the only credential. The signature is checked
@@ -77,7 +137,12 @@ class SlackInteractivityView(View):
 
         actions = payload.get("actions")
         action = actions[0] if isinstance(actions, list) and actions and isinstance(actions[0], dict) else {}
-        match = ACTION_RE.match(str(action.get("action_id") or ""))
+        action_id = str(action.get("action_id") or "")
+        approval_match = APPROVAL_RE.match(action_id)
+        if payload.get("type") == "block_actions" and approval_match:
+            _decide_approval(payload, approval_match)
+            return HttpResponse(status=200)
+        match = ACTION_RE.match(action_id)
         if payload.get("type") != "block_actions" or not match:
             return HttpResponse(status=200)  # not one of ours
         response_url = payload.get("response_url")

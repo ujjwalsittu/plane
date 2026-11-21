@@ -56,7 +56,11 @@ class ApprovalRequired(APIException):
 
 
 def on_approval_created(approval):
-    """Hook to tell the owner an approval is waiting (Slack DM, notification). Filled in by the Slack integration."""
+    """Tell the owner an approval is waiting (inbox row and Slack DM), once the approval is committed."""
+    from plane.bgtasks.supervision_task import notify_approval
+
+    approval_id = str(approval.id)
+    transaction.on_commit(lambda: notify_approval.delay(approval_id))
 
 
 # --- classifying a request --------------------------------------------------------------------

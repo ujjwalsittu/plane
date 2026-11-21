@@ -9,6 +9,7 @@ import { useTranslation } from "@plane/i18n";
 import type { TBriefNeedsMe, TDecisionRequest } from "@plane/types";
 import { renderFormattedDate } from "@plane/utils";
 import { BriefColumn, WorkItemLink } from "./column";
+import { ApprovalAnswer } from "./approval-answer";
 import { DecisionAnswer } from "./decision-answer";
 
 /** Work items waiting on me: decisions to answer, mentions and assignments, most urgent first. */
@@ -33,13 +34,13 @@ export function NeedsMeColumn({
         const decision = row.decision_id ? decisions?.find((d) => d.id === row.decision_id) : undefined;
         const due = renderFormattedDate(row.due);
         return (
-          <div key={row.issue.id} className="flex flex-col gap-2 px-4 py-3">
-            <WorkItemLink workspaceSlug={workspaceSlug} issue={row.issue} />
+          <div key={row.approval?.id ?? row.issue?.id} className="flex flex-col gap-2 px-4 py-3">
+            {row.issue && <WorkItemLink workspaceSlug={workspaceSlug} issue={row.issue} />}
             <div className="flex flex-wrap items-center gap-2">
               <Badge
-                variant={row.why === "decision" ? "warning" : "neutral"}
+                variant={row.why === "decision" || row.why === "approval" ? "warning" : "neutral"}
                 size="sm"
-                label={t(`supervision.${whyLabel[row.why]}`)}
+                label={row.why === "approval" ? t("agents.approval.why") : t(`supervision.${whyLabel[row.why]}`)}
               />
               {row.overdue && <Badge variant="danger" size="sm" label={t("supervision.overdue")} />}
               {due && (
@@ -52,7 +53,10 @@ export function NeedsMeColumn({
             {row.decision_id && !decision && decisionsError && (
               <p className="text-caption-md-regular text-tertiary">{t("supervision.decisions_error")}</p>
             )}
-            {decision && (
+            {row.approval && (
+              <ApprovalAnswer workspaceSlug={workspaceSlug} approval={row.approval} onDecided={onAnswered} />
+            )}
+            {decision && row.issue && (
               <DecisionAnswer
                 workspaceSlug={workspaceSlug}
                 projectId={row.issue.project_id}

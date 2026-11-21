@@ -29,6 +29,7 @@ def action_notifications(slug, user):
       assignee's id in ``issue_activity.new_identifier``; matching on it (not on the ``assigned`` sender, which
       tags every activity on an issue the receiver is assigned to) keeps state changes out
     - decision request: ``entity_name="decision"`` (supervision_task.py)
+    - agent approval: ``entity_name="approval"`` (supervision_task.py)
     """
     intake_issue = Issue.objects.filter(
         pk=OuterRef("entity_identifier"),
@@ -37,7 +38,7 @@ def action_notifications(slug, user):
     )
     needs_action = (
         Q(sender__icontains="mentioned")
-        | Q(entity_name="decision")
+        | Q(entity_name__in=["decision", "approval"])
         | Q(data__issue_activity__field="assignees", data__issue_activity__new_identifier=str(user.id))
     )
     return (

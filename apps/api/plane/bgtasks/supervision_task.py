@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Slack messages for supervision: the daily brief, milestone alerts and decision requests."""
+"""Slack messages for supervision: the daily brief, milestone alerts, decision requests and agent approvals."""
 
 # Python imports
 import logging
@@ -17,7 +17,7 @@ from django.utils import timezone
 from celery import shared_task
 
 # Module imports
-from plane.db.models import BriefVisit, DecisionRequest, Notification, SlackConnection, SlackUserLink
+from plane.db.models import AgentApproval, BriefVisit, DecisionRequest, Notification, SlackConnection, SlackUserLink
 from plane.utils import slack_app
 from plane.utils.brief import DEFAULT_WINDOW_HOURS, _milestones_due, brief_for, last_seen, zone_for
 from plane.utils.exception_logger import log_exception
@@ -84,6 +84,10 @@ def _open_brief_button(slug):
     }
 
 
+def _approval_text(approval):
+    return f"{approval['agent']['name']} wants to {approval['summary']}"
+
+
 def _item_line(slug, issue, suffix=""):
     link = f"<{_item_url(slug, issue['identifier'])}|{issue['identifier']}>"
     return f"• {link} {escape_mrkdwn(_short(issue['name']))}{suffix}"
@@ -109,7 +113,12 @@ def build_brief_blocks(slug, brief):
         )
     ]
     if needs:
-        lines = [_item_line(slug, row["issue"], " _(overdue)_" if row["overdue"] else "") for row in needs[:TOP]]
+        lines = [
+            f"• {escape_mrkdwn(_short(_approval_text(row['approval'])))} _(needs approval)_"
+            if row["why"] == "approval"
+            else _item_line(slug, row["issue"], " _(overdue)_" if row["overdue"] else "")
+            for row in needs[:TOP]
+        ]
         blocks.append(_list_section("Needs you", len(needs), lines))
     if blocked:
         lines = [_item_line(slug, row["issue"]) for row in blocked[:TOP]]
@@ -310,5 +319,100 @@ def notify_decision(decision_id):
     try:
         error = slack_app.send_dm(connection, decision.asked_user, _decision_blocks(decision), "Decision needed")
         _log_send_error("decision", error)
+    except Exception as exc:
+        log_exception(exc)
+
+
+def _approval_title(approval):
+    return f"{approval.agent.name} wants to {approval.summary}"
+
+
+def _approval_blocks(approval):
+    issue = approval.issue
+    slug = approval.workspace.slug
+    where = ""
+    if issue is not None:
+        identifier = f"{issue.project.identifier}-{issue.sequence_id}"
+        where = f"\nOn <{_item_url(slug, identifier)}|{identifier}> {escape_mrkdwn(_short(issue.name))}"
+    text = f"*Approval needed*\n{_short_escaped(_approval_title(approval), MAX_QUESTION)}{where}"
+    return [
+        _section(text),
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "text": {"type": "plain_text", "text": "Approve"},
+                    "action_id": f"approval:{approval.id}:approve",
+                },
+                {
+                    "type": "button",
+                    "style": "danger",
+                    "text": {"type": "plain_text", "text": "Reject"},
+                    "action_id": f"approval:{approval.id}:reject",
+                },
+            ],
+        },
+    ]
+
+
+def _create_approval_notification(approval):
+    if Notification.objects.filter(
+        receiver_id=approval.asked_user_id, entity_name="approval", data__approval__id=str(approval.id)
+    ).exists():
+        return
+    issue = approval.issue
+    Notification.objects.create(
+        workspace_id=approval.workspace_id,
+        project_id=approval.project_id,
+        sender="approval",
+        triggered_by_id=approval.agent.user_id,
+        receiver_id=approval.asked_user_id,
+        entity_identifier=approval.issue_id,
+        entity_name="approval",
+        title=_approval_title(approval)[:500],
+        data={
+            "approval": {
+                "id": str(approval.id),
+                "summary": approval.summary,
+                "action": approval.action,
+                "agent": approval.agent.name,
+            },
+            "issue": None
+            if issue is None
+            else {
+                "id": str(issue.id),
+                "name": issue.name,
+                "identifier": issue.project.identifier,
+                "sequence_id": issue.sequence_id,
+            },
+        },
+    )
+
+
+@shared_task
+def notify_approval(approval_id):
+    """Tell the agent's owner an action is waiting: an inbox row, and a Slack DM with Approve / Reject."""
+    try:
+        pk = uuid.UUID(str(approval_id))
+    except ValueError:
+        return
+    approval = (
+        AgentApproval.objects.filter(pk=pk)
+        .select_related("issue", "issue__project", "workspace", "asked_user", "agent")
+        .first()
+    )
+    if approval is None or approval.status != "open":
+        return
+    _create_approval_notification(approval)
+    connection = SlackConnection.objects.filter(workspace_id=approval.workspace_id, status="ok").first()
+    if connection is None:
+        return
+    try:
+        error = slack_app.send_dm(
+            connection, approval.asked_user, _approval_blocks(approval), _short(_approval_title(approval))
+        )
+        _log_send_error("approval", error)
     except Exception as exc:
         log_exception(exc)
