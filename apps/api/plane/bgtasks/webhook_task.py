@@ -389,13 +389,18 @@ def webhook_send_task(
         return
 
 
-def _event_project_id(event, event_id):
-    """The project a recorded change belongs to, or None when it cannot be found (then nothing is recorded)."""
+def _event_scope(event, event_id):
+    """(project id, work item id) a recorded change belongs to; the project is None when the entity cannot be
+    found (then nothing is recorded)."""
     if event == "project":
-        return event_id
+        return event_id, None
     model = {"issue": Issue, "module": Module, "cycle": Cycle, "issue_comment": IssueComment}[event]
     manager = getattr(model, "all_objects", model.objects)
-    return manager.filter(pk=event_id).values_list("project_id", flat=True).first()
+    if event == "issue_comment":
+        row = manager.filter(pk=event_id).values_list("project_id", "issue_id").first()
+        return row if row else (None, None)
+    project_id = manager.filter(pk=event_id).values_list("project_id", flat=True).first()
+    return project_id, event_id if event == "issue" else None
 
 
 def record_workspace_event(event, verb, field, old_value, new_value, actor_id, slug, event_id):
@@ -407,11 +412,12 @@ def record_workspace_event(event, verb, field, old_value, new_value, actor_id, s
     from plane.utils.events import emit_event
 
     workspace_id = Workspace.objects.filter(slug=slug).values_list("id", flat=True).first()
-    project_id = _event_project_id(event, event_id)
+    project_id, issue_id = _event_scope(event, event_id)
     if workspace_id is None or project_id is None:
         return
     actor = User.objects.filter(pk=actor_id).first() if actor_id else None
-    data = {"field": field, "old_value": old_value, "new_value": new_value} if field else {}
+    # Ids and the field name only: no old/new values or HTML. Readers fetch the resource for details.
+    data = {"verb": verb, **({"field": field} if field else {})}
     emit_event(
         workspace_id,
         event,
@@ -419,7 +425,8 @@ def record_workspace_event(event, verb, field, old_value, new_value, actor_id, s
         event_id,
         project_id=project_id,
         actor=actor,
-        data=json.loads(json.dumps(data, cls=DjangoJSONEncoder)),
+        data=data,
+        issue_id=issue_id,
     )
 
 

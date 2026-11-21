@@ -96,9 +96,10 @@ def test_issue_change_appears_in_feed(api_key_client, workspace, project, issue,
         ("issue", "updated", True),
     ]
     first = body["results"][0]
+    assert "low" not in json.dumps(first) and "high" not in json.dumps(first)
     assert first["entity_id"] == str(issue.id) and first["project_id"] == str(project.id)
     assert first["actor_id"] == str(create_user.id)
-    assert first["data"] == {"field": "priority", "old_value": "low", "new_value": "high"}
+    assert first["data"] == {"verb": "updated", "field": "priority"}
     assert body["next_after"] == body["results"][-1]["id"]
     # An agent reads the same feed with its own key
     assert len(_feed(agent_client, workspace).data["results"]) == 2
@@ -281,3 +282,22 @@ def test_milestone_changes_and_agent_approvals_are_logged(workspace, project, is
         ("milestone", "updated", True),
         ("approval", "created", True),
     ]
+
+
+def test_restricted_guest_only_sees_rows_for_own_work_items(workspace, project, issue, create_user):
+    guest = User.objects.create(email="g@example.com", username="g")
+    WorkspaceMember.objects.create(workspace=workspace, member=guest, role=5)
+    ProjectMember.objects.create(project=project, member=guest, workspace=workspace, role=5)
+    assert project.guest_view_all_features is False
+    own = Issue.objects.create(name="Mine", project=project, workspace=workspace)
+    Issue.objects.filter(pk=own.pk).update(created_by=guest)
+    _change(workspace, issue, create_user)
+    _change(workspace, own, create_user)
+    emit_event(workspace.id, "milestone", "created", issue.id, project_id=project.id, actor=create_user)
+    client = APIClient()
+    client.force_authenticate(user=guest)
+    rows = _feed(client, workspace).data["results"]
+    assert [(r["event"], r["entity_id"]) for r in rows] == [("issue", str(own.id)), ("milestone", str(issue.id))]
+    # With guest_view_all_features on, they see everything in the project
+    Project.objects.filter(pk=project.pk).update(guest_view_all_features=True)
+    assert len(_feed(client, workspace).data["results"]) == 3

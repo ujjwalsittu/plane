@@ -36,6 +36,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(primary_key=True, serialize=False)),
                 ('project_id', models.UUIDField(blank=True, null=True)),
+                ('issue_id', models.UUIDField(blank=True, null=True)),
                 ('event', models.CharField(choices=[('issue', 'Issue'), ('issue_comment', 'Issue comment'), ('project', 'Project'), ('cycle', 'Cycle'), ('module', 'Module'), ('milestone', 'Milestone'), ('decision', 'Decision'), ('approval', 'Approval'), ('agent_run', 'Agent run')], max_length=32)),
                 ('action', models.CharField(max_length=32)),
                 ('entity_id', models.UUIDField()),

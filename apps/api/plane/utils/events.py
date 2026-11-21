@@ -11,11 +11,12 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from plane.db.models import ProjectMember, Webhook, WorkspaceEvent
+from plane.db.models import Issue, ProjectMember, Webhook, WorkspaceEvent
 from plane.utils.exception_logger import log_exception
 
 RETENTION_DAYS = 30
 MAX_LIMIT = 500
+GUEST_ROLE = 5
 # Events that are also sent to webhooks with the matching flag. The older kinds (issue, project, cycle, module,
 # issue_comment) are sent by webhook_activity, which records them here too.
 WEBHOOK_EVENTS = ("decision", "approval", "agent_run", "milestone")
@@ -52,7 +53,9 @@ def _dispatch_webhooks(workspace_id, event, action, entity_id, project_id, actor
             log_exception(exc)
 
 
-def emit_event(workspace_id, event, action, entity_id, project_id=None, actor=None, data=None, is_agent=None):
+def emit_event(
+    workspace_id, event, action, entity_id, project_id=None, actor=None, data=None, is_agent=None, issue_id=None
+):
     """Write one event row. `is_agent` defaults to "the actor is a bot"; callers that know the request came in
     through an API key pass True. The four newer kinds are also sent to webhooks that opted in, after commit."""
     data = data or {}
@@ -62,6 +65,7 @@ def emit_event(workspace_id, event, action, entity_id, project_id=None, actor=No
     row = WorkspaceEvent.objects.create(
         workspace_id=workspace_id,
         project_id=project_id,
+        issue_id=issue_id,
         event=event,
         action=action,
         entity_id=entity_id,
@@ -99,6 +103,16 @@ def events_after(workspace, user, after_id=0, types=None, project_id=None, limit
     rows = WorkspaceEvent.objects.filter(workspace=workspace, id__gt=after_id).filter(
         Q(project_id__isnull=True) | Q(project_id__in=member_projects)
     )
+    # A guest in a project that hides other people's work items only sees rows about items they created
+    restricted = ProjectMember.objects.filter(
+        member=user,
+        is_active=True,
+        role=GUEST_ROLE,
+        project__workspace=workspace,
+        project__guest_view_all_features=False,
+    ).values("project_id")
+    own_issues = Issue.all_objects.filter(created_by=user, project_id__in=restricted).values("id")
+    rows = rows.exclude(Q(project_id__in=restricted) & Q(issue_id__isnull=False) & ~Q(issue_id__in=own_issues))
     if types:
         rows = rows.filter(event__in=types)
     if project_id:

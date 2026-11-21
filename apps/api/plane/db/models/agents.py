@@ -229,6 +229,8 @@ class WorkspaceEvent(models.Model):
     id = models.BigAutoField(primary_key=True)
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="workspace_events")
     project_id = models.UUIDField(null=True, blank=True)
+    # The work item the row is about, so readers who can't see that item don't see the row
+    issue_id = models.UUIDField(null=True, blank=True)
     event = models.CharField(max_length=32, choices=EVENT_CHOICES)
     action = models.CharField(max_length=32)
     entity_id = models.UUIDField()

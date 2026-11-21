@@ -43,6 +43,7 @@ def on_run_changed(run, action):
         project_id=run.project_id,
         actor=run.actor,
         data=data,
+        issue_id=run.issue_id,
     )
 
 

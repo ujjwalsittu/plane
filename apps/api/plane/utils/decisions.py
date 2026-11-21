@@ -31,6 +31,7 @@ def _emit_decision(decision, action, actor, source="app"):
         decision.id,
         project_id=decision.project_id,
         actor=actor,
+        issue_id=decision.issue_id,
         is_agent=source == "api" or bool(getattr(actor, "is_bot", False)),
         data={"issue_id": str(decision.issue_id), "asked_user": str(decision.asked_user_id), "status": decision.status},
     )

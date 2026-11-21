@@ -74,6 +74,7 @@ def _emit_approval(approval, action, actor):
         approval.id,
         project_id=approval.project_id,
         actor=actor,
+        issue_id=approval.issue_id,
         data={
             "agent_id": str(approval.agent_id),
             "issue_id": str(approval.issue_id) if approval.issue_id else None,
