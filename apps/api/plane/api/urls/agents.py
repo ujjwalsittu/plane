@@ -5,6 +5,7 @@
 from django.urls import path
 
 from plane.api.views.agents import (
+    AgentApprovalAPIEndpoint,
     AgentRunAPIEndpoint,
     AgentRunsAPIEndpoint,
     AgentRunStepsAPIEndpoint,
@@ -23,6 +24,16 @@ urlpatterns = [
         "workspaces/<str:slug>/agents",
         WorkspaceAgentsAPIEndpoint.as_view(http_method_names=["get"]),
         name="agents-no-slash",
+    ),
+    path(
+        "workspaces/<str:slug>/approvals/<uuid:approval_id>/",
+        AgentApprovalAPIEndpoint.as_view(http_method_names=["get"]),
+        name="agent-approval",
+    ),
+    path(
+        "workspaces/<str:slug>/approvals/<uuid:approval_id>",
+        AgentApprovalAPIEndpoint.as_view(http_method_names=["get"]),
+        name="agent-approval-no-slash",
     ),
     *[
         route

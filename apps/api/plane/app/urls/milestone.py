@@ -407,4 +407,19 @@ urlpatterns = [
         agent_views.AISettingsEndpoint.as_view(http_method_names=["get", "put", "delete"]),
         name="app-ai-settings",
     ),
+    path(
+        "workspaces/<str:slug>/approvals/",
+        agent_views.AgentApprovalsEndpoint.as_view(http_method_names=["get"]),
+        name="app-agent-approvals",
+    ),
+    path(
+        "workspaces/<str:slug>/approvals/<uuid:approval_id>/approve/",
+        agent_views.AgentApprovalApproveEndpoint.as_view(http_method_names=["post"]),
+        name="app-agent-approval-approve",
+    ),
+    path(
+        "workspaces/<str:slug>/approvals/<uuid:approval_id>/reject/",
+        agent_views.AgentApprovalRejectEndpoint.as_view(http_method_names=["post"]),
+        name="app-agent-approval-reject",
+    ),
 ]

@@ -18,8 +18,8 @@ from plane.api.views.agents import (
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.api.views.issue import visible_issue_q
-from plane.db.models import Issue, WorkspaceAgent
-from plane.utils import agent_runs, agents, ai_config
+from plane.db.models import AgentApproval, Issue, WorkspaceAgent
+from plane.utils import agent_runs, agents, ai_config, guardrails
 
 
 class _Session:
@@ -160,3 +160,45 @@ class LiveAgentRunsEndpoint(_Session, BaseAPIView):
                 continue
         visible = Issue.issue_objects.filter(visible_issue_q(request.user), workspace=workspace, pk__in=ids)
         return Response(agent_runs.live_runs_for(list(visible.values_list("pk", flat=True).distinct())))
+
+
+class AgentApprovalsEndpoint(_Session, BaseAPIView):
+    """Approvals waiting on (or decided by) the signed-in person; ?status=open for the ones to act on."""
+
+    def get(self, request, slug):
+        workspace = self._workspace(request, slug)
+        if workspace is None:
+            return _not_found()
+        status_filter = request.query_params.get("status") or None
+        if status_filter and status_filter not in dict(AgentApproval.STATUS_CHOICES):
+            return Response({"status": "Unknown status"}, status=status.HTTP_400_BAD_REQUEST)
+        rows = guardrails.approvals_for(workspace, request.user, status_filter)
+        return Response([guardrails.approval_payload(a) for a in rows])
+
+
+class AgentApprovalDecisionEndpoint(_Session, BaseAPIView):
+    approve = True
+
+    def post(self, request, slug, approval_id):
+        workspace = self._workspace(request, slug)
+        approval = (
+            AgentApproval.objects.filter(workspace=workspace, pk=approval_id).select_related("agent").first()
+            if workspace
+            else None
+        )
+        if approval is None:
+            return _not_found("Approval")
+        try:
+            approval = guardrails.decide_approval(approval, request.user, self.approve)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        approval = AgentApproval.objects.select_related("agent", "asked_user", "decided_by").get(pk=approval.pk)
+        return Response(guardrails.approval_payload(approval))
+
+
+class AgentApprovalApproveEndpoint(AgentApprovalDecisionEndpoint):
+    approve = True
+
+
+class AgentApprovalRejectEndpoint(AgentApprovalDecisionEndpoint):
+    approve = False

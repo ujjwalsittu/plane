@@ -156,3 +156,56 @@ class AgentRunStep(BaseModel):
                 name="agent_run_step_unique_external_event",
             ),
         ]
+
+
+class AgentApproval(BaseModel):
+    """A risky request an agent made, held until its owner approves; Plane then replays it once."""
+
+    ACTION_CHOICES = (("delete", "Delete"), ("change_dates", "Change dates"))
+    STATUS_CHOICES = (
+        ("open", "Open"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+        ("expired", "Expired"),
+        ("executed", "Executed"),
+        ("failed", "Failed"),
+    )
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="agent_approvals")
+    project = models.ForeignKey(
+        "db.Project", on_delete=models.CASCADE, null=True, blank=True, related_name="agent_approvals"
+    )
+    issue = models.ForeignKey(
+        "db.Issue", on_delete=models.SET_NULL, null=True, blank=True, related_name="agent_approvals"
+    )
+    agent = models.ForeignKey("db.WorkspaceAgent", on_delete=models.CASCADE, related_name="approvals")
+    asked_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_approvals_asked"
+    )
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES)
+    summary = models.TextField(blank=True, default="")
+    method = models.CharField(max_length=10)
+    path = models.TextField()
+    query = models.TextField(blank=True, default="")
+    body = models.JSONField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="open")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_approvals_decided",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    result_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    result_body = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Agent Approval"
+        verbose_name_plural = "Agent Approvals"
+        db_table = "agent_approvals"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["asked_user", "status"], name="agent_appr_asked_status_idx")]
+
+    def __str__(self):
+        return f"{self.agent_id} {self.action} {self.status}"

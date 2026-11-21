@@ -49,4 +49,8 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
 
         # Validate the API token
         user, token = self.validate_api_token(token)
+        # Agent guardrails: read-only scope and approval gates (a no-op for people)
+        from plane.utils.guardrails import check_request
+
+        check_request(request, user)
         return user, token
