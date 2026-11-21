@@ -389,6 +389,8 @@ CELERY_IMPORTS = (
     # Agent approval expiry
     "plane.bgtasks.guardrails_task",
     "plane.bgtasks.events_task",
+    # Cloud agents on Claude Managed Agents
+    "plane.bgtasks.cloud_agents_task",
 )
 
 FILE_SIZE_LIMIT = int(os.environ.get("FILE_SIZE_LIMIT", 5242880))

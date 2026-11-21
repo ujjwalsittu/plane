@@ -4,18 +4,21 @@
 
 """Cloud agents on Claude Managed Agents: one environment per workspace, one agent and one vault per Plane agent."""
 
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 from rest_framework.test import APIClient
 
+from plane.bgtasks.cloud_agents_task import sync_cloud_agent
 from plane.db.models import APIToken, WorkspaceAgent, WorkspaceAIConfig
 from plane.utils import agents, managed_agents
 from plane.utils.agents import AgentError
 
 MCP_URL = "https://mcp.plane.example/mcp"
-SETUP_URL = "/api/workspaces/test-workspace/ai-settings/cloud-agents/"
+SETTINGS_URL = "/api/workspaces/test-workspace/ai-settings/"
+SETUP_URL = f"{SETTINGS_URL}cloud-agents/"
 
 
 @pytest.fixture(autouse=True)
@@ -36,8 +39,22 @@ def client():
     client.beta.vaults.credentials.list.return_value = [
         SimpleNamespace(id="cred_1", auth=SimpleNamespace(type="static_bearer", mcp_server_url=MCP_URL))
     ]
+    client.with_options.return_value = client
     with patch("plane.utils.managed_agents.anthropic_client_for", return_value=client):
         yield client
+
+
+@pytest.fixture
+def run_tasks(django_capture_on_commit_callbacks):
+    """Run queued cloud-agent syncs right away, as the worker would after commit."""
+
+    @contextmanager
+    def runner():
+        with patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay", side_effect=sync_cloud_agent):
+            with django_capture_on_commit_callbacks(execute=True):
+                yield
+
+    return runner
 
 
 def _agent(workspace, owner, name="Builder"):
@@ -120,38 +137,99 @@ class TestManagedAgents:
         agent.refresh_from_db()
         assert agent.ma_vault_id == "vlt_1"
 
-    def test_rotate_token_replaces_vault_credential(self, session_client, workspace, create_user, client):
+    def test_create_and_rotate_queue_the_sync_with_ids_only(
+        self, session_client, workspace, create_user, client, django_capture_on_commit_callbacks
+    ):
+        assert _setup(session_client).status_code == 200
+        with patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay") as delay:
+            with django_capture_on_commit_callbacks(execute=True):
+                agent, token = _agent(workspace, create_user)
+            # Nothing reaches Anthropic in the request; the task gets the agent id and nothing else.
+            client.beta.agents.create.assert_not_called()
+            client.beta.vaults.create.assert_not_called()
+            delay.assert_called_once_with(str(agent.id))
+
+            delay.reset_mock()
+            with django_capture_on_commit_callbacks(execute=True):
+                new_token = agents.rotate_token(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
+            delay.assert_called_once_with(str(agent.id))
+            assert token not in str(delay.call_args) and new_token not in str(delay.call_args)
+        client.beta.vaults.credentials.create.assert_not_called()
+
+        # The task reads the active token itself and does the sync.
+        sync_cloud_agent(str(agent.id))
+        client.beta.agents.create.assert_called_once()
+        client.beta.vaults.credentials.create.assert_called_once_with(
+            "vlt_1", auth={"type": "static_bearer", "mcp_server_url": MCP_URL, "token": new_token}
+        )
+        assert session_client.get(SETTINGS_URL).data["cloud_agents_ready"] is True
+
+    def test_rotate_token_replaces_vault_credential(self, session_client, workspace, create_user, client, run_tasks):
         agent, _ = _agent(workspace, create_user)
         assert _setup(session_client).status_code == 200
         client.beta.vaults.credentials.create.reset_mock()
 
-        agent = WorkspaceAgent.objects.get(pk=agent.pk)
-        new_token = agents.rotate_token(agent, create_user)
+        with run_tasks():
+            new_token = agents.rotate_token(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
 
         client.beta.vaults.credentials.archive.assert_called_once_with("cred_1", vault_id="vlt_1")
         client.beta.vaults.credentials.create.assert_called_once_with(
             "vlt_1", auth={"type": "static_bearer", "mcp_server_url": MCP_URL, "token": new_token}
         )
         client.beta.vaults.create.assert_called_once()
+        agent.refresh_from_db()
+        assert agent.ma_vault_token_id == APIToken.objects.get(token=new_token).id
 
-    def test_sync_failure_does_not_fail_the_plane_change(self, session_client, workspace, create_user, client):
+    def test_agent_update_failure_on_rotate_still_recreates_credential(
+        self, session_client, workspace, create_user, client, run_tasks
+    ):
         agent, _ = _agent(workspace, create_user)
         assert _setup(session_client).status_code == 200
-        client.beta.vaults.credentials.archive.side_effect = RuntimeError("boom")
+        client.beta.vaults.credentials.create.reset_mock()
+        client.beta.agents.update.side_effect = RuntimeError("outage")
 
-        agent = WorkspaceAgent.objects.get(pk=agent.pk)
-        new_token = agents.rotate_token(agent, create_user)
+        with run_tasks():
+            new_token = agents.rotate_token(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
+
+        client.beta.vaults.credentials.create.assert_called_once_with(
+            "vlt_1", auth={"type": "static_bearer", "mcp_server_url": MCP_URL, "token": new_token}
+        )
         assert APIToken.objects.get(token=new_token).is_active
         config = WorkspaceAIConfig.objects.get(workspace=workspace)
-        assert config.last_error.startswith("cloud_agents")
-        assert new_token not in config.last_error
+        assert config.last_error.startswith("cloud_agents") and new_token not in config.last_error
 
-    def test_deactivation_archives_the_managed_agent(self, session_client, workspace, create_user, client):
+    def test_archive_ok_create_fail_leaves_readiness_false(
+        self, session_client, workspace, create_user, client, run_tasks
+    ):
         agent, _ = _agent(workspace, create_user)
         assert _setup(session_client).status_code == 200
-        agents.deactivate_agent(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
+        assert session_client.get(SETTINGS_URL).data["cloud_agents_ready"] is True
+        client.beta.vaults.credentials.create.side_effect = RuntimeError("boom")
+
+        with run_tasks():
+            new_token = agents.rotate_token(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
+
+        client.beta.vaults.credentials.archive.assert_called_once()
+        assert APIToken.objects.get(token=new_token).is_active
+        agent.refresh_from_db()
+        assert agent.ma_vault_token_id is None
+        assert session_client.get(SETTINGS_URL).data["cloud_agents_ready"] is False
+
+        # Setup repairs it.
+        client.beta.vaults.credentials.create.side_effect = None
+        assert _setup(session_client).data["cloud_agents_ready"] is True
+
+    def test_deactivation_archives_the_managed_agent(self, session_client, workspace, create_user, client, run_tasks):
+        agent, _ = _agent(workspace, create_user)
+        assert _setup(session_client).status_code == 200
+        with run_tasks():
+            agents.deactivate_agent(WorkspaceAgent.objects.get(pk=agent.pk), create_user)
         client.beta.agents.archive.assert_called_once_with("agent_1")
         client.beta.vaults.archive.assert_called_once_with("vlt_1")
+
+    def test_setup_uses_a_short_timeout(self, session_client, workspace, client):
+        assert _setup(session_client).status_code == 200
+        client.with_options.assert_called_once_with(timeout=managed_agents.SETUP_TIMEOUT_SECONDS, max_retries=0)
 
     def test_setup_requires_mcp_url_and_key(self, session_client, workspace, settings, monkeypatch):
         settings.PLANE_MCP_URL = ""
@@ -166,7 +244,7 @@ class TestManagedAgents:
             managed_agents.setup_cloud_agents(workspace, workspace.owner)
         assert exc.value.status_code == 400 and exc.value.field == "cloud_agents"
         assert not WorkspaceAIConfig.objects.filter(workspace=workspace).exclude(ma_environment_id="").exists()
-        assert session_client.get("/api/workspaces/test-workspace/ai-settings/").data["cloud_agents_ready"] is False
+        assert session_client.get(SETTINGS_URL).data["cloud_agents_ready"] is False
 
 
 @pytest.mark.contract

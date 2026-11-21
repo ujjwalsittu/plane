@@ -36,11 +36,12 @@ class AgentError(ValueError):
         self.field = field
 
 
-def _sync_cloud_agent(agent, **kwargs):
-    """Keep the agent's Managed Agents agent and vault in step; a no-op until cloud agents are set up."""
-    from plane.utils.managed_agents import on_agent_changed
+def _sync_cloud_agent(agent):
+    """Keep the agent's Managed Agents agent and vault in step, in the background after commit; a no-op until
+    cloud agents are set up."""
+    from plane.utils.managed_agents import queue_sync
 
-    on_agent_changed(agent, **kwargs)
+    queue_sync(agent)
 
 
 def on_agent_deactivated(agent):
@@ -200,7 +201,7 @@ def create_agent(workspace, data, actor):
             token = _new_token(agent)
     except IntegrityError:
         raise AgentError("An agent with this name already exists", 400, "name")
-    _sync_cloud_agent(agent, token=token)
+    _sync_cloud_agent(agent)
     return agent, token
 
 
@@ -244,7 +245,7 @@ def deactivate_agent(agent, actor):
         ProjectMember.objects.filter(member=agent.user).update(is_active=False)
         WorkspaceMember.objects.filter(member=agent.user, workspace=agent.workspace).update(is_active=False)
     on_agent_deactivated(agent)
-    _sync_cloud_agent(agent, deactivated=True)
+    _sync_cloud_agent(agent)
     return agent
 
 
@@ -256,7 +257,7 @@ def rotate_token(agent, actor):
     with transaction.atomic():
         APIToken.objects.filter(user=agent.user, is_active=True).update(is_active=False)
         token = _new_token(agent)
-    _sync_cloud_agent(agent, token=token)
+    _sync_cloud_agent(agent)
     return token
 
 

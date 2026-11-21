@@ -37,6 +37,8 @@ class WorkspaceAgent(BaseModel):
     ma_agent_id = models.CharField(max_length=255, blank=True, default="")
     ma_agent_version = models.PositiveIntegerField(null=True, blank=True)
     ma_vault_id = models.CharField(max_length=255, blank=True, default="")
+    # The APIToken the vault's credential was made from; the vault is current only while this is the active token
+    ma_vault_token_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Workspace Agent"
