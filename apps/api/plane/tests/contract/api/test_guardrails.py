@@ -4,12 +4,14 @@
 
 """Guardrails: read-only agents can't write; risky agent requests wait for the owner's approval, then run once."""
 
+import json
 import uuid
 from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 from django.core import signing
+from django.db import connection
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -314,3 +316,97 @@ def test_replay_is_logged_without_the_signature(workspace, create_user, project)
     signature = signing.dumps(str(approval_id), salt="agent-approval")
     assert signature.split(":")[0] not in log.headers
     assert "plane_api_" not in log.headers
+
+
+def test_owner_outside_the_project_gets_no_request_details(workspace, create_user, project, api_key_client):
+    agent, client = _agent(workspace, create_user, project)
+    issue = _agent_issue(client, workspace, project)
+    approval_id = client.delete(_issue_url(workspace, project, issue)).data["approval_id"]
+    # The owner (a workspace admin) is not in the project the held request touches
+    ProjectMember.objects.filter(project=project, member=create_user).update(is_active=False)
+    hidden = ("path", "query", "body", "result_body", "issue_id")
+    leaked = ("Agent item", str(issue.id), f"ALP-{issue.sequence_id}")
+
+    def assert_scoped(row):
+        assert row["summary"] == "delete an item in Alpha"
+        assert all(row[key] is None for key in hidden), row
+        assert row["project_id"] == str(project.id) and row["agent"]["id"] == str(agent.id)
+        assert not any(word in json.dumps(row) for word in leaked), row
+
+    listed = _session(create_user).get(f"/api/workspaces/{workspace.slug}/approvals/?status=open")
+    assert listed.status_code == 200 and len(listed.data) == 1
+    assert_scoped(listed.data[0])
+    approved = _approve(create_user, workspace, approval_id)
+    assert approved.status_code == 200 and approved.data["status"] == "executed"
+    assert_scoped(approved.data)
+    # The public API (the owner's own key) is scoped the same way
+    shown = api_key_client.get(f"/api/v1/workspaces/{workspace.slug}/approvals/{approval_id}/")
+    assert shown.status_code == 200
+    assert_scoped(shown.data)
+
+    # The agent itself keeps the full payload, and so does a project member
+    full = client.get(f"/api/v1/workspaces/{workspace.slug}/approvals/{approval_id}/")
+    assert full.data["path"] == _issue_url(workspace, project, issue) and full.data["issue_id"] == str(issue.id)
+    assert "Agent item" in full.data["summary"]
+    ProjectMember.objects.filter(project=project, member=create_user).update(is_active=True)
+    rows = _session(create_user).get(f"/api/workspaces/{workspace.slug}/approvals/").data
+    assert rows[0]["path"] == _issue_url(workspace, project, issue) and "Agent item" in rows[0]["summary"]
+
+
+def _failing_insert(*args, **kwargs):
+    """An event insert that fails inside the database, which aborts the surrounding transaction."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1/0")
+
+
+def test_failed_event_insert_does_not_strand_an_approval(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project)
+    issue = _agent_issue(client, workspace, project)
+    approval_id = client.delete(_issue_url(workspace, project, issue)).data["approval_id"]
+    with (
+        patch("plane.utils.events.WorkspaceEvent.objects.create", side_effect=_failing_insert),
+        patch("plane.utils.events.log_exception") as logged,
+    ):
+        approved = _approve(create_user, workspace, approval_id)
+    assert approved.status_code == 200, approved.data
+    approval = AgentApproval.objects.get(pk=approval_id)
+    assert approval.status == "executed" and approval.result_status == 204
+    assert not Issue.issue_objects.filter(pk=issue.pk).exists()
+    assert logged.call_count >= 2  # the "approved" and "executed" events were dropped and logged
+
+
+def test_agent_cannot_create_project(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project)
+    base = f"/api/v1/workspaces/{workspace.slug}/projects/"
+    response = client.post(base, {"name": "Escape", "identifier": "ESC"}, format="json")
+    assert response.status_code == 403, response.data
+    assert not Project.objects.filter(identifier="ESC").exists()
+    # Nor change a project's settings from the workspace-level route
+    renamed = client.patch(f"{base}{project.id}/", {"name": "Taken"}, format="json")
+    assert renamed.status_code == 403
+    project.refresh_from_db()
+    assert project.name == "Alpha"
+    # Reading and its own project-level writes still work
+    assert client.get(base).status_code == 200
+    _agent_issue(client, workspace, project)
+
+
+def test_manage_agent_can_create_project(workspace, create_user, project):
+    _, client = _agent(workspace, create_user, project, permission="manage")
+    response = client.post(
+        f"/api/v1/workspaces/{workspace.slug}/projects/", {"name": "Spinoff", "identifier": "SPN"}, format="json"
+    )
+    assert response.status_code == 201, response.data
+    assert Project.objects.filter(identifier="SPN").exists()
+
+
+def test_removed_owner_cannot_decide(workspace, create_user, project, issue):
+    _, client = _agent(workspace, create_user, project)
+    approval_id = client.delete(_issue_url(workspace, project, issue)).data["approval_id"]
+    WorkspaceMember.objects.filter(workspace=workspace, member=create_user).update(is_active=False)
+    approval = AgentApproval.objects.get(pk=approval_id)
+    with pytest.raises(agents.AgentError) as refused:
+        guardrails.decide_approval(approval, create_user, True)
+    assert refused.value.status_code == 403
+    assert AgentApproval.objects.get(pk=approval_id).status == "open"
+    assert Issue.issue_objects.filter(pk=issue.pk).exists()

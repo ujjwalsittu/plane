@@ -108,23 +108,25 @@ def create_decision(issue, data, actor, source):
     ).exists():
         raise SupervisionError("asked_user must be an active member of the project", field="asked_user")
 
-    decision = DecisionRequest.objects.create(
-        issue=issue,
-        project_id=issue.project_id,
-        workspace_id=issue.workspace_id,
-        asked_user_id=asked_id,
-        question=question,
-        options=options,
-        source=source,
-        created_by=actor,
-    )
-    # The asker (agent or person) follows the item, so the answer comment notifies them. Only live rows count:
-    # someone who unsubscribed earlier is subscribed again by asking.
-    IssueSubscriber.objects.get_or_create(
-        issue=issue,
-        subscriber=actor,
-        defaults={"project_id": issue.project_id, "workspace_id": issue.workspace_id, "created_by": actor},
-    )
+    # The decision and the asker's subscription land together, or not at all
+    with transaction.atomic():
+        decision = DecisionRequest.objects.create(
+            issue=issue,
+            project_id=issue.project_id,
+            workspace_id=issue.workspace_id,
+            asked_user_id=asked_id,
+            question=question,
+            options=options,
+            source=source,
+            created_by=actor,
+        )
+        # The asker (agent or person) follows the item, so the answer comment notifies them. Only live rows
+        # count: someone who unsubscribed earlier is subscribed again by asking.
+        IssueSubscriber.objects.get_or_create(
+            issue=issue,
+            subscriber=actor,
+            defaults={"project_id": issue.project_id, "workspace_id": issue.workspace_id, "created_by": actor},
+        )
     # Looked up at call time so tests can patch it; fires only for committed rows.
     transaction.on_commit(lambda: on_decision_created(decision))
     _emit_decision(decision, "created", actor, source)

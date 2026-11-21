@@ -178,11 +178,11 @@ class AgentApprovalAPIEndpoint(BaseAPIView):
         workspace = workspace_for(request, slug)
         approval = (
             AgentApproval.objects.filter(workspace=workspace, pk=approval_id)
-            .select_related("agent", "asked_user", "decided_by")
+            .select_related("agent", "asked_user", "decided_by", "project")
             .first()
             if workspace
             else None
         )
         if approval is None or not guardrails.can_view(approval, request.user):
             return _missing("Approval")
-        return Response(guardrails.approval_payload(approval))
+        return Response(guardrails.approval_payload(approval, request.user))

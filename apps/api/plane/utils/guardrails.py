@@ -299,6 +299,13 @@ def check_request(request, user):
     method = request.method.upper()
     if agent.permission == "read" and method not in SAFE_METHODS:
         raise PermissionDenied("This agent is read-only")
+    if method not in SAFE_METHODS and agent.permission != "manage":
+        # Writes stay inside the agent's projects: a workspace-level write (creating a project, changing one
+        # from the workspace route, workspace assets) would let it step outside them. Every write an agent
+        # needs to report its work (runs, steps, decisions) is under a project route.
+        match = _match(request)
+        if not (match and match.kwargs.get("project_id")):
+            raise PermissionDenied("This agent can only change things inside its projects")
     action = classify(request)
     if action is None:
         return
@@ -319,9 +326,15 @@ def _is_admin(workspace_id, user):
     return WorkspaceMember.objects.filter(workspace_id=workspace_id, member=user, role=ADMIN, is_active=True).exists()
 
 
+def _is_member(workspace_id, user_id):
+    return WorkspaceMember.objects.filter(workspace_id=workspace_id, member_id=user_id, is_active=True).exists()
+
+
 def decide_approval(approval, user, approve):
-    """The owner (or a workspace admin) approves or rejects; an approval replays the held request once."""
-    if user.id != approval.asked_user_id and not _is_admin(approval.workspace_id, user):
+    """The owner (or a workspace admin) approves or rejects; an approval replays the held request once.
+    The owner must still be an active workspace member (a removed member's Slack buttons stop working)."""
+    is_owner = user.id == approval.asked_user_id and _is_member(approval.workspace_id, user.id)
+    if not is_owner and not _is_admin(approval.workspace_id, user):
         raise AgentError("Only the agent's owner or a workspace admin can decide", 403)
     with transaction.atomic():
         approval = AgentApproval.objects.select_for_update().get(pk=approval.pk)
@@ -419,15 +432,22 @@ def expire_approvals():
     )
 
 
-def approval_payload(approval):
+# What a viewer outside the approval's project never gets: the request itself and what it returned
+PROJECT_DETAIL_KEYS = ("path", "query", "body", "result_body", "issue_id")
+
+
+def approval_payload(approval, viewer):
+    """The approval as `viewer` may see it. The agent and members of the approval's project get everything;
+    anyone else (an owner or admin outside that project) gets the generic summary and no request details."""
     asked = approval.asked_user
     decided = approval.decided_by
-    return {
+    inside = viewer.id == approval.agent.user_id or _in_project(approval, viewer.id)
+    payload = {
         "id": str(approval.id),
         "agent": {"id": str(approval.agent_id), "name": approval.agent.name},
         "asked_user": {"id": str(asked.id), "display_name": asked.display_name or asked.email},
         "action": approval.action,
-        "summary": approval.summary,
+        "summary": approval.summary if inside else _outside_summary(approval),
         "status": approval.status,
         "method": approval.method,
         "path": approval.path,
@@ -443,15 +463,26 @@ def approval_payload(approval):
         "result_body": approval.result_body,
         "created_at": approval.created_at.isoformat(),
     }
+    if not inside:
+        payload.update(dict.fromkeys(PROJECT_DETAIL_KEYS))
+    return payload
 
 
 def approvals_for(workspace, user, status_filter=None):
     rows = AgentApproval.objects.filter(workspace=workspace, asked_user=user).select_related(
-        "agent", "asked_user", "decided_by"
+        "agent", "asked_user", "decided_by", "project"
     )
     if status_filter:
         rows = rows.filter(status=status_filter)
     return rows
+
+
+def _in_project(approval, user_id):
+    """True when `user_id` may see the project the held action touches (or it has no project)."""
+    return (
+        approval.project_id is None
+        or ProjectMember.objects.filter(project_id=approval.project_id, member_id=user_id, is_active=True).exists()
+    )
 
 
 def owner_in_project(approval):
@@ -459,12 +490,12 @@ def owner_in_project(approval):
 
     A workspace admin can own an agent without being in its projects; they may still decide, but the Brief,
     Slack and inbox must not show them names or identifiers from that project."""
-    return (
-        approval.project_id is None
-        or ProjectMember.objects.filter(
-            project_id=approval.project_id, member_id=approval.asked_user_id, is_active=True
-        ).exists()
-    )
+    return _in_project(approval, approval.asked_user_id)
+
+
+def _outside_summary(approval):
+    what = "delete an item" if approval.action == "delete" else "change dates on an item"
+    return f"{what} in {approval.project.name}"
 
 
 def display_summary(approval):
@@ -472,8 +503,7 @@ def display_summary(approval):
     the project name."""
     if owner_in_project(approval):
         return approval.summary
-    what = "delete an item" if approval.action == "delete" else "change dates on an item"
-    return f"{what} in {approval.project.name}"
+    return _outside_summary(approval)
 
 
 def can_view(approval, user):

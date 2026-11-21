@@ -113,6 +113,8 @@ app.conf.beat_schedule = {
     "sync-agent-runs": {
         "task": "plane.bgtasks.agent_runs_task.sync_agent_runs",
         "schedule": schedule(run_every=timedelta(seconds=15)),  # Every 15 seconds
+        # A tick still queued when the next one is due is dropped, so a busy worker never piles them up
+        "options": {"expires": 14},
     },
     "prune-events": {
         "task": "plane.bgtasks.events_task.prune_events",

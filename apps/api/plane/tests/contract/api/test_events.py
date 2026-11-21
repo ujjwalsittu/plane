@@ -10,7 +10,8 @@ from unittest.mock import patch
 
 import pytest
 from asgiref.sync import async_to_sync
-from django.test import RequestFactory
+from django.db import connection
+from django.test import AsyncClient, RequestFactory
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -19,6 +20,7 @@ from plane.bgtasks.events_task import prune_events as prune_events_task
 from plane.bgtasks.webhook_task import webhook_activity
 from plane.db.models import (
     APIToken,
+    DecisionRequest,
     Issue,
     Project,
     ProjectMember,
@@ -301,3 +303,51 @@ def test_restricted_guest_only_sees_rows_for_own_work_items(workspace, project, 
     # With guest_view_all_features on, they see everything in the project
     Project.objects.filter(pk=project.pk).update(guest_view_all_features=True)
     assert len(_feed(client, workspace).data["results"]) == 3
+
+
+def _failing_insert(*args, **kwargs):
+    """An event insert that fails inside the database, which aborts the surrounding transaction."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1/0")
+
+
+def test_failed_event_insert_is_logged_not_raised(mock_celery, workspace, project, issue, create_user):
+    with (
+        patch("plane.utils.events.WorkspaceEvent.objects.create", side_effect=_failing_insert),
+        patch("plane.utils.events.log_exception") as logged,
+    ):
+        assert emit_event(workspace.id, "milestone", "created", issue.id, project_id=project.id) is None
+        decision = decisions.create_decision(
+            issue, {"question": "Ship it?", "asked_user": str(create_user.id)}, create_user, "app"
+        )
+    assert logged.call_count == 2
+    # The decision (and everything after it in this transaction) still went through
+    assert DecisionRequest.objects.filter(pk=decision.pk, question="Ship it?").exists()
+    assert WorkspaceEvent.objects.count() == 0
+    assert emit_event(workspace.id, "milestone", "created", issue.id, project_id=project.id) is not None
+
+
+def test_stream_through_middleware_is_not_gzipped(monkeypatch, mock_celery, workspace, project, issue, create_user):
+    monkeypatch.setattr(events_views, "STREAM_POLL_SECONDS", 0.02)
+    monkeypatch.setattr(events_views, "STREAM_MAX_SECONDS", 0.2)
+    _, _, token = _agent(workspace, create_user, [project])
+    event = emit_event(workspace.id, "milestone", "created", issue.id, project_id=project.id, actor=create_user)
+
+    async def run():
+        response = await AsyncClient().get(
+            f"/api/v1/workspaces/{workspace.slug}/events/stream/",
+            headers={"X-Api-Key": token, "Accept-Encoding": "gzip"},
+        )
+        chunks = [chunk async for chunk in response.streaming_content]
+        return response, b"".join(c if isinstance(c, bytes) else c.encode() for c in chunks)
+
+    with patch("plane.middleware.logger.log_exception") as logged:
+        response, body = async_to_sync(run)()
+    assert response.status_code == 200 and response["Content-Type"] == "text/event-stream"
+    assert "Content-Encoding" not in response or response["Content-Encoding"] != "gzip"
+    assert body.startswith(b": connected\n\n") and f"id: {event.id}\n".encode() in body
+    # The API token log row is written without a body, and the logger didn't fail on the streaming response
+    logged.assert_not_called()
+    log_data = mock_celery.call_args.kwargs["log_data"]
+    assert log_data["path"] == f"/api/v1/workspaces/{workspace.slug}/events/stream/"
+    assert log_data["response_code"] == 200 and log_data["response_body"] is None

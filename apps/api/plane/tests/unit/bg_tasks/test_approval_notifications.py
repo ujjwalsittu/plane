@@ -15,11 +15,13 @@ import pytest
 from rest_framework.test import APIClient
 
 from plane.bgtasks import supervision_task
+from plane.bgtasks.logger_task import process_logs
 from plane.db.models import (
     Cycle,
     AgentApproval,
     AgentRun,
     APIActivityLog,
+    APIToken,
     Issue,
     Notification,
     Project,
@@ -343,6 +345,28 @@ class TestApprovalClicks:
         approval.refresh_from_db()
         assert approval.status == "open"
 
+    def test_removed_member_cannot_approve_from_slack(
+        self, mock_celery, client, workspace, create_user, project, linked
+    ):
+        _, agent_client, _ = _agent(workspace, create_user, project)
+        issue, approval = _held_delete(workspace, project, agent_client)
+        # The owner leaves the workspace; their Slack link and the DM they got earlier remain
+        WorkspaceMember.objects.filter(workspace=workspace, member=create_user).update(is_active=False)
+        response, post = _post(client, _click(approval))
+        assert response.status_code == 200
+        assert post.call_args.kwargs["json"]["response_type"] == "ephemeral"
+        approval.refresh_from_db()
+        assert approval.status == "open" and Issue.issue_objects.filter(pk=issue.pk).exists()
+
+    def test_removed_owner_is_not_notified(self, mock_celery, workspace, create_user, project, linked):
+        _, agent_client, _ = _agent(workspace, create_user, project)
+        _, approval = _held_delete(workspace, project, agent_client)
+        WorkspaceMember.objects.filter(workspace=workspace, member=create_user).update(is_active=False)
+        slack = FakeSlack()
+        with patch("plane.utils.slack_app.requests.post", side_effect=slack):
+            supervision_task.notify_approval(str(approval.id))
+        assert slack.posts() == [] and not Notification.objects.filter(entity_name="approval").exists()
+
 
 @pytest.mark.unit
 @pytest.mark.django_db
@@ -352,14 +376,23 @@ class TestAgentAudit:
     ):
         agent, client, token = _agent(workspace, create_user, project)
         issue, approval = _held_delete(workspace, project, client)
-        old = agents.rotate_token(agent, create_user)  # the first token is now revoked; its history must stay
-        APIActivityLog.objects.create(
-            token_identifier=token, path="/api/v1/x/", method="GET", response_code=200, query_params=""
-        )
-        APIActivityLog.objects.create(token_identifier=old, path="/api/v1/y/", method="POST", response_code=201)
-        APIActivityLog.objects.create(
-            token_identifier="someone-else", path="/api/v1/z/", method="GET", response_code=200
-        )
+        x_path = f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/issues/"
+        y_path = f"/api/v1/workspaces/{workspace.slug}/events/"
+        # Real requests, logged by the API token middleware (its Celery task runs inline here)
+        with patch.object(process_logs, "delay", side_effect=lambda **kwargs: process_logs(**kwargs)):
+            assert client.get(x_path).status_code == 200
+            new = agents.rotate_token(agent, create_user)  # the first token is now revoked; its history must stay
+            new_client = APIClient()
+            new_client.credentials(HTTP_X_API_KEY=new)
+            assert new_client.get(y_path).status_code == 200
+            # Someone else's key
+            person = APIClient()
+            person.credentials(
+                HTTP_X_API_KEY=APIToken.objects.create(user=create_user, label="me", token="p-key").token
+            )
+            assert person.get(x_path).status_code == 200
+        assert APIActivityLog.objects.count() == 3
+        assert not APIActivityLog.objects.filter(token_identifier__in=[token, new]).exists()
         run = AgentRun.objects.create(
             workspace=workspace, project=project, issue=issue, agent=agent, actor=agent.user, title="Fix it"
         )
@@ -371,8 +404,9 @@ class TestAgentAudit:
         assert kinds.count("request") == 2 and kinds.count("approval") == 1 and kinds.count("run") == 1
         assert [r["at"] for r in rows] == sorted((r["at"] for r in rows), reverse=True)
         requests = {r["path"]: r for r in rows if r["kind"] == "request"}
-        assert set(requests) == {"/api/v1/x/", "/api/v1/y/"}
-        assert requests["/api/v1/y/"]["method"] == "POST" and requests["/api/v1/y/"]["status"] == 201
+        assert set(requests) == {x_path, y_path}
+        assert requests[y_path]["method"] == "GET" and requests[y_path]["status"] == 200
+        assert requests[x_path]["method"] == "GET" and requests[x_path]["status"] == 200
         approval_row = next(r for r in rows if r["kind"] == "approval")
         assert approval_row["id"] == str(approval.id) and approval_row["status"] == "open"
         run_row = next(r for r in rows if r["kind"] == "run")

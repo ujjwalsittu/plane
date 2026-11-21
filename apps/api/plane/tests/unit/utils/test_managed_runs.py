@@ -595,3 +595,43 @@ class TestManagedRuns:
         managed_agents.sync_run(run)
         run.refresh_from_db()
         assert run.status == "running"
+
+    def test_deactivation_still_archives_when_cancelling_fails(
+        self, issue, agent, create_user, client, django_capture_on_commit_callbacks
+    ):
+        with (
+            patch("plane.utils.managed_agents.cancel_agent_runs", side_effect=RuntimeError("boom")),
+            patch("plane.utils.agents.log_exception") as logged,
+            patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay") as archive,
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            agents.deactivate_agent(agent, create_user)
+        agent.refresh_from_db()
+        assert agent.is_active is False
+        archive.assert_called_once_with(str(agent.id))
+        logged.assert_called_once()
+
+    def test_overlapping_syncs_skip(self, issue, agent, create_user, client):
+        from django.core.cache import cache
+
+        run = _running_run(issue, agent, create_user)
+        with patch("plane.utils.managed_agents.sync_run") as sync:
+            # Another sync is still going: this one does nothing
+            assert cache.add(agent_runs_task.SYNC_ALL_LOCK, 1, 60)
+            try:
+                agent_runs_task.sync_agent_runs()
+                sync.assert_not_called()
+            finally:
+                cache.delete(agent_runs_task.SYNC_ALL_LOCK)
+            # Free again: it runs, and releases the lock when done (even if a run fails)
+            sync.side_effect = RuntimeError("boom")
+            agent_runs_task.sync_agent_runs()
+            agent_runs_task.sync_agent_runs()
+        assert [c.args[0].pk for c in sync.call_args_list] == [run.pk, run.pk]
+        assert cache.get(agent_runs_task.SYNC_ALL_LOCK) is None
+
+    def test_sync_beat_entry_expires(self):
+        from plane.celery import app
+
+        entry = app.conf.beat_schedule["sync-agent-runs"]
+        assert entry["options"] == {"expires": 14}

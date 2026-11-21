@@ -43,3 +43,9 @@ and start the service again.
 
 Coolify note: scheduled-task commands are limited to about 255 characters (longer ones fail with a
 bare HTTP 500), which is why the drill lives in a script file.
+
+## Agent settings
+
+Cloud agents need `PLANE_MCP_URL` (the public URL of the Plane MCP server, `deployments/plane-mcp`) on
+both the `api` and the `worker` containers; without it "Set up cloud agents" refuses with
+"PLANE_MCP_URL is not configured on this instance".

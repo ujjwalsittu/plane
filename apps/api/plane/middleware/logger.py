@@ -23,6 +23,13 @@ from plane.bgtasks.logger_task import process_logs
 api_logger = logging.getLogger("plane.api.request")
 
 
+def api_token_identifier(api_key):
+    """The stable, non-reversible identifier an API key is logged under (APIActivityLog.token_identifier).
+
+    A keyed HMAC rather than a bare hash, so the digest cannot be precomputed from a known key value."""
+    return hmac.new(settings.SECRET_KEY.encode(), api_key.encode(), hashlib.sha256).hexdigest()
+
+
 class RequestLoggerMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -144,18 +151,18 @@ class APITokenLogMiddleware:
 
     def log_data(self, request, response, request_body, api_key):
         """The APIActivityLog row for one API-key request (also used for replayed agent approvals)."""
+        # A streaming response (the event stream) has no content to read; it is logged without a body
+        content = None if getattr(response, "streaming", False) else response.content
         return {
-            # Tokenize the (high-entropy) API key into a stable, non-reversible
-            # identifier so logs can be correlated to a token without ever
-            # persisting the raw key. A keyed HMAC is used rather than a bare
-            # hash so the digest cannot be precomputed from a known key value.
-            "token_identifier": hmac.new(settings.SECRET_KEY.encode(), api_key.encode(), hashlib.sha256).hexdigest(),
+            # Tokenize the (high-entropy) API key so logs can be correlated to a token without ever
+            # persisting the raw key.
+            "token_identifier": api_token_identifier(api_key),
             "path": request.path,
             "method": request.method,
             "query_params": request.META.get("QUERY_STRING", ""),
             "headers": self._redacted_headers(request),
             "body": self._safe_decode_body(request_body) if request_body else None,
-            "response_body": self._safe_decode_body(response.content) if response.content else None,
+            "response_body": self._safe_decode_body(content) if content else None,
             "response_code": response.status_code,
             "ip_address": get_client_ip(request=request),
             "user_agent": request.META.get("HTTP_USER_AGENT", None),

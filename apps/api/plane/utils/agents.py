@@ -20,6 +20,7 @@ from plane.db.models import (
     WorkspaceAgent,
     WorkspaceMember,
 )
+from plane.utils.exception_logger import log_exception
 
 ADMIN = 20
 MEMBER = 15
@@ -247,8 +248,15 @@ def deactivate_agent(agent, actor):
         APIToken.objects.filter(user=agent.user).update(is_active=False)
         ProjectMember.objects.filter(member=agent.user).update(is_active=False)
         WorkspaceMember.objects.filter(member=agent.user, workspace=agent.workspace).update(is_active=False)
-    on_agent_deactivated(agent)
-    _sync_cloud_agent(agent)
+    # Independent follow-ups: one failing (cancelling the open runs) never skips the other (archiving the
+    # cloud agent and its vault)
+    for step in (on_agent_deactivated, _sync_cloud_agent):
+        try:
+            # A savepoint, so a failed database write here leaves the connection usable for the next step
+            with transaction.atomic():
+                step(agent)
+        except Exception as exc:
+            log_exception(exc)
     return agent
 
 
@@ -298,7 +306,13 @@ AUDIT_LIMIT = 200
 def audit_for(agent, limit=AUDIT_LIMIT):
     """What an agent did, newest first: its API requests (across every token it ever had, revoked ones
     included, so history survives rotation), the approvals it asked for and its runs."""
-    tokens = list(APIToken.objects.filter(user_id=agent.user_id).values_list("token", flat=True))
+    from plane.middleware.logger import api_token_identifier
+
+    # Logged under the same identifier the API token middleware (and the approval replay) writes
+    tokens = [
+        api_token_identifier(token)
+        for token in APIToken.objects.filter(user_id=agent.user_id).values_list("token", flat=True)
+    ]
     rows = [
         {
             "at": log.created_at.isoformat(),

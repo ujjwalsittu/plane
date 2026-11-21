@@ -17,7 +17,15 @@ from django.utils import timezone
 from celery import shared_task
 
 # Module imports
-from plane.db.models import AgentApproval, BriefVisit, DecisionRequest, Notification, SlackConnection, SlackUserLink
+from plane.db.models import (
+    AgentApproval,
+    BriefVisit,
+    DecisionRequest,
+    Notification,
+    SlackConnection,
+    SlackUserLink,
+    WorkspaceMember,
+)
 from plane.utils import slack_app
 from plane.utils.brief import DEFAULT_WINDOW_HOURS, _milestones_due, brief_for, last_seen, zone_for
 from plane.utils.exception_logger import log_exception
@@ -406,6 +414,12 @@ def notify_approval(approval_id):
         .first()
     )
     if approval is None or approval.status != "open":
+        return
+    # An owner who has left the workspace can no longer decide, so they aren't told (no inbox row, no DM). The
+    # approval stays open for a workspace admin, and expires after a week if nobody decides.
+    if not WorkspaceMember.objects.filter(
+        workspace_id=approval.workspace_id, member_id=approval.asked_user_id, is_active=True
+    ).exists():
         return
     _create_approval_notification(approval)
     connection = SlackConnection.objects.filter(workspace_id=approval.workspace_id, status="ok").first()

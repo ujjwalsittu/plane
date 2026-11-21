@@ -57,27 +57,35 @@ def emit_event(
     workspace_id, event, action, entity_id, project_id=None, actor=None, data=None, is_agent=None, issue_id=None
 ):
     """Write one event row. `is_agent` defaults to "the actor is a bot"; callers that know the request came in
-    through an API key pass True. The four newer kinds are also sent to webhooks that opted in, after commit."""
-    data = data or {}
-    actor_id = getattr(actor, "id", None)
-    if is_agent is None:
-        is_agent = bool(getattr(actor, "is_bot", False))
-    row = WorkspaceEvent.objects.create(
-        workspace_id=workspace_id,
-        project_id=project_id,
-        issue_id=issue_id,
-        event=event,
-        action=action,
-        entity_id=entity_id,
-        actor_id=actor_id,
-        is_agent=bool(is_agent),
-        data=data,
-    )
-    if event in WEBHOOK_EVENTS:
-        transaction.on_commit(
-            lambda: _dispatch_webhooks(workspace_id, event, action, entity_id, project_id, actor_id, data)
-        )
-    return row
+    through an API key pass True. The four newer kinds are also sent to webhooks that opted in, after commit.
+
+    Best effort: the feed must never break the change that caused the event. A failure is logged and the
+    event dropped (None is returned); the insert runs in a savepoint so the caller's transaction survives."""
+    try:
+        data = data or {}
+        actor_id = getattr(actor, "id", None)
+        if is_agent is None:
+            is_agent = bool(getattr(actor, "is_bot", False))
+        with transaction.atomic():
+            row = WorkspaceEvent.objects.create(
+                workspace_id=workspace_id,
+                project_id=project_id,
+                issue_id=issue_id,
+                event=event,
+                action=action,
+                entity_id=entity_id,
+                actor_id=actor_id,
+                is_agent=bool(is_agent),
+                data=data,
+            )
+        if event in WEBHOOK_EVENTS:
+            transaction.on_commit(
+                lambda: _dispatch_webhooks(workspace_id, event, action, entity_id, project_id, actor_id, data)
+            )
+        return row
+    except Exception as exc:
+        log_exception(exc)
+        return None
 
 
 def event_payload(row):
