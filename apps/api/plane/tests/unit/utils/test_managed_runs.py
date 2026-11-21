@@ -508,3 +508,90 @@ class TestManagedRuns:
         with pytest.raises(AgentError) as exc:
             agent_runs.finish_run(stale, "succeeded")
         assert exc.value.status_code == 409
+
+    def test_stalled_runs_end_even_when_sync_keeps_failing(self, workspace, issue, agent, create_user, client):
+        no_key = _running_run(issue, agent, create_user, session_id="sesn_no_key")
+        AgentRun.objects.filter(pk=no_key.pk).update(last_event_at=timezone.now() - timedelta(hours=7))
+        with patch("plane.utils.managed_agents.anthropic_client_for", return_value=None):
+            agent_runs_task.sync_agent_runs()
+        no_key.refresh_from_db()
+        assert (no_key.status, no_key.error) == ("failed", "No progress for 6 hours")
+
+        revoked = _running_run(issue, agent, create_user, session_id="sesn_revoked")
+        fresh = _running_run(issue, agent, create_user, session_id="sesn_fresh")
+        AgentRun.objects.filter(pk=revoked.pk).update(last_event_at=timezone.now() - timedelta(hours=7))
+        client.beta.sessions.events.list.side_effect = _api_error(anthropic.AuthenticationError, 401)
+        client.beta.sessions.events.send.side_effect = _api_error(anthropic.AuthenticationError, 401)
+        agent_runs_task.sync_agent_runs()
+        agent_runs_task.sync_agent_runs()
+        revoked.refresh_from_db()
+        assert (revoked.status, revoked.error) == ("failed", "No progress for 6 hours")
+        # The interrupt was tried (and failed), which never keeps the run open
+        client.beta.sessions.events.send.assert_called_once_with("sesn_revoked", events=[{"type": "user.interrupt"}])
+        fresh.refresh_from_db()
+        assert fresh.status == "running"
+
+    def test_runs_without_a_session_never_stay_queued(self, workspace, project, issue, agent, create_user, client):
+        with patch("plane.utils.managed_agents._repository_resources", side_effect=RuntimeError("boom")):
+            run = managed_agents.start_managed_run(issue, agent, create_user)
+        run.refresh_from_db()
+        assert (run.status, run.error) == ("failed", "Could not start the cloud session (RuntimeError)")
+        client.beta.sessions.create.assert_not_called()
+
+        # A run left queued with no session (the request died) can be cancelled, without any interrupt...
+        orphan = _running_run(issue, agent, create_user, session_id="", status="queued")
+        assert managed_agents.cancel_run(orphan, create_user).status == "cancelled"
+        client.beta.sessions.events.send.assert_not_called()
+
+        # ...and the beat fails one after 5 minutes, leaving a run still starting alone.
+        old = _running_run(issue, agent, create_user, session_id="", status="queued")
+        starting = _running_run(issue, agent, create_user, session_id="", status="queued")
+        AgentRun.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(minutes=6))
+        agent_runs_task.sync_agent_runs()
+        old.refresh_from_db()
+        starting.refresh_from_db()
+        assert (old.status, old.error) == ("failed", "The cloud session never started")
+        assert starting.status == "queued"
+
+    def test_follow_up_never_races_an_in_flight_sync(self, issue, agent, create_user, client):
+        run = _running_run(issue, agent, create_user, status="waiting")
+        attempts = []
+
+        def listing(session_id, **kwargs):
+            # A person follows up (and another cancels) while the sync works from this list
+            for action in (
+                lambda: managed_agents.send_follow_up(run, create_user, "More please"),
+                lambda: managed_agents.cancel_run(run, create_user),
+            ):
+                with pytest.raises(AgentError) as exc:
+                    action()
+                attempts.append((exc.value.status_code, exc.value.message))
+            return [_user_message("sevt_0"), _message("sevt_1", "All done"), _idle("sevt_2", "end_turn")]
+
+        client.beta.sessions.events.list.side_effect = listing
+        client.beta.sessions.retrieve.return_value = _session("idle", "40")
+        with patch("plane.utils.managed_agents.LOCK_WAIT_SECONDS", 0):
+            managed_agents.sync_run(run)
+
+        message = "The run is syncing with its session, try again in a moment"
+        assert attempts == [(409, message), (409, message)]
+        client.beta.sessions.events.send.assert_not_called()
+        run.refresh_from_db()
+        assert (run.status, run.summary) == ("succeeded", "All done")
+
+        # Once the sync is done the follow-up goes through and reopens the run; the session's next listing
+        # carries the follow-up, so the old end_turn no longer counts.
+        client.beta.sessions.events.list.side_effect = None
+        managed_agents.send_follow_up(run, create_user, "More please")
+        run.refresh_from_db()
+        assert run.status == "running"
+        client.beta.sessions.events.list.return_value = [
+            _user_message("sevt_0"),
+            _message("sevt_1", "All done"),
+            _idle("sevt_2", "end_turn"),
+            _user_message("sevt_3"),
+        ]
+        client.beta.sessions.retrieve.return_value = _session("running", "41")
+        managed_agents.sync_run(run)
+        run.refresh_from_db()
+        assert run.status == "running"

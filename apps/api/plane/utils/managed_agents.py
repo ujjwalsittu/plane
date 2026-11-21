@@ -8,6 +8,8 @@ workspace admin sets cloud agents up (the workspace's environment id is set)."""
 
 import json
 import re
+import time
+from contextlib import contextmanager
 from datetime import timedelta
 from urllib.parse import urlparse
 
@@ -249,7 +251,10 @@ BRIEF_TEXT_MAX = 8000
 COMMENT_MAX = 1500
 TOOL_INPUT_MAX = 200
 STALL_AFTER = timedelta(hours=6)
-SYNC_LOCK_SECONDS = 120
+UNSTARTED_AFTER = timedelta(minutes=5)
+SYNC_LOCK_SECONDS = 300
+# How long a follow-up or cancel waits for an in-flight sync of the same run before giving up with a 409
+LOCK_WAIT_SECONDS = 5
 DENY_MESSAGE = "Nobody is watching this session to approve tool calls. Do this another way, or note it in a comment."
 PR_URL = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/pull/\d+")
 PUSH_REMOTE = re.compile(r"^To (https://github\.com/\S+?)(?:\.git)?\s*$", re.MULTILINE)
@@ -403,7 +408,9 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
             session.id,
             events=[{"type": "user.message", "content": [{"type": "text", "text": build_brief(issue, instructions)}]}],
         )
-    except anthropic.APIError as exc:
+    except Exception as exc:
+        # Anything that goes wrong once the run exists fails it (class name and status code only), so no run is
+        # ever left queued without a session.
         log_exception(exc)
         agent_runs.finish_run(run, "failed", error=_api_error("start the cloud session", exc))
     return run
@@ -481,18 +488,67 @@ def _add_step_quietly(run, kind, text, data, key):
         return None
 
 
+@contextmanager
+def _run_lock(run, wait=0):
+    """The per-run lock the sync holds. Follow-ups and cancels take it too (waiting up to `wait` seconds), so a
+    sync working from an event list read before a follow-up can never finish the run the follow-up reopened."""
+    key = f"agent-run-sync:{run.id}"
+    deadline = time.monotonic() + wait
+    while not cache.add(key, 1, SYNC_LOCK_SECONDS):
+        if time.monotonic() >= deadline:
+            raise AgentError("The run is syncing with its session, try again in a moment", 409, "status")
+        time.sleep(0.2)
+    try:
+        yield
+    finally:
+        cache.delete(key)
+
+
 def sync_run(run):
     """Bring a cloud run up to date with its session: new events become steps, then the session's status, cost
-    and token totals are copied over. Safe to run again: steps are keyed by event id."""
+    and token totals are copied over. Safe to run again: steps are keyed by event id. Skipped while another
+    sync, a follow-up or a cancel holds the run."""
     if not run.external_session_id or run.status in agent_runs.TERMINAL_STATUSES:
         return
-    lock = f"agent-run-sync:{run.id}"
-    if not cache.add(lock, 1, SYNC_LOCK_SECONDS):
+    try:
+        with _run_lock(run):
+            _sync_run(run)
+    except AgentError as exc:
+        if exc.status_code != 409:
+            raise
+
+
+def _interrupt_quietly(run):
+    """Best effort: the run ends in Plane whatever Anthropic says."""
+    if not run.external_session_id:
         return
     try:
-        _sync_run(run)
-    finally:
-        cache.delete(lock)
+        client = anthropic_client_for(run.workspace)
+        if client is not None:
+            _send(client, run, [{"type": "user.interrupt"}])
+    except Exception as exc:
+        log_exception(exc)
+
+
+def end_stalled_run(run):
+    """Decided from Plane's own data, so a run whose sync keeps failing (no key, a revoked key, Anthropic down)
+    still ends: a queued or running cloud run with nothing new for 6 hours fails. Waiting runs wait on a person."""
+    run.refresh_from_db()
+    if run.kind != "managed" or run.status not in ("queued", "running"):
+        return False
+    last = run.last_event_at or run.started_at or run.created_at
+    if timezone.now() - last < STALL_AFTER:
+        return False
+    _interrupt_quietly(run)
+    _finish_quietly(run, "failed", error="No progress for 6 hours")
+    return True
+
+
+def fail_unstarted_runs():
+    """Queued cloud runs that never got a session (the request died part way) fail after 5 minutes."""
+    cutoff = timezone.now() - UNSTARTED_AFTER
+    for run in AgentRun.objects.filter(kind="managed", status="queued", external_session_id="", created_at__lt=cutoff):
+        _finish_quietly(run, "failed", error="The cloud session never started")
 
 
 def _sync_run(run):
@@ -508,7 +564,6 @@ def _sync_run(run):
         return
 
     seen = set(run.steps.exclude(external_event_id="").values_list("external_event_id", flat=True))
-    added = 0
     last_message, last_idle, last_user_at, terminated = "", None, -1, False
     for index, event in enumerate(events):
         if event.type == "agent.message":
@@ -523,8 +578,7 @@ def _sync_run(run):
             if key in seen:
                 continue
             seen.add(key)
-            if _add_step_quietly(run, kind, text, data, key) is not None:
-                added += 1
+            _add_step_quietly(run, kind, text, data, key)
     run.refresh_from_db()
     if run.status in agent_runs.TERMINAL_STATUSES:
         return
@@ -569,21 +623,11 @@ def _sync_run(run):
             deny = {"type": "user.tool_confirmation", "result": "deny", "deny_message": DENY_MESSAGE}
             _send(client, run, [{**deny, "tool_use_id": event_id} for event_id in stop.event_ids])
             text = "A tool call asked for approval; Plane denied it because cloud runs are unattended"
-            if _add_step_quietly(run, "error", text, {"event_ids": list(stop.event_ids)}, key) is not None:
-                added += 1
-
-    stalled = run.status == "running" and not added
-    last = run.last_event_at or run.started_at
-    if stalled and last is not None and timezone.now() - last >= STALL_AFTER:
-        try:
-            _send(client, run, [{"type": "user.interrupt"}])
-        except anthropic.APIError as exc:
-            log_exception(exc)
-        _finish_quietly(run, "failed", error="No progress for 6 hours", cost_cents=cost)
+            _add_step_quietly(run, "error", text, {"event_ids": list(stop.event_ids)}, key)
 
 
-def _require_managed(run):
-    if run.kind != "managed" or not run.external_session_id:
+def _require_managed(run, session=True):
+    if run.kind != "managed" or (session and not run.external_session_id):
         raise AgentError("Only cloud runs can be steered from Plane", 400, "run")
 
 
@@ -592,6 +636,12 @@ def send_follow_up(run, user, text):
     _require_member(run.project, user)
     _require_managed(run)
     text = agent_runs._text(text, "text", agent_runs.TEXT_MAX, required=True)
+    with _run_lock(run, wait=LOCK_WAIT_SECONDS):
+        run.refresh_from_db()
+        return _send_follow_up(run, user, text)
+
+
+def _send_follow_up(run, user, text):
     if run.status not in ("succeeded", "waiting"):
         raise AgentError("Follow-ups go to a run that has finished well or is waiting", 409, "status")
     check_spend(run.workspace)
@@ -612,12 +662,18 @@ def send_follow_up(run, user, text):
 
 
 def cancel_run(run, user):
-    """Stop the session and mark the run cancelled."""
+    """Stop the session (if it ever started) and mark the run cancelled."""
     _require_member(run.project, user)
-    _require_managed(run)
+    _require_managed(run, session=False)
+    with _run_lock(run, wait=LOCK_WAIT_SECONDS):
+        run.refresh_from_db()
+        return _cancel_run(run, user)
+
+
+def _cancel_run(run, user):
     if run.status in agent_runs.TERMINAL_STATUSES:
         raise AgentError("The run has already finished", 409, "status")
-    client = anthropic_client_for(run.workspace)
+    client = anthropic_client_for(run.workspace) if run.external_session_id else None
     if client is not None:
         try:
             _send(client, run, [{"type": "user.interrupt"}])
