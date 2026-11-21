@@ -18,6 +18,7 @@ import type { TAgentRun, TAgentRunStatus } from "@plane/types";
 import { cn, getFileURL } from "@plane/utils";
 import { formatCents } from "@/components/agents/settings/money";
 import { agentsErrorMessage, AgentsService } from "@/services/agents.service";
+import { formatDuration } from "./format";
 import { RunSteps } from "./run-steps";
 import { AGENT_RUNS_LIVE_REFRESH_MS, getAgentRunKey } from "./use-agent-runs";
 
@@ -30,14 +31,6 @@ const STATUS_VARIANT: Record<TAgentRunStatus, BadgeVariant> = {
   succeeded: "success",
   failed: "danger",
   cancelled: "grey",
-};
-
-/** 95 -> "1m 35s", 3700 -> "1h 1m". */
-export const formatDuration = (seconds: number): string => {
-  if (seconds < 60) return `${Math.max(0, Math.round(seconds))}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 };
 
 type Props = {

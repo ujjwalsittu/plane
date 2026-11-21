@@ -83,7 +83,8 @@ const ensurePolling = () => {
   }, POLL_MS);
 };
 
-const subscribe = (key: TKey, listener: () => void) => {
+/** Registers a work item id; exported for tests, rows use `useLiveAgentRun`. */
+export const subscribe = (key: TKey, listener: () => void) => {
   const set = listeners.get(key) ?? new Set();
   set.add(listener);
   listeners.set(key, set);
