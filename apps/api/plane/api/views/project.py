@@ -78,6 +78,14 @@ from plane.utils.openapi import (
 )
 
 
+def _accessible_projects(user):
+    """Projects the user is an active member of, plus public ones. An agent sees only its own projects."""
+    member_of = Q(project_projectmember__member=user, project_projectmember__is_active=True)
+    if getattr(user, "bot_type", None) == "agent":
+        return member_of
+    return member_of | Q(network=2)
+
+
 class ProjectListCreateAPIEndpoint(BaseAPIView):
     """Project List and Create Endpoint"""
 
@@ -90,13 +98,7 @@ class ProjectListCreateAPIEndpoint(BaseAPIView):
     def get_queryset(self):
         return (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
-            .filter(
-                Q(
-                    project_projectmember__member=self.request.user,
-                    project_projectmember__is_active=True,
-                )
-                | Q(network=2)
-            )
+            .filter(_accessible_projects(self.request.user))
             .select_related("project_lead")
             .annotate(
                 is_member=Exists(
@@ -356,13 +358,7 @@ class ProjectListLiteAPIEndpoint(BaseAPIView):
         # public (network=2) ones.
         return (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
-            .filter(
-                Q(
-                    project_projectmember__member=self.request.user,
-                    project_projectmember__is_active=True,
-                )
-                | Q(network=2)
-            )
+            .filter(_accessible_projects(self.request.user))
             .distinct()
         )
 
@@ -444,13 +440,7 @@ class ProjectDetailAPIEndpoint(BaseAPIView):
     def get_queryset(self):
         return (
             Project.objects.filter(workspace__slug=self.kwargs.get("slug"))
-            .filter(
-                Q(
-                    project_projectmember__member=self.request.user,
-                    project_projectmember__is_active=True,
-                )
-                | Q(network=2)
-            )
+            .filter(_accessible_projects(self.request.user))
             .select_related("workspace", "workspace__owner", "default_assignee", "project_lead")
             .annotate(
                 is_member=Exists(

@@ -47,8 +47,8 @@ def _url(workspace, suffix=""):
     return f"/api/workspaces/{workspace.slug}/agents/{suffix}"
 
 
-def _create(client, workspace, owner, projects, **extra):
-    body = {"name": "Triage bot", "owner": str(owner.id), "project_ids": [str(p.id) for p in projects], **extra}
+def _create(client, workspace, owner_user, projects, **extra):
+    body = {"name": "Triage bot", "owner": str(owner_user.id), "project_ids": [str(p.id) for p in projects], **extra}
     return client.post(_url(workspace), body, format="json")
 
 
@@ -144,7 +144,10 @@ def test_deactivate_revokes_token(session_client, workspace, create_user, alpha)
 
     assert session_client.delete(_url(workspace, f"{agent_id}/")).status_code == 204
     assert agent_client.get(url).status_code in (401, 403)
+    # An endpoint that does not depend on project membership is rejected too: the token itself is revoked
+    assert agent_client.get(f"/api/v1/workspaces/{workspace.slug}/agents/").status_code in (401, 403)
     agent = WorkspaceAgent.objects.get(pk=agent_id)
+    assert not APIToken.objects.filter(user=agent.user, is_active=True).exists()
     assert not agent.is_active and not agent.user.is_active
     assert not ProjectMember.objects.filter(member=agent.user, is_active=True).exists()
 
@@ -196,3 +199,32 @@ def test_project_must_be_one_the_actor_admins(session_client, workspace, create_
     ProjectMember.objects.create(project=foreign, member=other, workspace=workspace, role=20)
     response = _create(session_client, workspace, create_user, [foreign])
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_malformed_input_is_a_400(session_client, workspace, create_user, alpha):
+    assert _create(session_client, workspace, create_user, [alpha], owner="abc").status_code == 400
+    assert _create(session_client, workspace, create_user, [alpha], project_ids=["nope"]).status_code == 400
+    assert _create(session_client, workspace, create_user, [alpha], approval_actions=[["x"]]).status_code == 400
+    assert _create(session_client, workspace, create_user, [alpha], avatar_url=5).status_code == 400
+    assert _create(session_client, workspace, create_user, [alpha], run_budget_cents="x").status_code == 400
+    agent_id = _create(session_client, workspace, create_user, [alpha]).data["id"]
+    url = _url(workspace, f"{agent_id}/")
+    assert session_client.patch(url, {"owner": "abc"}, format="json").status_code == 400
+    assert session_client.patch(url, {"project_ids": ["nope"]}, format="json").status_code == 400
+    assert session_client.patch(url, {"approval_actions": [["x"]]}, format="json").status_code == 400
+    assert session_client.patch(url, {"avatar_url": ["x"]}, format="json").status_code == 400
+
+
+@pytest.mark.django_db
+def test_agent_does_not_see_public_projects_it_is_not_in(session_client, workspace, create_user, alpha):
+    public = Project.objects.create(name="Open", identifier="OPN", workspace=workspace, network=2)
+    ProjectMember.objects.create(project=public, member=create_user, workspace=workspace, role=20)
+    token = _create(session_client, workspace, create_user, [alpha]).data["token"]
+    agent_client = APIClient()
+    agent_client.credentials(HTTP_X_API_KEY=token)
+    response = agent_client.get(f"/api/v1/workspaces/{workspace.slug}/projects/")
+    assert response.status_code == 200
+    rows = response.data["results"] if isinstance(response.data, dict) else response.data
+    assert [str(r["id"]) for r in rows] == [str(alpha.id)]
+    assert agent_client.get(f"/api/v1/workspaces/{workspace.slug}/projects/{public.id}/").status_code in (403, 404)

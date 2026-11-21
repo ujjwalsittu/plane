@@ -35,6 +35,19 @@ def _require_admin(workspace, actor):
         raise AgentError("Only workspace admins can manage agents", 403)
 
 
+def _uuid(value, field):
+    try:
+        return uuid.UUID(str(value))
+    except (ValueError, AttributeError, TypeError):
+        raise AgentError("Invalid id", 400, field)
+
+
+def _clean_avatar(value):
+    if value is not None and not isinstance(value, str):
+        raise AgentError("avatar_url must be a string", 400, "avatar_url")
+    return value or ""
+
+
 def _clean_name(value):
     name = (value or "").strip() if isinstance(value, str) else ""
     if not name:
@@ -47,7 +60,10 @@ def _clean_name(value):
 def _clean_owner(workspace, value):
     owner = (
         User.objects.filter(
-            pk=value, member_workspace__workspace=workspace, member_workspace__is_active=True, is_bot=False
+            pk=_uuid(value, "owner"),
+            member_workspace__workspace=workspace,
+            member_workspace__is_active=True,
+            is_bot=False,
         ).first()
         if value
         else None
@@ -64,7 +80,7 @@ def _clean_permission(value):
 
 
 def _clean_approval_actions(value):
-    if not isinstance(value, list) or not set(value) <= APPROVAL_ACTIONS:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value) or not set(value) <= APPROVAL_ACTIONS:
         raise AgentError("Approval actions must be a subset of delete and change_dates", 400, "approval_actions")
     return sorted(set(value))
 
@@ -80,11 +96,11 @@ def _clean_budget(value):
 def _clean_projects(workspace, actor, value):
     if not isinstance(value, list):
         raise AgentError("project_ids must be a list", 400, "project_ids")
-    ids = {str(v) for v in value}
+    ids = {str(_uuid(v, "project_ids")) for v in value}
     projects = list(Project.objects.filter(workspace=workspace, pk__in=ids)) if ids else []
     if len(projects) != len(ids):
         raise AgentError("Unknown project", 400, "project_ids")
-    # A workspace admin acts as admin of any project in the workspace; otherwise the actor must admin it
+    # The actor must be an active admin member of every project they give the agent
     admins = set(
         str(p)
         for p in ProjectMember.objects.filter(project_id__in=ids, member=actor, role=ADMIN, is_active=True).values_list(
@@ -143,7 +159,7 @@ def create_agent(workspace, data, actor):
                 is_bot=True,
                 bot_type="agent",
                 is_password_autoset=True,
-                avatar=data.get("avatar_url") or "",
+                avatar=_clean_avatar(data.get("avatar_url")),
             )
             bot.set_unusable_password()
             bot.save(update_fields=["password"])
@@ -187,7 +203,7 @@ def update_agent(agent, data, actor):
         if "run_budget_cents" in data:
             agent.run_budget_cents = _clean_budget(data["run_budget_cents"])
         if "avatar_url" in data:
-            User.objects.filter(pk=agent.user_id).update(avatar=data["avatar_url"] or "")
+            User.objects.filter(pk=agent.user_id).update(avatar=_clean_avatar(data["avatar_url"]))
         agent.updated_by = actor
         agent.save()
         if "project_ids" in data:
