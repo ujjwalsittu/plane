@@ -122,6 +122,12 @@ app.conf.beat_schedule = {
         # A tick still queued when the next one is due is dropped, so a busy worker never piles them up
         "options": {"expires": 14},
     },
+    "run-due-loops": {
+        "task": "plane.bgtasks.agent_runs_task.run_due_loops",
+        "schedule": schedule(run_every=timedelta(seconds=60)),  # Every minute
+        # Dropped if still queued when the next run is due
+        "options": {"expires": 55},
+    },
     "prune-events": {
         "task": "plane.bgtasks.events_task.prune_events",
         "schedule": crontab(hour=4, minute=0),  # UTC 04:00

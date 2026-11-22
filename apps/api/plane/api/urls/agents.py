@@ -7,6 +7,7 @@ from django.urls import path
 from plane.api.views.events import WorkspaceEventsAPIEndpoint, workspace_events_stream
 from plane.api.views.agents import (
     AgentApprovalAPIEndpoint,
+    AgentLoopsAPIEndpoint,
     AgentRunAPIEndpoint,
     AgentRunCancelAPIEndpoint,
     AgentRunDelegateAPIEndpoint,
@@ -44,6 +45,16 @@ urlpatterns = [
         "workspaces/<str:slug>/events",
         WorkspaceEventsAPIEndpoint.as_view(http_method_names=["get"]),
         name="events-no-slash",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/",
+        AgentLoopsAPIEndpoint.as_view(http_method_names=["get"]),
+        name="project-agent-loops",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops",
+        AgentLoopsAPIEndpoint.as_view(http_method_names=["get"]),
+        name="project-agent-loops-no-slash",
     ),
     path("workspaces/<str:slug>/events/stream/", workspace_events_stream, name="events-stream"),
     path("workspaces/<str:slug>/events/stream", workspace_events_stream, name="events-stream-no-slash"),

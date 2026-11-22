@@ -30,7 +30,7 @@ def on_run_changed(run, action):
     A step event carries only the run's step count and status, never step text, to keep the feed small."""
     from plane.utils.events import emit_event
 
-    data = {"issue_id": str(run.issue_id), "status": run.status, "kind": run.kind}
+    data = {"issue_id": _id(run.issue_id), "loop_id": _id(run.loop_id), "status": run.status, "kind": run.kind}
     if action == "step":
         data["steps"] = run.steps.count()
     elif action == "finished":
@@ -45,6 +45,10 @@ def on_run_changed(run, action):
         data=data,
         issue_id=run.issue_id,
     )
+
+
+def _id(value):
+    return str(value) if value else None
 
 
 def _text(value, field, limit, required=False):
@@ -271,7 +275,8 @@ def is_live(run, now=None):
 
 
 def _links(run):
-    if run.started_at is None:
+    # A loop's run has no work item, so no work item links to show
+    if run.started_at is None or run.issue_id is None:
         return []
     since = Q(github_created_at__gte=run.started_at) | Q(github_created_at__isnull=True, created_at__gte=run.started_at)
     rows = GitHubWorkItemLink.objects.filter(
@@ -308,7 +313,8 @@ def run_payload(run, steps=False):
         duration = None
     payload = {
         "id": str(run.id),
-        "issue_id": str(run.issue_id),
+        "issue_id": _id(run.issue_id),
+        "loop_id": _id(run.loop_id),
         "project_id": str(run.project_id),
         "kind": run.kind,
         "status": run.status,
@@ -333,6 +339,10 @@ def run_payload(run, steps=False):
     if steps:
         payload["steps"] = [step_payload(s) for s in run.steps.order_by("seq")]
     return payload
+
+
+def runs_for_loop(loop):
+    return AgentRun.objects.filter(loop=loop).select_related("agent__user", "actor", "delegated_by")
 
 
 def runs_for_issue(issue):

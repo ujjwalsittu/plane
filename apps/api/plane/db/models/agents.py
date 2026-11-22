@@ -104,8 +104,48 @@ class AIUsage(BaseModel):
         return f"{self.workspace_id} {self.kind} {self.cost_cents}"
 
 
+class AgentLoop(ProjectBaseModel):
+    """A project runs an agent on a schedule or on workspace events, as a person (the owner)."""
+
+    TRIGGER_CHOICES = (("schedule", "Schedule"), ("event", "Event"))
+
+    agent = models.ForeignKey("db.WorkspaceAgent", on_delete=models.CASCADE, related_name="loops")
+    # The person the loop's runs are delegated by
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_agent_loops")
+    name = models.CharField(max_length=255)
+    instructions = models.TextField(blank=True, default="")
+    trigger = models.CharField(max_length=16, choices=TRIGGER_CHOICES, default="schedule")
+    # {"every": "hour"|"day"|"week", "at": "HH:MM" UTC (ignored for hour), "weekday": 0-6 (Monday 0, week only)}
+    schedule = models.JSONField(default=dict, blank=True)
+    # A subset of issue, issue_comment, decision, approval and milestone
+    event_types = models.JSONField(default=list, blank=True)
+    cooldown_minutes = models.PositiveIntegerField(default=60)
+    is_active = models.BooleanField(default=True)
+    next_run_at = models.DateTimeField(null=True, blank=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    # The newest WorkspaceEvent id an event loop has read
+    last_event_id = models.BigIntegerField(default=0)
+    last_error = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Agent Loop"
+        verbose_name_plural = "Agent Loops"
+        db_table = "agent_loops"
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"],
+                condition=Q(deleted_at__isnull=True),
+                name="agent_loop_unique_project_name",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.project_id} {self.name}"
+
+
 class AgentRun(ProjectBaseModel):
-    """One run of an agent (or a person's own Claude Code session) on a work item."""
+    """One run of an agent (or a person's own Claude Code session) on a work item, or for a loop (no work item)."""
 
     KIND_CHOICES = (("managed", "Managed"), ("external", "External"))
     STATUS_CHOICES = (
@@ -117,7 +157,9 @@ class AgentRun(ProjectBaseModel):
         ("cancelled", "Cancelled"),
     )
 
-    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="agent_runs")
+    # None for a loop's run
+    issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, null=True, blank=True, related_name="agent_runs")
+    loop = models.ForeignKey("db.AgentLoop", on_delete=models.SET_NULL, null=True, blank=True, related_name="runs")
     agent = models.ForeignKey(
         "db.WorkspaceAgent", on_delete=models.SET_NULL, null=True, blank=True, related_name="runs"
     )
@@ -147,10 +189,13 @@ class AgentRun(ProjectBaseModel):
         verbose_name_plural = "Agent Runs"
         db_table = "agent_runs"
         ordering = ("-created_at",)
-        indexes = [models.Index(fields=["issue", "-created_at"], name="agent_run_issue_created_idx")]
+        indexes = [
+            models.Index(fields=["issue", "-created_at"], name="agent_run_issue_created_idx"),
+            models.Index(fields=["loop", "-created_at"], name="agent_run_loop_created_idx"),
+        ]
 
     def __str__(self):
-        return f"{self.issue_id} {self.status}"
+        return f"{self.issue_id or self.loop_id} {self.status}"
 
 
 class AgentRunStep(BaseModel):

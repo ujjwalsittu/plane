@@ -10,19 +10,21 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from plane.api.views.agents import (
+    AgentLoopsAPIEndpoint,
     AgentRunAPIEndpoint,
     AgentRunCancelAPIEndpoint,
     AgentRunDelegateAPIEndpoint,
     AgentRunFollowUpAPIEndpoint,
     AgentRunsAPIEndpoint,
     agent_list,
+    project_for,
     workspace_for,
 )
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.api.views.issue import visible_issue_q
 from plane.db.models import AgentApproval, AgentRun, Issue, WorkspaceAgent
-from plane.utils import agent_runs, agents, ai_config, guardrails, managed_agents
+from plane.utils import agent_runs, agents, ai_config, guardrails, loops, managed_agents
 
 
 class _Session:
@@ -203,7 +205,10 @@ class LiveAgentRunsEndpoint(_Session, BaseAPIView):
         can_be_live = (
             WorkspaceAgent.objects.filter(workspace=workspace, is_active=True).exists()
             or AgentRun.objects.filter(
-                workspace=workspace, issue__deleted_at__isnull=True, status__in=agent_runs.OPEN_STATUSES
+                workspace=workspace,
+                issue__isnull=False,
+                issue__deleted_at__isnull=True,
+                status__in=agent_runs.OPEN_STATUSES,
             ).exists()
         )
         return Response({"runs": runs, "poll": can_be_live})
@@ -251,3 +256,129 @@ class AgentApprovalApproveEndpoint(AgentApprovalDecisionEndpoint):
 
 class AgentApprovalRejectEndpoint(AgentApprovalDecisionEndpoint):
     approve = False
+
+
+def _error(exc):
+    return Response({exc.field: exc.message}, status=exc.status_code)
+
+
+class AgentLoopsEndpoint(_Session, AgentLoopsAPIEndpoint):
+    """A project's loops: project members list them, project and workspace admins create them."""
+
+    def post(self, request, slug, project_id):
+        project = project_for(request, slug, project_id)
+        if project is None:
+            return _not_found("Project")
+        try:
+            loop = loops.create_loop(project, _data(request), request.user)
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(loops.loop_payload(loop), status=status.HTTP_201_CREATED)
+
+
+class _LoopView(_Session, BaseAPIView):
+    def _loop(self, request, slug, project_id, loop_id):
+        """The loop, once the request's user may see it; raises AgentError (403) otherwise."""
+        project = project_for(request, slug, project_id)
+        if project is None:
+            return None
+        loops.require_viewer(project, request.user)
+        return loops.loops_for(project).filter(pk=loop_id).first()
+
+
+class AgentLoopEndpoint(_LoopView):
+    def get(self, request, slug, project_id, loop_id):
+        try:
+            loop = self._loop(request, slug, project_id, loop_id)
+        except agents.AgentError as exc:
+            return _error(exc)
+        if loop is None:
+            return _not_found("Loop")
+        return Response(loops.loop_payload(loop))
+
+    def patch(self, request, slug, project_id, loop_id):
+        try:
+            loop = self._loop(request, slug, project_id, loop_id)
+            if loop is None:
+                return _not_found("Loop")
+            loop = loops.update_loop(loop, _data(request), request.user)
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(loops.loop_payload(loop))
+
+    def delete(self, request, slug, project_id, loop_id):
+        try:
+            loop = self._loop(request, slug, project_id, loop_id)
+            if loop is None:
+                return _not_found("Loop")
+            loops.delete_loop(loop, request.user)
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AgentLoopRunNowEndpoint(_LoopView):
+    def post(self, request, slug, project_id, loop_id):
+        try:
+            loop = self._loop(request, slug, project_id, loop_id)
+            if loop is None:
+                return _not_found("Loop")
+            run = loops.run_now(loop, request.user)
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(agent_runs.run_payload(run, steps=True), status=status.HTTP_201_CREATED)
+
+
+class AgentLoopRunsEndpoint(_LoopView):
+    """The loop's runs, newest first (50)."""
+
+    def get(self, request, slug, project_id, loop_id):
+        try:
+            loop = self._loop(request, slug, project_id, loop_id)
+        except agents.AgentError as exc:
+            return _error(exc)
+        if loop is None:
+            return _not_found("Loop")
+        rows = agent_runs.runs_for_loop(loop).order_by("-created_at")[: loops.RUNS_MAX]
+        return Response([agent_runs.run_payload(run) for run in rows])
+
+
+class AgentLoopRunEndpoint(_LoopView):
+    """One of the loop's runs with its steps; members follow up on it or cancel it as on a work item's run."""
+
+    def _run(self, request, slug, project_id, loop_id, run_id):
+        loop = self._loop(request, slug, project_id, loop_id)
+        return agent_runs.runs_for_loop(loop).filter(pk=run_id).first() if loop else None
+
+    def get(self, request, slug, project_id, loop_id, run_id):
+        try:
+            run = self._run(request, slug, project_id, loop_id, run_id)
+        except agents.AgentError as exc:
+            return _error(exc)
+        if run is None:
+            return _not_found("Run")
+        return Response(agent_runs.run_payload(run, steps=True))
+
+
+class AgentLoopRunFollowUpEndpoint(AgentLoopRunEndpoint):
+    def post(self, request, slug, project_id, loop_id, run_id):
+        try:
+            run = self._run(request, slug, project_id, loop_id, run_id)
+            if run is None:
+                return _not_found("Run")
+            run = managed_agents.send_follow_up(run, request.user, _data(request).get("text"))
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(agent_runs.run_payload(run, steps=True))
+
+
+class AgentLoopRunCancelEndpoint(AgentLoopRunEndpoint):
+    def post(self, request, slug, project_id, loop_id, run_id):
+        try:
+            run = self._run(request, slug, project_id, loop_id, run_id)
+            if run is None:
+                return _not_found("Run")
+            run = managed_agents.cancel_run(run, request.user)
+        except agents.AgentError as exc:
+            return _error(exc)
+        return Response(agent_runs.run_payload(run, steps=True))

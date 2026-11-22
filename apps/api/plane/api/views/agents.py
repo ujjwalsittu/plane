@@ -10,8 +10,8 @@ from rest_framework.response import Response
 from plane.api.views.base import BaseAPIView
 from plane.api.views.issue import guest_cannot_view_issue
 from plane.app.permissions import ProjectEntityPermission
-from plane.db.models import AgentApproval, AgentRun, Issue, Workspace, WorkspaceAgent
-from plane.utils import agent_runs, agents, guardrails, managed_agents
+from plane.db.models import AgentApproval, AgentRun, Issue, Project, Workspace, WorkspaceAgent
+from plane.utils import agent_runs, agents, guardrails, loops, managed_agents
 
 
 def workspace_for(request, slug):
@@ -33,6 +33,13 @@ class WorkspaceAgentsAPIEndpoint(BaseAPIView):
         if workspace is None:
             return Response({"error": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(agent_list(workspace))
+
+
+def project_for(request, slug, project_id):
+    workspace = workspace_for(request, slug)
+    if workspace is None:
+        return None
+    return Project.objects.filter(workspace=workspace, pk=project_id).select_related("workspace").first()
 
 
 def _issue(request, slug, project_id, issue_id):
@@ -186,3 +193,17 @@ class AgentApprovalAPIEndpoint(BaseAPIView):
         if approval is None or not guardrails.can_view(approval, request.user):
             return _missing("Approval")
         return Response(guardrails.approval_payload(approval, request.user))
+
+
+class AgentLoopsAPIEndpoint(BaseAPIView):
+    """A project's loops, read-only, for project members."""
+
+    def get(self, request, slug, project_id):
+        project = project_for(request, slug, project_id)
+        if project is None:
+            return _missing("Project")
+        try:
+            loops.require_viewer(project, request.user)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+        return Response([loops.loop_payload(loop) for loop in loops.loops_for(project)])

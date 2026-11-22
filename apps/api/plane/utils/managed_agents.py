@@ -444,9 +444,24 @@ def _api_error(action, exc):
 
 
 def start_managed_run(issue, agent, delegated_by, instructions=""):
-    """Delegate a work item to a cloud agent. Refusals raise AgentError and create nothing; once the run exists,
-    an Anthropic error marks it failed (no retry)."""
-    project, workspace = issue.project, issue.workspace
+    """Delegate a work item to a cloud agent, with the work item as the brief."""
+    instructions = agent_runs._text(instructions, "instructions", agent_runs.TEXT_MAX)
+    return start_managed_session(
+        issue.project,
+        agent,
+        delegated_by,
+        issue.name,
+        build_brief(issue, instructions),
+        issue=issue,
+        instructions=instructions,
+    )
+
+
+def start_managed_session(project, agent, delegated_by, title, brief, issue=None, loop=None, instructions=""):
+    """Start a cloud session for `agent` as `delegated_by`, with `brief` as its first message: on a work item, or
+    for a loop (no work item). Refusals raise AgentError and create nothing; once the run exists, an Anthropic error
+    marks it failed (no retry)."""
+    workspace = project.workspace
     _require_person(delegated_by)
     _require_member(project, delegated_by)
     instructions = agent_runs._text(instructions, "instructions", agent_runs.TEXT_MAX)
@@ -464,18 +479,20 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
     run = AgentRun.objects.create(
         project=project,
         issue=issue,
+        loop=loop,
         agent=agent,
         actor=agent.user,
         delegated_by=delegated_by,
         kind="managed",
         status="queued",
-        title=issue.name[: agent_runs.TITLE_MAX],
+        title=title[: agent_runs.TITLE_MAX],
         instructions=instructions,
         started_at=now,
         last_event_at=now,
         created_by=delegated_by,
     )
     agent_runs.on_run_changed(run, "created")
+    session_title = f"{_identifier(issue)}: {issue.name}" if issue else f"{project.identifier} · {title}"
     client = client.with_options(max_retries=0)
     session = None
     try:
@@ -483,7 +500,7 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
             agent={"type": "agent", "id": agent.ma_agent_id, "version": agent.ma_agent_version},
             environment_id=config.ma_environment_id,
             vault_ids=[agent.ma_vault_id],
-            title=f"{_identifier(issue)}: {issue.name}"[:200],
+            title=session_title[:200],
             metadata={"plane_run_id": str(run.id), "plane_workspace": workspace.slug},
             budget={"type": "limit", "max_list_cost": {"amount": str(agent.run_budget_cents), "currency": "USD"}},
             resources=_repository_resources(project),
@@ -491,8 +508,7 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
         cache.set(_tokens_fresh_key(run), 1, int(REFRESH_TOKENS_EVERY.total_seconds()))
         agent_runs.update_managed_run(run, external_session_id=session.id, external_url=SESSION_URL.format(session.id))
         client.beta.sessions.events.send(
-            session.id,
-            events=[{"type": "user.message", "content": [{"type": "text", "text": build_brief(issue, instructions)}]}],
+            session.id, events=[{"type": "user.message", "content": [{"type": "text", "text": brief}]}]
         )
     except Exception as exc:
         # Anything that goes wrong once the run exists fails it (class name and status code only), so no run is

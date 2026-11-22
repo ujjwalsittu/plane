@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Cloud runs in the background: follow every open session (every 15 seconds), and interrupt the sessions of a
-deactivated agent."""
+"""Cloud runs in the background: follow every open session (every 15 seconds), interrupt the sessions of a
+deactivated agent, and start the loops that are due (every minute)."""
 
 from celery import shared_task
 from django.core.cache import cache
 
 from plane.db.models import AgentRun, Workspace
-from plane.utils import managed_agents
+from plane.utils import loops, managed_agents
 from plane.utils.agent_runs import OPEN_STATUSES
 from plane.utils.exception_logger import log_exception
 
@@ -60,3 +60,8 @@ def interrupt_sessions(workspace_id, session_ids):
     workspace = Workspace.objects.filter(pk=workspace_id).first()
     if workspace is not None:
         managed_agents.interrupt_sessions(workspace, session_ids)
+
+
+@shared_task
+def run_due_loops():
+    loops.run_due_loops()

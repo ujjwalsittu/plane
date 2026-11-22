@@ -47,15 +47,18 @@ def _sync_cloud_agent(agent):
 
 def on_agent_deactivated(agent):
     """Work that stops with the agent: its open cloud runs are cancelled and their sessions interrupted, its
-    open approvals expire, and the external runs it reported are closed. Each step is independent."""
+    open approvals expire, the external runs it reported are closed and its loops are paused. Each step is
+    independent."""
     from plane.utils.agent_runs import close_external_runs
     from plane.utils.guardrails import expire_open_approvals
+    from plane.utils.loops import pause_agent_loops
     from plane.utils.managed_agents import cancel_agent_runs
 
     steps = (
         lambda: cancel_agent_runs(agent),
         lambda: expire_open_approvals(AgentApproval.objects.filter(agent=agent, status="open")),
         lambda: close_external_runs(agent),
+        lambda: pause_agent_loops(agent),
     )
     for step in steps:
         try:
@@ -360,7 +363,7 @@ def audit_for(agent, limit=AUDIT_LIMIT):
             "at": run.created_at.isoformat(),
             "kind": "run",
             "id": str(run.id),
-            "issue_id": str(run.issue_id),
+            "issue_id": str(run.issue_id) if run.issue_id else None,
             "title": run.title,
             "status": run.status,
         }

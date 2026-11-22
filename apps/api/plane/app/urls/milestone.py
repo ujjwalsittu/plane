@@ -418,6 +418,41 @@ urlpatterns = [
         name="app-work-item-agent-run-cancel",
     ),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/",
+        agent_views.AgentLoopsEndpoint.as_view(http_method_names=["get", "post"]),
+        name="app-project-loops",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/",
+        agent_views.AgentLoopEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="app-project-loop",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/run/",
+        agent_views.AgentLoopRunNowEndpoint.as_view(http_method_names=["post"]),
+        name="app-project-loop-run-now",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/runs/",
+        agent_views.AgentLoopRunsEndpoint.as_view(http_method_names=["get"]),
+        name="app-project-loop-runs",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/runs/<uuid:run_id>/",
+        agent_views.AgentLoopRunEndpoint.as_view(http_method_names=["get"]),
+        name="app-project-loop-run",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/runs/<uuid:run_id>/follow-up/",
+        agent_views.AgentLoopRunFollowUpEndpoint.as_view(http_method_names=["post"]),
+        name="app-project-loop-run-follow-up",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/loops/<uuid:loop_id>/runs/<uuid:run_id>/cancel/",
+        agent_views.AgentLoopRunCancelEndpoint.as_view(http_method_names=["post"]),
+        name="app-project-loop-run-cancel",
+    ),
+    path(
         "workspaces/<str:slug>/agent-runs/live/",
         agent_views.LiveAgentRunsEndpoint.as_view(http_method_names=["get"]),
         name="app-agent-runs-live",
