@@ -835,6 +835,164 @@
       "approval": "Goedkeuring",
       "run": "Run",
       "close": "Sluiten"
+    },
+    "loops": {
+      "settings_title": "Loops",
+      "settings_description": "Voer een agent uit volgens een schema of wanneer er iets verandert in dit project. Elke run handelt namens de eigenaar van de loop en telt mee voor de maandelijkse AI-limiet van de werkruimte.",
+      "load_error": "Loops konden niet worden geladen",
+      "add": "Nieuwe loop",
+      "empty": "Nog geen loops. Begin met een sjabloon voor een wekelijkse update of een dagelijkse controle.",
+      "agent": "Agent",
+      "owner": "Eigenaar",
+      "trigger": "Trigger",
+      "next_run": "Volgende run",
+      "last_run": "Laatste run",
+      "never": "Nooit",
+      "active": "Actief",
+      "paused": "Gepauzeerd",
+      "edit": "Bewerken",
+      "run_now": "Nu uitvoeren",
+      "history": "Geschiedenis",
+      "delete": "Verwijderen",
+      "started": "Run gestart",
+      "run_error": "De run kon niet worden gestart",
+      "toggle_error": "De loop kon niet worden gewijzigd",
+      "delete_title": "Deze loop verwijderen?",
+      "delete_description": "De loop wordt niet meer uitgevoerd. De eerdere runs blijven bewaard in het auditlogboek van de agent.",
+      "deleted": "Loop verwijderd",
+      "delete_error": "De loop kon niet worden verwijderd",
+      "summary": {
+        "hour": "Elk uur",
+        "day": "Elke dag om {time} UTC",
+        "week": "Elke {weekday} om {time} UTC",
+        "event": "Bij {types}, hooguit elke {minutes} min"
+      },
+      "every": {
+        "hour": "Uur",
+        "day": "Dag",
+        "week": "Week"
+      },
+      "weekdays": {
+        "0": "maandag",
+        "1": "dinsdag",
+        "2": "woensdag",
+        "3": "donderdag",
+        "4": "vrijdag",
+        "5": "zaterdag",
+        "6": "zondag"
+      },
+      "event_types": {
+        "issue": "Werkitems",
+        "issue_comment": "Reacties",
+        "decision": "Beslissingen",
+        "approval": "Goedkeuringen",
+        "milestone": "Mijlpalen"
+      },
+      "presets": {
+        "title": "Begin met een sjabloon",
+        "weekly_update": {
+          "name": "Wekelijkse projectupdate",
+          "instructions": "Plaats een projectupdate: algemene status (op schema, in gevaar of achter op schema), wat er sinds vorige week is veranderd, wat geblokkeerd is en wat er daarna komt. Koppel de werkitems die je noemt."
+        },
+        "daily_triage": {
+          "name": "Dagelijkse triagecontrole",
+          "instructions": "Bekijk werkitems die sinds gisteren zijn aangemaakt en geen toegewezene hebben. Stel voor elk item in een reactie een eigenaar en labels voor. Wijs zelf niets toe en label zelf niets."
+        },
+        "stale_nudges": {
+          "name": "Herinneringen voor verouderde items",
+          "instructions": "Zoek werkitems in uitvoering zonder update van 5 dagen of langer. Reageer op elk item om de toegewezene om een statusupdate te vragen of te vragen of het geblokkeerd is."
+        }
+      },
+      "form": {
+        "create_title": "Nieuwe loop",
+        "edit_title": "Loop bewerken",
+        "name": "Naam",
+        "name_required": "Een naam is verplicht",
+        "agent": "Agent",
+        "agent_placeholder": "Kies een agent",
+        "agent_required": "Kies een agent",
+        "no_agents": "Geen enkele actieve agent heeft toegang tot dit project. Voeg er een toe via Instellingen en dan Agents.",
+        "owner": "Eigenaar",
+        "owner_hint": "Runs handelen namens deze persoon en gebruiken het AI-budget van de werkruimte",
+        "owner_placeholder": "Kies een projectlid",
+        "trigger": "Trigger",
+        "trigger_schedule": "Volgens een schema",
+        "trigger_event": "Wanneer er iets verandert",
+        "every": "Elke",
+        "at": "Tijd (UTC)",
+        "at_invalid": "Gebruik HH:MM",
+        "weekday": "Dag",
+        "event_types": "Wijzigingen die een run starten",
+        "event_types_required": "Kies minstens één soort wijziging",
+        "cooldown": "Afkoelperiode (minuten)",
+        "cooldown_hint": "Tussen 15 en 10080. Wijzigingen tijdens de afkoelperiode wachten op de volgende run.",
+        "cooldown_invalid": "Gebruik een geheel getal van 15 tot 10080",
+        "instructions": "Instructies",
+        "instructions_placeholder": "Wat de agent bij elke run moet doen",
+        "cancel": "Annuleren",
+        "create": "Loop aanmaken",
+        "save": "Opslaan",
+        "created": "Loop aangemaakt",
+        "updated": "Loop bijgewerkt",
+        "save_error": "De loop kon niet worden opgeslagen"
+      },
+      "runs": {
+        "title": "Runs van {name}",
+        "empty": "Deze loop is nog niet uitgevoerd.",
+        "load_error": "De runs konden niet worden geladen",
+        "close": "Sluiten"
+      }
+    },
+    "ask": {
+      "title": "Vraag het aan je werkruimte",
+      "placeholder": "Stel een vraag over werkitems, mijlpalen, pagina's of pull requests",
+      "submit": "Vragen",
+      "follow_up_placeholder": "Stel een vervolgvraag",
+      "thinking": "Je werkruimte wordt doorzocht…",
+      "clear": "Opnieuw beginnen",
+      "error": "Er kon geen antwoord worden opgehaald; probeer het opnieuw",
+      "hint": "Antwoorden gebruiken alleen wat je kunt zien en tellen mee voor de maandelijkse AI-limiet van de werkruimte."
+    },
+    "triage": {
+      "title": "Suggesties",
+      "suggest": "Voorstellen",
+      "refresh": "Opnieuw voorstellen",
+      "thinking": "Het werkitem wordt bekeken…",
+      "hint": "Claude stelt een eigenaar, labels, een beter project en mogelijke duplicaten voor. Elk verzoek telt mee voor de maandelijkse AI-limiet van de werkruimte.",
+      "assignee": "Toegewezene",
+      "label": "Label",
+      "project": "Beter project",
+      "duplicate": "Mogelijk duplicaat",
+      "apply": "Toepassen",
+      "applied": "Toegepast",
+      "mark_duplicate": "Markeren als duplicaat",
+      "none": "Geen suggesties voor dit werkitem.",
+      "error": "Suggesties konden niet worden opgehaald; probeer het opnieuw",
+      "apply_error": "De suggestie kon niet worden toegepast"
+    },
+    "meeting_notes": {
+      "open": "Uit vergadernotities",
+      "title": "Werkitems uit vergadernotities",
+      "description": "Plak je notities en Claude stelt actiepunten voor. Er wordt niets aangemaakt totdat je akkoord gaat. Elk verzoek telt mee voor de maandelijkse AI-limiet van de werkruimte.",
+      "meeting_title": "Titel van de vergadering",
+      "meeting_date": "Datum van de vergadering",
+      "notes": "Notities",
+      "notes_placeholder": "Plak hier de vergadernotities",
+      "find": "Actiepunten zoeken",
+      "back": "Terug naar de notities",
+      "none": "Geen actiepunten gevonden in deze notities.",
+      "include": "Opnemen",
+      "name": "Naam",
+      "assignee": "Toegewezene",
+      "unassigned": "Niet toegewezen",
+      "owner_hint": "Volgens de notities: {name}",
+      "due": "Vervaldatum",
+      "priority": "Prioriteit",
+      "create": "{count, plural, one {# werkitem} other {# werkitems}} aanmaken",
+      "created": "{count, plural, one {# werkitem} other {# werkitems}} aangemaakt",
+      "cancel": "Annuleren",
+      "error": "De notities konden niet worden gelezen; probeer het opnieuw",
+      "create_error": "De werkitems konden niet worden aangemaakt"
     }
   }
 }

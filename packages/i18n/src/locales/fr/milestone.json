@@ -835,6 +835,164 @@
       "approval": "Approbation",
       "run": "Exécution",
       "close": "Fermer"
+    },
+    "loops": {
+      "settings_title": "Boucles",
+      "settings_description": "Exécutez un agent selon un calendrier ou lorsque des changements surviennent dans ce projet. Chaque exécution s’effectue au nom du propriétaire de la boucle et compte dans la limite mensuelle d’IA de l’espace de travail.",
+      "load_error": "Impossible de charger les boucles",
+      "add": "Nouvelle boucle",
+      "empty": "Aucune boucle pour le moment. Partez d’un modèle pour obtenir une mise à jour hebdomadaire ou un balayage quotidien.",
+      "agent": "Agent",
+      "owner": "Propriétaire",
+      "trigger": "Déclencheur",
+      "next_run": "Prochaine exécution",
+      "last_run": "Dernière exécution",
+      "never": "Jamais",
+      "active": "Active",
+      "paused": "En pause",
+      "edit": "Modifier",
+      "run_now": "Exécuter maintenant",
+      "history": "Historique",
+      "delete": "Supprimer",
+      "started": "Exécution démarrée",
+      "run_error": "Impossible de démarrer l’exécution",
+      "toggle_error": "Impossible de modifier la boucle",
+      "delete_title": "Supprimer cette boucle ?",
+      "delete_description": "La boucle cesse de s’exécuter. Ses exécutions passées restent dans le journal d’audit de l’agent.",
+      "deleted": "Boucle supprimée",
+      "delete_error": "Impossible de supprimer la boucle",
+      "summary": {
+        "hour": "Toutes les heures",
+        "day": "Tous les jours à {time} UTC",
+        "week": "Chaque {weekday} à {time} UTC",
+        "event": "Sur {types}, au plus toutes les {minutes} min"
+      },
+      "every": {
+        "hour": "Heure",
+        "day": "Jour",
+        "week": "Semaine"
+      },
+      "weekdays": {
+        "0": "lundi",
+        "1": "mardi",
+        "2": "mercredi",
+        "3": "jeudi",
+        "4": "vendredi",
+        "5": "samedi",
+        "6": "dimanche"
+      },
+      "event_types": {
+        "issue": "Éléments de travail",
+        "issue_comment": "Commentaires",
+        "decision": "Décisions",
+        "approval": "Approbations",
+        "milestone": "Jalons"
+      },
+      "presets": {
+        "title": "Partir d’un modèle",
+        "weekly_update": {
+          "name": "Mise à jour hebdomadaire du projet",
+          "instructions": "Publiez une mise à jour du projet : état de santé global (dans les temps, à risque ou en retard), ce qui a changé depuis la semaine dernière, ce qui est bloqué et la suite. Liez les éléments de travail que vous mentionnez."
+        },
+        "daily_triage": {
+          "name": "Balayage quotidien du triage",
+          "instructions": "Examinez les éléments de travail créés depuis hier qui n’ont pas de responsable. Pour chacun, suggérez un propriétaire et des étiquettes dans un commentaire. N’assignez ni n’étiquetez rien vous-même."
+        },
+        "stale_nudges": {
+          "name": "Relances des éléments inactifs",
+          "instructions": "Repérez les éléments de travail en cours sans mise à jour depuis 5 jours ou plus. Commentez chacun pour demander au responsable un point d’avancement ou s’il est bloqué."
+        }
+      },
+      "form": {
+        "create_title": "Nouvelle boucle",
+        "edit_title": "Modifier la boucle",
+        "name": "Nom",
+        "name_required": "Le nom est obligatoire",
+        "agent": "Agent",
+        "agent_placeholder": "Choisir un agent",
+        "agent_required": "Choisissez un agent",
+        "no_agents": "Aucun agent actif n’a accès à ce projet. Ajoutez-en un dans Paramètres, puis Agents.",
+        "owner": "Propriétaire",
+        "owner_hint": "Les exécutions agissent au nom de cette personne et utilisent le budget d’IA de l’espace de travail",
+        "owner_placeholder": "Choisir un membre du projet",
+        "trigger": "Déclencheur",
+        "trigger_schedule": "Selon un calendrier",
+        "trigger_event": "Lorsque quelque chose change",
+        "every": "Tous les",
+        "at": "Heure (UTC)",
+        "at_invalid": "Utilisez le format HH:MM",
+        "weekday": "Jour",
+        "event_types": "Changements qui lancent une exécution",
+        "event_types_required": "Choisissez au moins un type de changement",
+        "cooldown": "Délai d’attente (minutes)",
+        "cooldown_hint": "Entre 15 et 10080. Les changements survenus pendant le délai attendent la prochaine exécution.",
+        "cooldown_invalid": "Utilisez un nombre entier de 15 à 10080",
+        "instructions": "Instructions",
+        "instructions_placeholder": "Ce que l’agent doit faire à chaque exécution",
+        "cancel": "Annuler",
+        "create": "Créer la boucle",
+        "save": "Enregistrer",
+        "created": "Boucle créée",
+        "updated": "Boucle mise à jour",
+        "save_error": "Impossible d’enregistrer la boucle"
+      },
+      "runs": {
+        "title": "Exécutions de {name}",
+        "empty": "Cette boucle ne s’est pas encore exécutée.",
+        "load_error": "Impossible de charger les exécutions",
+        "close": "Fermer"
+      }
+    },
+    "ask": {
+      "title": "Interroger votre espace de travail",
+      "placeholder": "Posez une question sur des éléments de travail, des jalons, des pages ou des pull requests",
+      "submit": "Demander",
+      "follow_up_placeholder": "Poser une question complémentaire",
+      "thinking": "Recherche dans votre espace de travail…",
+      "clear": "Recommencer",
+      "error": "Impossible d’obtenir une réponse ; réessayez",
+      "hint": "Les réponses n’utilisent que ce que vous pouvez voir et comptent dans la limite mensuelle d’IA de l’espace de travail."
+    },
+    "triage": {
+      "title": "Suggestions",
+      "suggest": "Suggérer",
+      "refresh": "Suggérer à nouveau",
+      "thinking": "Analyse de l’élément de travail…",
+      "hint": "Claude suggère un propriétaire, des étiquettes, un meilleur projet et d’éventuels doublons. Chaque demande compte dans la limite mensuelle d’IA de l’espace de travail.",
+      "assignee": "Responsable",
+      "label": "Étiquette",
+      "project": "Meilleur projet",
+      "duplicate": "Doublon possible",
+      "apply": "Appliquer",
+      "applied": "Appliqué",
+      "mark_duplicate": "Marquer comme doublon",
+      "none": "Aucune suggestion pour cet élément de travail.",
+      "error": "Impossible d’obtenir des suggestions ; réessayez",
+      "apply_error": "Impossible d’appliquer la suggestion"
+    },
+    "meeting_notes": {
+      "open": "À partir de notes de réunion",
+      "title": "Éléments de travail à partir de notes de réunion",
+      "description": "Collez vos notes et Claude propose des actions à mener. Rien n’est créé tant que vous n’avez pas accepté. Chaque demande compte dans la limite mensuelle d’IA de l’espace de travail.",
+      "meeting_title": "Titre de la réunion",
+      "meeting_date": "Date de la réunion",
+      "notes": "Notes",
+      "notes_placeholder": "Collez ici les notes de réunion",
+      "find": "Trouver les actions à mener",
+      "back": "Retour aux notes",
+      "none": "Aucune action à mener trouvée dans ces notes.",
+      "include": "Inclure",
+      "name": "Nom",
+      "assignee": "Responsable",
+      "unassigned": "Non assigné",
+      "owner_hint": "Selon les notes : {name}",
+      "due": "Date d’échéance",
+      "priority": "Priorité",
+      "create": "Créer {count, plural, one {# élément de travail} many {# d’éléments de travail} other {# éléments de travail}}",
+      "created": "{count, plural, one {# élément de travail créé} many {# d’éléments de travail créés} other {# éléments de travail créés}}",
+      "cancel": "Annuler",
+      "error": "Impossible de lire les notes ; réessayez",
+      "create_error": "Impossible de créer les éléments de travail"
     }
   }
 }

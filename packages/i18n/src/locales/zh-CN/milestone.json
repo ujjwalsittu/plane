@@ -835,6 +835,164 @@
       "approval": "审批",
       "run": "运行",
       "close": "关闭"
+    },
+    "loops": {
+      "settings_title": "循环任务",
+      "settings_description": "按计划或在此项目发生变化时运行智能体。每次运行都以循环任务所有者的身份执行，并计入工作区的每月 AI 用量上限。",
+      "load_error": "无法加载循环任务",
+      "add": "新建循环任务",
+      "empty": "还没有循环任务。可从预设开始，设置每周更新或每日巡检。",
+      "agent": "智能体",
+      "owner": "所有者",
+      "trigger": "触发方式",
+      "next_run": "下次运行",
+      "last_run": "上次运行",
+      "never": "从未",
+      "active": "已启用",
+      "paused": "已暂停",
+      "edit": "编辑",
+      "run_now": "立即运行",
+      "history": "历史记录",
+      "delete": "删除",
+      "started": "运行已开始",
+      "run_error": "无法开始运行",
+      "toggle_error": "无法更改循环任务",
+      "delete_title": "删除此循环任务？",
+      "delete_description": "循环任务将停止运行。其过往运行记录仍保留在智能体的审计记录中。",
+      "deleted": "循环任务已删除",
+      "delete_error": "无法删除循环任务",
+      "summary": {
+        "hour": "每小时",
+        "day": "每天 {time} UTC",
+        "week": "每{weekday} {time} UTC",
+        "event": "发生{types}时，最多每 {minutes} 分钟一次"
+      },
+      "every": {
+        "hour": "小时",
+        "day": "天",
+        "week": "周"
+      },
+      "weekdays": {
+        "0": "星期一",
+        "1": "星期二",
+        "2": "星期三",
+        "3": "星期四",
+        "4": "星期五",
+        "5": "星期六",
+        "6": "星期日"
+      },
+      "event_types": {
+        "issue": "工作项",
+        "issue_comment": "评论",
+        "decision": "决策",
+        "approval": "审批",
+        "milestone": "里程碑"
+      },
+      "presets": {
+        "title": "从预设开始",
+        "weekly_update": {
+          "name": "每周项目更新",
+          "instructions": "发布一条项目更新：整体状况（正常、有风险或已延期）、自上周以来的变化、被阻塞的事项以及下一步计划。请为提到的工作项添加链接。"
+        },
+        "daily_triage": {
+          "name": "每日分流巡检",
+          "instructions": "查看自昨天以来创建且没有负责人的工作项。针对每一项，在评论中建议所有者和标签。不要自行分配或添加标签。"
+        },
+        "stale_nudges": {
+          "name": "停滞事项提醒",
+          "instructions": "查找 5 天或更久没有更新的进行中工作项。在每一项下评论，请负责人更新状态，或说明是否被阻塞。"
+        }
+      },
+      "form": {
+        "create_title": "新建循环任务",
+        "edit_title": "编辑循环任务",
+        "name": "名称",
+        "name_required": "名称为必填项",
+        "agent": "智能体",
+        "agent_placeholder": "选择智能体",
+        "agent_required": "请选择智能体",
+        "no_agents": "没有可访问此项目的已启用智能体。请在“设置”中的“智能体”里添加。",
+        "owner": "所有者",
+        "owner_hint": "运行以此成员的身份执行，并使用工作区的 AI 预算",
+        "owner_placeholder": "选择项目成员",
+        "trigger": "触发方式",
+        "trigger_schedule": "按计划",
+        "trigger_event": "发生变化时",
+        "every": "每",
+        "at": "时间（UTC）",
+        "at_invalid": "请使用 HH:MM 格式",
+        "weekday": "星期",
+        "event_types": "触发运行的变化",
+        "event_types_required": "请至少选择一种变化",
+        "cooldown": "冷却时间（分钟）",
+        "cooldown_hint": "范围为 15 至 10080。冷却期间发生的变化将等待下次运行。",
+        "cooldown_invalid": "请输入 15 至 10080 之间的整数",
+        "instructions": "说明",
+        "instructions_placeholder": "智能体每次运行时应执行的操作",
+        "cancel": "取消",
+        "create": "创建循环任务",
+        "save": "保存",
+        "created": "循环任务已创建",
+        "updated": "循环任务已更新",
+        "save_error": "无法保存循环任务"
+      },
+      "runs": {
+        "title": "{name} 的运行记录",
+        "empty": "此循环任务尚未运行。",
+        "load_error": "无法加载运行记录",
+        "close": "关闭"
+      }
+    },
+    "ask": {
+      "title": "向您的工作区提问",
+      "placeholder": "询问有关工作项、里程碑、页面或拉取请求的问题",
+      "submit": "提问",
+      "follow_up_placeholder": "继续追问",
+      "thinking": "正在查找您的工作区…",
+      "clear": "重新开始",
+      "error": "无法获得回答，请重试",
+      "hint": "回答仅使用您有权查看的内容，并计入工作区的每月 AI 用量上限。"
+    },
+    "triage": {
+      "title": "建议",
+      "suggest": "获取建议",
+      "refresh": "重新获取建议",
+      "thinking": "正在查看工作项…",
+      "hint": "Claude 会建议所有者、标签、更合适的项目以及可能重复的工作项。每次请求都会计入工作区的每月 AI 用量上限。",
+      "assignee": "负责人",
+      "label": "标签",
+      "project": "更合适的项目",
+      "duplicate": "可能重复",
+      "apply": "应用",
+      "applied": "已应用",
+      "mark_duplicate": "标记为重复",
+      "none": "此工作项没有建议。",
+      "error": "无法获取建议，请重试",
+      "apply_error": "无法应用建议"
+    },
+    "meeting_notes": {
+      "open": "来自会议记录",
+      "title": "根据会议记录创建工作项",
+      "description": "粘贴您的会议记录，Claude 会提出待办事项。在您接受之前不会创建任何内容。每次请求都会计入工作区的每月 AI 用量上限。",
+      "meeting_title": "会议标题",
+      "meeting_date": "会议日期",
+      "notes": "记录",
+      "notes_placeholder": "在此粘贴会议记录",
+      "find": "查找待办事项",
+      "back": "返回记录",
+      "none": "在这些记录中未找到待办事项。",
+      "include": "包含",
+      "name": "名称",
+      "assignee": "负责人",
+      "unassigned": "未分配",
+      "owner_hint": "记录中写明：{name}",
+      "due": "截止日期",
+      "priority": "优先级",
+      "create": "创建 {count, plural, one {# 个工作项} other {# 个工作项}}",
+      "created": "已创建 {count, plural, one {# 个工作项} other {# 个工作项}}",
+      "cancel": "取消",
+      "error": "无法读取记录，请重试",
+      "create_error": "无法创建工作项"
     }
   }
 }

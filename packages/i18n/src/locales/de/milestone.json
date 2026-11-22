@@ -835,6 +835,164 @@
       "approval": "Genehmigung",
       "run": "Lauf",
       "close": "Schließen"
+    },
+    "loops": {
+      "settings_title": "Loops",
+      "settings_description": "Führen Sie einen Agent nach Zeitplan oder bei Änderungen in diesem Projekt aus. Jeder Lauf erfolgt im Namen des Loop-Eigentümers und zählt zum monatlichen KI-Limit des Arbeitsbereichs.",
+      "load_error": "Loops konnten nicht geladen werden",
+      "add": "Neuer Loop",
+      "empty": "Noch keine Loops. Beginnen Sie mit einer Vorlage für ein wöchentliches Update oder einen täglichen Durchlauf.",
+      "agent": "Agent",
+      "owner": "Eigentümer",
+      "trigger": "Auslöser",
+      "next_run": "Nächster Lauf",
+      "last_run": "Letzter Lauf",
+      "never": "Nie",
+      "active": "Aktiv",
+      "paused": "Pausiert",
+      "edit": "Bearbeiten",
+      "run_now": "Jetzt ausführen",
+      "history": "Verlauf",
+      "delete": "Löschen",
+      "started": "Lauf gestartet",
+      "run_error": "Lauf konnte nicht gestartet werden",
+      "toggle_error": "Loop konnte nicht geändert werden",
+      "delete_title": "Diesen Loop löschen?",
+      "delete_description": "Der Loop wird nicht mehr ausgeführt. Seine bisherigen Läufe bleiben im Audit-Protokoll des Agents erhalten.",
+      "deleted": "Loop gelöscht",
+      "delete_error": "Loop konnte nicht gelöscht werden",
+      "summary": {
+        "hour": "Jede Stunde",
+        "day": "Jeden Tag um {time} UTC",
+        "week": "Jeden {weekday} um {time} UTC",
+        "event": "Bei {types}, höchstens alle {minutes} Min."
+      },
+      "every": {
+        "hour": "Stunde",
+        "day": "Tag",
+        "week": "Woche"
+      },
+      "weekdays": {
+        "0": "Montag",
+        "1": "Dienstag",
+        "2": "Mittwoch",
+        "3": "Donnerstag",
+        "4": "Freitag",
+        "5": "Samstag",
+        "6": "Sonntag"
+      },
+      "event_types": {
+        "issue": "Arbeitselemente",
+        "issue_comment": "Kommentare",
+        "decision": "Entscheidungen",
+        "approval": "Genehmigungen",
+        "milestone": "Meilensteine"
+      },
+      "presets": {
+        "title": "Mit einer Vorlage beginnen",
+        "weekly_update": {
+          "name": "Wöchentliches Projekt-Update",
+          "instructions": "Veröffentlichen Sie ein Projekt-Update: Gesamtzustand (im Plan, gefährdet oder verzögert), was sich seit letzter Woche geändert hat, was blockiert ist und was als Nächstes ansteht. Verlinken Sie die erwähnten Arbeitselemente."
+        },
+        "daily_triage": {
+          "name": "Tägliche Triage",
+          "instructions": "Sehen Sie sich Arbeitselemente an, die seit gestern erstellt wurden und keinen Bearbeiter haben. Schlagen Sie für jedes in einem Kommentar einen Eigentümer und Labels vor. Weisen Sie selbst nichts zu und vergeben Sie selbst keine Labels."
+        },
+        "stale_nudges": {
+          "name": "Erinnerungen bei veralteten Elementen",
+          "instructions": "Suchen Sie Arbeitselemente in Bearbeitung, die seit 5 oder mehr Tagen nicht aktualisiert wurden. Kommentieren Sie jedes davon und fragen Sie den Bearbeiter nach einem Statusupdate oder ob es blockiert ist."
+        }
+      },
+      "form": {
+        "create_title": "Neuer Loop",
+        "edit_title": "Loop bearbeiten",
+        "name": "Name",
+        "name_required": "Ein Name ist erforderlich",
+        "agent": "Agent",
+        "agent_placeholder": "Agent auswählen",
+        "agent_required": "Agent auswählen",
+        "no_agents": "Kein aktiver Agent hat Zugriff auf dieses Projekt. Fügen Sie unter Einstellungen im Bereich Agenten einen hinzu.",
+        "owner": "Eigentümer",
+        "owner_hint": "Läufe erfolgen im Namen dieser Person und nutzen das KI-Budget des Arbeitsbereichs",
+        "owner_placeholder": "Projektmitglied auswählen",
+        "trigger": "Auslöser",
+        "trigger_schedule": "Nach Zeitplan",
+        "trigger_event": "Bei Änderungen",
+        "every": "Alle",
+        "at": "Uhrzeit (UTC)",
+        "at_invalid": "Format HH:MM verwenden",
+        "weekday": "Tag",
+        "event_types": "Änderungen, die einen Lauf starten",
+        "event_types_required": "Mindestens eine Art von Änderung auswählen",
+        "cooldown": "Wartezeit (Minuten)",
+        "cooldown_hint": "Zwischen 15 und 10080. Änderungen während der Wartezeit warten auf den nächsten Lauf.",
+        "cooldown_invalid": "Eine ganze Zahl von 15 bis 10080 verwenden",
+        "instructions": "Anweisungen",
+        "instructions_placeholder": "Was der Agent bei jedem Lauf tun soll",
+        "cancel": "Abbrechen",
+        "create": "Loop erstellen",
+        "save": "Speichern",
+        "created": "Loop erstellt",
+        "updated": "Loop aktualisiert",
+        "save_error": "Loop konnte nicht gespeichert werden"
+      },
+      "runs": {
+        "title": "Läufe von {name}",
+        "empty": "Dieser Loop wurde noch nicht ausgeführt.",
+        "load_error": "Läufe konnten nicht geladen werden",
+        "close": "Schließen"
+      }
+    },
+    "ask": {
+      "title": "Ihren Arbeitsbereich befragen",
+      "placeholder": "Fragen zu Arbeitselementen, Meilensteinen, Seiten oder Pull Requests stellen",
+      "submit": "Fragen",
+      "follow_up_placeholder": "Nachfrage stellen",
+      "thinking": "Ihr Arbeitsbereich wird durchsucht…",
+      "clear": "Neu beginnen",
+      "error": "Antwort konnte nicht abgerufen werden; versuchen Sie es erneut",
+      "hint": "Antworten nutzen nur, was Sie sehen können, und zählen zum monatlichen KI-Limit des Arbeitsbereichs."
+    },
+    "triage": {
+      "title": "Vorschläge",
+      "suggest": "Vorschlagen",
+      "refresh": "Erneut vorschlagen",
+      "thinking": "Arbeitselement wird geprüft…",
+      "hint": "Claude schlägt einen Eigentümer, Labels, ein besseres Projekt und mögliche Duplikate vor. Jede Anfrage zählt zum monatlichen KI-Limit des Arbeitsbereichs.",
+      "assignee": "Bearbeiter",
+      "label": "Label",
+      "project": "Besseres Projekt",
+      "duplicate": "Mögliches Duplikat",
+      "apply": "Anwenden",
+      "applied": "Angewendet",
+      "mark_duplicate": "Als Duplikat markieren",
+      "none": "Keine Vorschläge für dieses Arbeitselement.",
+      "error": "Vorschläge konnten nicht abgerufen werden; versuchen Sie es erneut",
+      "apply_error": "Vorschlag konnte nicht angewendet werden"
+    },
+    "meeting_notes": {
+      "open": "Aus Besprechungsnotizen",
+      "title": "Arbeitselemente aus Besprechungsnotizen",
+      "description": "Fügen Sie Ihre Notizen ein, und Claude schlägt Aufgaben vor. Es wird erst etwas erstellt, wenn Sie zustimmen. Jede Anfrage zählt zum monatlichen KI-Limit des Arbeitsbereichs.",
+      "meeting_title": "Titel der Besprechung",
+      "meeting_date": "Datum der Besprechung",
+      "notes": "Notizen",
+      "notes_placeholder": "Besprechungsnotizen hier einfügen",
+      "find": "Aufgaben finden",
+      "back": "Zurück zu den Notizen",
+      "none": "In diesen Notizen wurden keine Aufgaben gefunden.",
+      "include": "Einbeziehen",
+      "name": "Name",
+      "assignee": "Bearbeiter",
+      "unassigned": "Nicht zugewiesen",
+      "owner_hint": "Laut Notizen: {name}",
+      "due": "Fälligkeitsdatum",
+      "priority": "Priorität",
+      "create": "{count, plural, one {# Arbeitselement} other {# Arbeitselemente}} erstellen",
+      "created": "{count, plural, one {# Arbeitselement} other {# Arbeitselemente}} erstellt",
+      "cancel": "Abbrechen",
+      "error": "Notizen konnten nicht gelesen werden; versuchen Sie es erneut",
+      "create_error": "Arbeitselemente konnten nicht erstellt werden"
     }
   }
 }

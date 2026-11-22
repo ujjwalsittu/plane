@@ -835,6 +835,164 @@
       "approval": "승인",
       "run": "실행",
       "close": "닫기"
+    },
+    "loops": {
+      "settings_title": "루프",
+      "settings_description": "일정에 따라 또는 이 프로젝트에서 변경이 생길 때 에이전트를 실행합니다. 각 실행은 루프 소유자의 권한으로 동작하며 워크스페이스의 월간 AI 한도에 포함됩니다.",
+      "load_error": "루프를 불러오지 못했습니다",
+      "add": "새 루프",
+      "empty": "아직 루프가 없습니다. 프리셋으로 시작하여 주간 업데이트나 일일 점검을 설정하십시오.",
+      "agent": "에이전트",
+      "owner": "소유자",
+      "trigger": "트리거",
+      "next_run": "다음 실행",
+      "last_run": "마지막 실행",
+      "never": "없음",
+      "active": "활성",
+      "paused": "일시 중지됨",
+      "edit": "편집",
+      "run_now": "지금 실행",
+      "history": "기록",
+      "delete": "삭제",
+      "started": "실행을 시작했습니다",
+      "run_error": "실행을 시작하지 못했습니다",
+      "toggle_error": "루프를 변경하지 못했습니다",
+      "delete_title": "이 루프를 삭제하시겠습니까?",
+      "delete_description": "루프가 더 이상 실행되지 않습니다. 이전 실행 기록은 에이전트의 감사 기록에 남습니다.",
+      "deleted": "루프를 삭제했습니다",
+      "delete_error": "루프를 삭제하지 못했습니다",
+      "summary": {
+        "hour": "매시간",
+        "day": "매일 {time} UTC",
+        "week": "매주 {weekday} {time} UTC",
+        "event": "{types} 발생 시, 최소 {minutes}분 간격"
+      },
+      "every": {
+        "hour": "시간",
+        "day": "일",
+        "week": "주"
+      },
+      "weekdays": {
+        "0": "월요일",
+        "1": "화요일",
+        "2": "수요일",
+        "3": "목요일",
+        "4": "금요일",
+        "5": "토요일",
+        "6": "일요일"
+      },
+      "event_types": {
+        "issue": "작업 항목",
+        "issue_comment": "댓글",
+        "decision": "결정",
+        "approval": "승인",
+        "milestone": "마일스톤"
+      },
+      "presets": {
+        "title": "프리셋으로 시작",
+        "weekly_update": {
+          "name": "주간 프로젝트 업데이트",
+          "instructions": "프로젝트 업데이트를 게시하십시오. 전반적인 상태(정상, 위험 또는 지연), 지난주 이후 달라진 점, 막혀 있는 항목, 다음 계획을 포함하십시오. 언급하는 작업 항목에는 링크를 걸어 주십시오."
+        },
+        "daily_triage": {
+          "name": "일일 트리아지 점검",
+          "instructions": "어제 이후 생성되었고 담당자가 없는 작업 항목을 확인하십시오. 각 항목에 대해 댓글로 소유자와 레이블을 제안하십시오. 직접 지정하거나 레이블을 붙이지 마십시오."
+        },
+        "stale_nudges": {
+          "name": "정체된 항목 알림",
+          "instructions": "5일 이상 업데이트가 없는 진행 중인 작업 항목을 찾으십시오. 각 항목에 댓글을 남겨 담당자에게 상태 업데이트를 요청하거나 막혀 있는지 물어보십시오."
+        }
+      },
+      "form": {
+        "create_title": "새 루프",
+        "edit_title": "루프 편집",
+        "name": "이름",
+        "name_required": "이름은 필수입니다",
+        "agent": "에이전트",
+        "agent_placeholder": "에이전트 선택",
+        "agent_required": "에이전트를 선택하십시오",
+        "no_agents": "이 프로젝트에 접근할 수 있는 활성 에이전트가 없습니다. 설정의 에이전트에서 추가하십시오.",
+        "owner": "소유자",
+        "owner_hint": "실행은 이 사람의 권한으로 동작하며 워크스페이스의 AI 예산을 사용합니다",
+        "owner_placeholder": "프로젝트 멤버 선택",
+        "trigger": "트리거",
+        "trigger_schedule": "일정에 따라",
+        "trigger_event": "변경이 생길 때",
+        "every": "간격",
+        "at": "시간(UTC)",
+        "at_invalid": "HH:MM 형식으로 입력하십시오",
+        "weekday": "요일",
+        "event_types": "실행을 시작하는 변경",
+        "event_types_required": "변경 유형을 하나 이상 선택하십시오",
+        "cooldown": "대기 시간(분)",
+        "cooldown_hint": "15에서 10080 사이입니다. 대기 시간 중의 변경은 다음 실행까지 기다립니다.",
+        "cooldown_invalid": "15에서 10080 사이의 정수를 입력하십시오",
+        "instructions": "지침",
+        "instructions_placeholder": "실행할 때마다 에이전트가 해야 할 일",
+        "cancel": "취소",
+        "create": "루프 만들기",
+        "save": "저장",
+        "created": "루프를 만들었습니다",
+        "updated": "루프를 업데이트했습니다",
+        "save_error": "루프를 저장하지 못했습니다"
+      },
+      "runs": {
+        "title": "{name}의 실행",
+        "empty": "이 루프는 아직 실행된 적이 없습니다.",
+        "load_error": "실행 기록을 불러오지 못했습니다",
+        "close": "닫기"
+      }
+    },
+    "ask": {
+      "title": "워크스페이스에 질문하기",
+      "placeholder": "작업 항목, 마일스톤, 페이지 또는 풀 리퀘스트에 대해 질문하십시오",
+      "submit": "질문하기",
+      "follow_up_placeholder": "추가 질문하기",
+      "thinking": "워크스페이스를 검색하는 중…",
+      "clear": "처음부터 다시",
+      "error": "답변을 가져오지 못했습니다. 다시 시도하십시오",
+      "hint": "답변은 열람할 수 있는 내용만 사용하며 워크스페이스의 월간 AI 한도에 포함됩니다."
+    },
+    "triage": {
+      "title": "제안",
+      "suggest": "제안",
+      "refresh": "다시 제안",
+      "thinking": "작업 항목을 살펴보는 중…",
+      "hint": "Claude가 소유자, 레이블, 더 적합한 프로젝트, 중복 가능성이 있는 항목을 제안합니다. 요청할 때마다 워크스페이스의 월간 AI 한도에 포함됩니다.",
+      "assignee": "담당자",
+      "label": "레이블",
+      "project": "더 적합한 프로젝트",
+      "duplicate": "중복 가능성",
+      "apply": "적용",
+      "applied": "적용됨",
+      "mark_duplicate": "중복으로 표시",
+      "none": "이 작업 항목에 대한 제안이 없습니다.",
+      "error": "제안을 가져오지 못했습니다. 다시 시도하십시오",
+      "apply_error": "제안을 적용하지 못했습니다"
+    },
+    "meeting_notes": {
+      "open": "회의록에서 만들기",
+      "title": "회의록에서 작업 항목 만들기",
+      "description": "메모를 붙여넣으면 Claude가 실행 항목을 제안합니다. 수락하기 전에는 아무것도 생성되지 않습니다. 요청할 때마다 워크스페이스의 월간 AI 한도에 포함됩니다.",
+      "meeting_title": "회의 제목",
+      "meeting_date": "회의 날짜",
+      "notes": "메모",
+      "notes_placeholder": "회의록을 여기에 붙여넣으십시오",
+      "find": "실행 항목 찾기",
+      "back": "메모로 돌아가기",
+      "none": "이 메모에서 실행 항목을 찾지 못했습니다.",
+      "include": "포함",
+      "name": "이름",
+      "assignee": "담당자",
+      "unassigned": "미지정",
+      "owner_hint": "메모 내용: {name}",
+      "due": "기한",
+      "priority": "우선순위",
+      "create": "{count, plural, one {작업 항목 #개} other {작업 항목 #개}} 만들기",
+      "created": "{count, plural, one {작업 항목 #개} other {작업 항목 #개}}를 만들었습니다",
+      "cancel": "취소",
+      "error": "메모를 읽지 못했습니다. 다시 시도하십시오",
+      "create_error": "작업 항목을 만들지 못했습니다"
     }
   }
 }

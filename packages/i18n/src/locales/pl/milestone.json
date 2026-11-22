@@ -835,6 +835,164 @@
       "approval": "Zatwierdzenie",
       "run": "Uruchomienie",
       "close": "Zamknij"
+    },
+    "loops": {
+      "settings_title": "Pętle",
+      "settings_description": "Uruchamiaj agenta według harmonogramu lub gdy coś zmieni się w tym projekcie. Każde uruchomienie działa jako właściciel pętli i wlicza się do miesięcznego limitu AI przestrzeni roboczej.",
+      "load_error": "Nie udało się wczytać pętli",
+      "add": "Nowa pętla",
+      "empty": "Brak pętli. Zacznij od gotowego szablonu, aby otrzymywać cotygodniową aktualizację lub codzienny przegląd.",
+      "agent": "Agent",
+      "owner": "Właściciel",
+      "trigger": "Wyzwalacz",
+      "next_run": "Następne uruchomienie",
+      "last_run": "Ostatnie uruchomienie",
+      "never": "Nigdy",
+      "active": "Aktywna",
+      "paused": "Wstrzymana",
+      "edit": "Edytuj",
+      "run_now": "Uruchom teraz",
+      "history": "Historia",
+      "delete": "Usuń",
+      "started": "Uruchomienie rozpoczęte",
+      "run_error": "Nie udało się rozpocząć uruchomienia",
+      "toggle_error": "Nie udało się zmienić pętli",
+      "delete_title": "Usunąć tę pętlę?",
+      "delete_description": "Pętla przestanie działać. Jej wcześniejsze uruchomienia pozostaną w dzienniku audytu agenta.",
+      "deleted": "Pętla usunięta",
+      "delete_error": "Nie udało się usunąć pętli",
+      "summary": {
+        "hour": "Co godzinę",
+        "day": "Codziennie o {time} UTC",
+        "week": "Co tydzień, {weekday}, o {time} UTC",
+        "event": "Przy zdarzeniach: {types}, nie częściej niż co {minutes} min"
+      },
+      "every": {
+        "hour": "Godzina",
+        "day": "Dzień",
+        "week": "Tydzień"
+      },
+      "weekdays": {
+        "0": "poniedziałek",
+        "1": "wtorek",
+        "2": "środa",
+        "3": "czwartek",
+        "4": "piątek",
+        "5": "sobota",
+        "6": "niedziela"
+      },
+      "event_types": {
+        "issue": "Elementy pracy",
+        "issue_comment": "Komentarze",
+        "decision": "Decyzje",
+        "approval": "Zatwierdzenia",
+        "milestone": "Kamienie milowe"
+      },
+      "presets": {
+        "title": "Zacznij od szablonu",
+        "weekly_update": {
+          "name": "Cotygodniowa aktualizacja projektu",
+          "instructions": "Opublikuj aktualizację projektu: ogólny stan (zgodnie z planem, zagrożony lub opóźniony), co zmieniło się od zeszłego tygodnia, co jest zablokowane i co dalej. Dodaj linki do wspomnianych elementów pracy."
+        },
+        "daily_triage": {
+          "name": "Codzienny przegląd triage",
+          "instructions": "Sprawdź elementy pracy utworzone od wczoraj, które nie mają osoby przypisanej. Dla każdego zaproponuj w komentarzu właściciela i etykiety. Sam niczego nie przypisuj ani nie oznaczaj etykietami."
+        },
+        "stale_nudges": {
+          "name": "Przypomnienia o nieaktualnych elementach",
+          "instructions": "Znajdź elementy pracy w toku bez aktualizacji od 5 dni lub dłużej. Dodaj do każdego komentarz z prośbą do osoby przypisanej o aktualizację statusu lub informację, czy element jest zablokowany."
+        }
+      },
+      "form": {
+        "create_title": "Nowa pętla",
+        "edit_title": "Edytuj pętlę",
+        "name": "Nazwa",
+        "name_required": "Nazwa jest wymagana",
+        "agent": "Agent",
+        "agent_placeholder": "Wybierz agenta",
+        "agent_required": "Wybierz agenta",
+        "no_agents": "Żaden aktywny agent nie ma dostępu do tego projektu. Dodaj go w Ustawieniach, w sekcji Agenci.",
+        "owner": "Właściciel",
+        "owner_hint": "Uruchomienia działają jako ta osoba i korzystają z budżetu AI przestrzeni roboczej",
+        "owner_placeholder": "Wybierz członka projektu",
+        "trigger": "Wyzwalacz",
+        "trigger_schedule": "Według harmonogramu",
+        "trigger_event": "Gdy coś się zmieni",
+        "every": "Co",
+        "at": "Godzina (UTC)",
+        "at_invalid": "Użyj formatu GG:MM",
+        "weekday": "Dzień",
+        "event_types": "Zmiany, które uruchamiają pętlę",
+        "event_types_required": "Wybierz co najmniej jeden rodzaj zmiany",
+        "cooldown": "Odstęp (minuty)",
+        "cooldown_hint": "Od 15 do 10080. Zmiany w trakcie odstępu czekają na następne uruchomienie.",
+        "cooldown_invalid": "Użyj liczby całkowitej od 15 do 10080",
+        "instructions": "Instrukcje",
+        "instructions_placeholder": "Co agent ma zrobić przy każdym uruchomieniu",
+        "cancel": "Anuluj",
+        "create": "Utwórz pętlę",
+        "save": "Zapisz",
+        "created": "Pętla utworzona",
+        "updated": "Pętla zaktualizowana",
+        "save_error": "Nie udało się zapisać pętli"
+      },
+      "runs": {
+        "title": "Uruchomienia pętli {name}",
+        "empty": "Ta pętla nie była jeszcze uruchamiana.",
+        "load_error": "Nie udało się wczytać uruchomień",
+        "close": "Zamknij"
+      }
+    },
+    "ask": {
+      "title": "Zapytaj swoją przestrzeń roboczą",
+      "placeholder": "Zapytaj o elementy pracy, kamienie milowe, strony lub pull requesty",
+      "submit": "Zapytaj",
+      "follow_up_placeholder": "Zadaj pytanie uzupełniające",
+      "thinking": "Przeszukiwanie Twojej przestrzeni roboczej…",
+      "clear": "Zacznij od nowa",
+      "error": "Nie udało się uzyskać odpowiedzi; spróbuj ponownie",
+      "hint": "Odpowiedzi korzystają tylko z tego, co możesz zobaczyć, i wliczają się do miesięcznego limitu AI przestrzeni roboczej."
+    },
+    "triage": {
+      "title": "Sugestie",
+      "suggest": "Zaproponuj",
+      "refresh": "Zaproponuj ponownie",
+      "thinking": "Analizowanie elementu pracy…",
+      "hint": "Claude proponuje właściciela, etykiety, lepszy projekt i możliwe duplikaty. Każde żądanie wlicza się do miesięcznego limitu AI przestrzeni roboczej.",
+      "assignee": "Osoba przypisana",
+      "label": "Etykieta",
+      "project": "Lepszy projekt",
+      "duplicate": "Możliwy duplikat",
+      "apply": "Zastosuj",
+      "applied": "Zastosowano",
+      "mark_duplicate": "Oznacz jako duplikat",
+      "none": "Brak sugestii dla tego elementu pracy.",
+      "error": "Nie udało się uzyskać sugestii; spróbuj ponownie",
+      "apply_error": "Nie udało się zastosować sugestii"
+    },
+    "meeting_notes": {
+      "open": "Z notatek ze spotkania",
+      "title": "Elementy pracy z notatek ze spotkania",
+      "description": "Wklej notatki, a Claude zaproponuje zadania do wykonania. Nic nie zostanie utworzone, dopóki tego nie zaakceptujesz. Każde żądanie wlicza się do miesięcznego limitu AI przestrzeni roboczej.",
+      "meeting_title": "Tytuł spotkania",
+      "meeting_date": "Data spotkania",
+      "notes": "Notatki",
+      "notes_placeholder": "Wklej tutaj notatki ze spotkania",
+      "find": "Znajdź zadania do wykonania",
+      "back": "Wróć do notatek",
+      "none": "Nie znaleziono zadań do wykonania w tych notatkach.",
+      "include": "Uwzględnij",
+      "name": "Nazwa",
+      "assignee": "Osoba przypisana",
+      "unassigned": "Nieprzypisane",
+      "owner_hint": "W notatkach: {name}",
+      "due": "Termin",
+      "priority": "Priorytet",
+      "create": "Utwórz {count, plural, one {# element pracy} few {# elementy pracy} many {# elementów pracy} other {# elementu pracy}}",
+      "created": "Utworzono: {count, plural, one {# element pracy} few {# elementy pracy} many {# elementów pracy} other {# elementu pracy}}",
+      "cancel": "Anuluj",
+      "error": "Nie udało się odczytać notatek; spróbuj ponownie",
+      "create_error": "Nie udało się utworzyć elementów pracy"
     }
   }
 }

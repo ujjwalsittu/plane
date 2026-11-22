@@ -835,6 +835,164 @@
       "approval": "Persetujuan",
       "run": "Eksekusi",
       "close": "Tutup"
+    },
+    "loops": {
+      "settings_title": "Loop",
+      "settings_description": "Jalankan agen sesuai jadwal atau saat ada perubahan di proyek ini. Setiap eksekusi bertindak sebagai pemilik loop dan dihitung dalam batas AI bulanan workspace.",
+      "load_error": "Loop tidak dapat dimuat",
+      "add": "Loop baru",
+      "empty": "Belum ada loop. Mulai dari preset untuk mendapatkan pembaruan mingguan atau penyisiran harian.",
+      "agent": "Agen",
+      "owner": "Pemilik",
+      "trigger": "Pemicu",
+      "next_run": "Eksekusi berikutnya",
+      "last_run": "Eksekusi terakhir",
+      "never": "Belum pernah",
+      "active": "Aktif",
+      "paused": "Dijeda",
+      "edit": "Edit",
+      "run_now": "Jalankan sekarang",
+      "history": "Riwayat",
+      "delete": "Hapus",
+      "started": "Eksekusi dimulai",
+      "run_error": "Eksekusi tidak dapat dimulai",
+      "toggle_error": "Loop tidak dapat diubah",
+      "delete_title": "Hapus loop ini?",
+      "delete_description": "Loop berhenti berjalan. Eksekusi sebelumnya tetap ada di jejak audit agen.",
+      "deleted": "Loop dihapus",
+      "delete_error": "Loop tidak dapat dihapus",
+      "summary": {
+        "hour": "Setiap jam",
+        "day": "Setiap hari pukul {time} UTC",
+        "week": "Setiap hari {weekday} pukul {time} UTC",
+        "event": "Saat ada {types}, paling sering setiap {minutes} mnt"
+      },
+      "every": {
+        "hour": "Jam",
+        "day": "Hari",
+        "week": "Minggu"
+      },
+      "weekdays": {
+        "0": "Senin",
+        "1": "Selasa",
+        "2": "Rabu",
+        "3": "Kamis",
+        "4": "Jumat",
+        "5": "Sabtu",
+        "6": "Minggu"
+      },
+      "event_types": {
+        "issue": "Item kerja",
+        "issue_comment": "Komentar",
+        "decision": "Keputusan",
+        "approval": "Persetujuan",
+        "milestone": "Tonggak"
+      },
+      "presets": {
+        "title": "Mulai dari preset",
+        "weekly_update": {
+          "name": "Pembaruan proyek mingguan",
+          "instructions": "Posting pembaruan proyek: kondisi keseluruhan (sesuai rencana, berisiko, atau terlambat), apa yang berubah sejak minggu lalu, apa yang terhambat, dan langkah berikutnya. Tautkan item kerja yang Anda sebutkan."
+        },
+        "daily_triage": {
+          "name": "Penyisiran triase harian",
+          "instructions": "Periksa item kerja yang dibuat sejak kemarin dan belum memiliki penugas. Untuk setiap item, sarankan pemilik dan label dalam komentar. Jangan menugaskan atau memberi label sendiri."
+        },
+        "stale_nudges": {
+          "name": "Pengingat item macet",
+          "instructions": "Temukan item kerja yang sedang berjalan tanpa pembaruan selama 5 hari atau lebih. Beri komentar pada masing-masing untuk meminta penugas memberikan pembaruan status atau menyampaikan apakah item tersebut terhambat."
+        }
+      },
+      "form": {
+        "create_title": "Loop baru",
+        "edit_title": "Edit loop",
+        "name": "Nama",
+        "name_required": "Nama wajib diisi",
+        "agent": "Agen",
+        "agent_placeholder": "Pilih agen",
+        "agent_required": "Pilih agen",
+        "no_agents": "Tidak ada agen aktif yang memiliki akses ke proyek ini. Tambahkan satu di Pengaturan, bagian Agen.",
+        "owner": "Pemilik",
+        "owner_hint": "Eksekusi bertindak sebagai orang ini dan memakai anggaran AI workspace",
+        "owner_placeholder": "Pilih anggota proyek",
+        "trigger": "Pemicu",
+        "trigger_schedule": "Sesuai jadwal",
+        "trigger_event": "Saat ada perubahan",
+        "every": "Setiap",
+        "at": "Waktu (UTC)",
+        "at_invalid": "Gunakan format JJ:MM",
+        "weekday": "Hari",
+        "event_types": "Perubahan yang memulai eksekusi",
+        "event_types_required": "Pilih setidaknya satu jenis perubahan",
+        "cooldown": "Jeda (menit)",
+        "cooldown_hint": "Antara 15 dan 10080. Perubahan selama jeda menunggu eksekusi berikutnya.",
+        "cooldown_invalid": "Gunakan bilangan bulat dari 15 hingga 10080",
+        "instructions": "Instruksi",
+        "instructions_placeholder": "Apa yang harus dilakukan agen pada setiap eksekusi",
+        "cancel": "Batal",
+        "create": "Buat loop",
+        "save": "Simpan",
+        "created": "Loop dibuat",
+        "updated": "Loop diperbarui",
+        "save_error": "Loop tidak dapat disimpan"
+      },
+      "runs": {
+        "title": "Eksekusi {name}",
+        "empty": "Loop ini belum pernah dijalankan.",
+        "load_error": "Eksekusi tidak dapat dimuat",
+        "close": "Tutup"
+      }
+    },
+    "ask": {
+      "title": "Tanyakan pada workspace Anda",
+      "placeholder": "Tanyakan tentang item kerja, tonggak, halaman, atau pull request",
+      "submit": "Tanya",
+      "follow_up_placeholder": "Ajukan pertanyaan lanjutan",
+      "thinking": "Mencari di workspace Anda…",
+      "clear": "Mulai ulang",
+      "error": "Jawaban tidak dapat diperoleh; coba lagi",
+      "hint": "Jawaban hanya menggunakan apa yang dapat Anda lihat dan dihitung dalam batas AI bulanan workspace."
+    },
+    "triage": {
+      "title": "Saran",
+      "suggest": "Sarankan",
+      "refresh": "Sarankan lagi",
+      "thinking": "Memeriksa item kerja…",
+      "hint": "Claude menyarankan pemilik, label, proyek yang lebih sesuai, dan kemungkinan duplikat. Setiap permintaan dihitung dalam batas AI bulanan workspace.",
+      "assignee": "Penugas",
+      "label": "Label",
+      "project": "Proyek yang lebih sesuai",
+      "duplicate": "Kemungkinan duplikat",
+      "apply": "Terapkan",
+      "applied": "Diterapkan",
+      "mark_duplicate": "Tandai sebagai duplikat",
+      "none": "Tidak ada saran untuk item kerja ini.",
+      "error": "Saran tidak dapat diperoleh; coba lagi",
+      "apply_error": "Saran tidak dapat diterapkan"
+    },
+    "meeting_notes": {
+      "open": "Dari catatan rapat",
+      "title": "Item kerja dari catatan rapat",
+      "description": "Tempelkan catatan Anda dan Claude mengusulkan butir tindakan. Tidak ada yang dibuat sampai Anda menerimanya. Setiap permintaan dihitung dalam batas AI bulanan workspace.",
+      "meeting_title": "Judul rapat",
+      "meeting_date": "Tanggal rapat",
+      "notes": "Catatan",
+      "notes_placeholder": "Tempelkan catatan rapat di sini",
+      "find": "Temukan butir tindakan",
+      "back": "Kembali ke catatan",
+      "none": "Tidak ditemukan butir tindakan dalam catatan ini.",
+      "include": "Sertakan",
+      "name": "Nama",
+      "assignee": "Penugas",
+      "unassigned": "Belum ditugaskan",
+      "owner_hint": "Catatan menyebutkan: {name}",
+      "due": "Tenggat",
+      "priority": "Prioritas",
+      "create": "Buat {count, plural, one {# item kerja} other {# item kerja}}",
+      "created": "{count, plural, one {# item kerja} other {# item kerja}} dibuat",
+      "cancel": "Batal",
+      "error": "Catatan tidak dapat dibaca; coba lagi",
+      "create_error": "Item kerja tidak dapat dibuat"
     }
   }
 }

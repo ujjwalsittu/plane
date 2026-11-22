@@ -835,6 +835,164 @@
       "approval": "Aprobare",
       "run": "Rulare",
       "close": "Închide"
+    },
+    "loops": {
+      "settings_title": "Bucle",
+      "settings_description": "Rulați un agent după un program sau când se schimbă ceva în acest proiect. Fiecare rulare acționează în numele proprietarului buclei și se numără în limita lunară de IA a spațiului de lucru.",
+      "load_error": "Nu s-au putut încărca buclele",
+      "add": "Buclă nouă",
+      "empty": "Încă nu există bucle. Porniți de la un model pentru a primi o actualizare săptămânală sau o verificare zilnică.",
+      "agent": "Agent",
+      "owner": "Proprietar",
+      "trigger": "Declanșator",
+      "next_run": "Următoarea rulare",
+      "last_run": "Ultima rulare",
+      "never": "Niciodată",
+      "active": "Activă",
+      "paused": "În pauză",
+      "edit": "Editează",
+      "run_now": "Rulează acum",
+      "history": "Istoric",
+      "delete": "Șterge",
+      "started": "Rulare pornită",
+      "run_error": "Nu s-a putut porni rularea",
+      "toggle_error": "Nu s-a putut modifica bucla",
+      "delete_title": "Ștergeți această buclă?",
+      "delete_description": "Bucla nu se mai rulează. Rulările anterioare rămân în jurnalul de audit al agentului.",
+      "deleted": "Buclă ștearsă",
+      "delete_error": "Nu s-a putut șterge bucla",
+      "summary": {
+        "hour": "În fiecare oră",
+        "day": "În fiecare zi la {time} UTC",
+        "week": "În fiecare {weekday}, la {time} UTC",
+        "event": "La {types}, cel mult la fiecare {minutes} min"
+      },
+      "every": {
+        "hour": "Oră",
+        "day": "Zi",
+        "week": "Săptămână"
+      },
+      "weekdays": {
+        "0": "luni",
+        "1": "marți",
+        "2": "miercuri",
+        "3": "joi",
+        "4": "vineri",
+        "5": "sâmbătă",
+        "6": "duminică"
+      },
+      "event_types": {
+        "issue": "Activități",
+        "issue_comment": "Comentarii",
+        "decision": "Decizii",
+        "approval": "Aprobări",
+        "milestone": "Jaloane"
+      },
+      "presets": {
+        "title": "Porniți de la un model",
+        "weekly_update": {
+          "name": "Actualizare săptămânală a proiectului",
+          "instructions": "Publicați o actualizare a proiectului: starea generală (pe drumul cel bun, în risc sau în întârziere), ce s-a schimbat de săptămâna trecută, ce este blocat și ce urmează. Adăugați linkuri către activitățile pe care le menționați."
+        },
+        "daily_triage": {
+          "name": "Verificare zilnică de triaj",
+          "instructions": "Parcurgeți activitățile create de ieri care nu au responsabil. Pentru fiecare, sugerați într-un comentariu un proprietar și etichete. Nu atribuiți și nu etichetați nimic singur."
+        },
+        "stale_nudges": {
+          "name": "Memento-uri pentru activități neactualizate",
+          "instructions": "Găsiți activitățile în desfășurare fără actualizare de 5 zile sau mai mult. Comentați la fiecare pentru a cere responsabilului o actualizare de stare sau pentru a întreba dacă este blocată."
+        }
+      },
+      "form": {
+        "create_title": "Buclă nouă",
+        "edit_title": "Editează bucla",
+        "name": "Nume",
+        "name_required": "Numele este obligatoriu",
+        "agent": "Agent",
+        "agent_placeholder": "Alegeți un agent",
+        "agent_required": "Alegeți un agent",
+        "no_agents": "Niciun agent activ nu are acces la acest proiect. Adăugați unul în Setări, la Agenți.",
+        "owner": "Proprietar",
+        "owner_hint": "Rulările acționează în numele acestei persoane și folosesc bugetul de IA al spațiului de lucru",
+        "owner_placeholder": "Alegeți un membru al proiectului",
+        "trigger": "Declanșator",
+        "trigger_schedule": "După un program",
+        "trigger_event": "Când se schimbă ceva",
+        "every": "La fiecare",
+        "at": "Ora (UTC)",
+        "at_invalid": "Folosiți formatul HH:MM",
+        "weekday": "Ziua",
+        "event_types": "Modificări care pornesc o rulare",
+        "event_types_required": "Alegeți cel puțin un tip de modificare",
+        "cooldown": "Pauză între rulări (minute)",
+        "cooldown_hint": "Între 15 și 10080. Modificările din timpul pauzei așteaptă următoarea rulare.",
+        "cooldown_invalid": "Folosiți un număr întreg de la 15 la 10080",
+        "instructions": "Instrucțiuni",
+        "instructions_placeholder": "Ce trebuie să facă agentul la fiecare rulare",
+        "cancel": "Anulează",
+        "create": "Creează bucla",
+        "save": "Salvează",
+        "created": "Buclă creată",
+        "updated": "Buclă actualizată",
+        "save_error": "Nu s-a putut salva bucla"
+      },
+      "runs": {
+        "title": "Rulările pentru {name}",
+        "empty": "Această buclă nu a fost încă rulată.",
+        "load_error": "Nu s-au putut încărca rulările",
+        "close": "Închide"
+      }
+    },
+    "ask": {
+      "title": "Întrebați spațiul dvs. de lucru",
+      "placeholder": "Întrebați despre activități, jaloane, pagini sau pull request-uri",
+      "submit": "Întreabă",
+      "follow_up_placeholder": "Puneți o întrebare suplimentară",
+      "thinking": "Se caută în spațiul dvs. de lucru…",
+      "clear": "Începe din nou",
+      "error": "Nu s-a putut obține un răspuns; încercați din nou",
+      "hint": "Răspunsurile folosesc doar ce puteți vedea și se numără în limita lunară de IA a spațiului de lucru."
+    },
+    "triage": {
+      "title": "Sugestii",
+      "suggest": "Sugerează",
+      "refresh": "Sugerează din nou",
+      "thinking": "Se analizează activitatea…",
+      "hint": "Claude sugerează un proprietar, etichete, un proiect mai potrivit și posibile dubluri. Fiecare solicitare se numără în limita lunară de IA a spațiului de lucru.",
+      "assignee": "Responsabil",
+      "label": "Etichetă",
+      "project": "Proiect mai potrivit",
+      "duplicate": "Posibil duplicat",
+      "apply": "Aplică",
+      "applied": "Aplicată",
+      "mark_duplicate": "Marchează ca duplicat",
+      "none": "Nu există sugestii pentru această activitate.",
+      "error": "Nu s-au putut obține sugestii; încercați din nou",
+      "apply_error": "Nu s-a putut aplica sugestia"
+    },
+    "meeting_notes": {
+      "open": "Din notițe de ședință",
+      "title": "Activități din notițele de ședință",
+      "description": "Lipiți notițele, iar Claude propune acțiuni de realizat. Nu se creează nimic până când acceptați. Fiecare solicitare se numără în limita lunară de IA a spațiului de lucru.",
+      "meeting_title": "Titlul ședinței",
+      "meeting_date": "Data ședinței",
+      "notes": "Notițe",
+      "notes_placeholder": "Lipiți aici notițele de ședință",
+      "find": "Găsește acțiuni de realizat",
+      "back": "Înapoi la notițe",
+      "none": "Nu s-au găsit acțiuni de realizat în aceste notițe.",
+      "include": "Include",
+      "name": "Nume",
+      "assignee": "Responsabil",
+      "unassigned": "Neatribuit",
+      "owner_hint": "Notițele spun: {name}",
+      "due": "Termen limită",
+      "priority": "Prioritate",
+      "create": "Creează {count, plural, one {# activitate} few {# activități} other {# de activități}}",
+      "created": "Create: {count, plural, one {# activitate} few {# activități} other {# de activități}}",
+      "cancel": "Anulează",
+      "error": "Nu s-au putut citi notițele; încercați din nou",
+      "create_error": "Nu s-au putut crea activitățile"
     }
   }
 }

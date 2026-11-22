@@ -835,6 +835,164 @@
       "approval": "核准",
       "run": "執行",
       "close": "關閉"
+    },
+    "loops": {
+      "settings_title": "循環任務",
+      "settings_description": "依排程或在此專案發生變更時執行智慧代理。每次執行都以循環任務擁有者的身分進行，並計入工作區的每月 AI 用量上限。",
+      "load_error": "無法載入循環任務",
+      "add": "新增循環任務",
+      "empty": "尚無循環任務。可從預設範本開始，設定每週更新或每日巡檢。",
+      "agent": "智慧代理",
+      "owner": "擁有者",
+      "trigger": "觸發方式",
+      "next_run": "下次執行",
+      "last_run": "上次執行",
+      "never": "從未",
+      "active": "已啟用",
+      "paused": "已暫停",
+      "edit": "編輯",
+      "run_now": "立即執行",
+      "history": "歷史記錄",
+      "delete": "刪除",
+      "started": "已開始執行",
+      "run_error": "無法開始執行",
+      "toggle_error": "無法變更循環任務",
+      "delete_title": "要刪除此循環任務嗎？",
+      "delete_description": "循環任務將停止執行。其過往執行記錄仍保留在智慧代理的稽核記錄中。",
+      "deleted": "循環任務已刪除",
+      "delete_error": "無法刪除循環任務",
+      "summary": {
+        "hour": "每小時",
+        "day": "每天 {time} UTC",
+        "week": "每{weekday} {time} UTC",
+        "event": "發生{types}時，最多每 {minutes} 分鐘一次"
+      },
+      "every": {
+        "hour": "小時",
+        "day": "天",
+        "week": "週"
+      },
+      "weekdays": {
+        "0": "星期一",
+        "1": "星期二",
+        "2": "星期三",
+        "3": "星期四",
+        "4": "星期五",
+        "5": "星期六",
+        "6": "星期日"
+      },
+      "event_types": {
+        "issue": "工作事項",
+        "issue_comment": "留言",
+        "decision": "決策",
+        "approval": "核准",
+        "milestone": "里程碑"
+      },
+      "presets": {
+        "title": "從預設範本開始",
+        "weekly_update": {
+          "name": "每週專案更新",
+          "instructions": "發布一則專案更新：整體狀況（正常、有風險或已延遲）、自上週以來的變化、受阻的事項以及下一步計畫。請為提到的工作事項加入連結。"
+        },
+        "daily_triage": {
+          "name": "每日分流巡檢",
+          "instructions": "檢視自昨天以來建立且沒有負責人的工作事項。針對每一項，在留言中建議擁有者和標籤。請勿自行指派或加上標籤。"
+        },
+        "stale_nudges": {
+          "name": "停滯事項提醒",
+          "instructions": "找出 5 天或更久沒有更新的進行中工作事項。在每一項下留言，請指派對象更新狀態，或說明是否受阻。"
+        }
+      },
+      "form": {
+        "create_title": "新增循環任務",
+        "edit_title": "編輯循環任務",
+        "name": "名稱",
+        "name_required": "名稱為必填",
+        "agent": "智慧代理",
+        "agent_placeholder": "選擇智慧代理",
+        "agent_required": "請選擇智慧代理",
+        "no_agents": "沒有可存取此專案的已啟用智慧代理。請在「設定」中的「智慧代理」新增。",
+        "owner": "擁有者",
+        "owner_hint": "執行以此成員的身分進行，並使用工作區的 AI 預算",
+        "owner_placeholder": "選擇專案成員",
+        "trigger": "觸發方式",
+        "trigger_schedule": "依排程",
+        "trigger_event": "發生變更時",
+        "every": "每",
+        "at": "時間（UTC）",
+        "at_invalid": "請使用 HH:MM 格式",
+        "weekday": "星期",
+        "event_types": "觸發執行的變更",
+        "event_types_required": "請至少選擇一種變更",
+        "cooldown": "冷卻時間（分鐘）",
+        "cooldown_hint": "範圍為 15 至 10080。冷卻期間發生的變更會等待下次執行。",
+        "cooldown_invalid": "請輸入 15 至 10080 之間的整數",
+        "instructions": "說明",
+        "instructions_placeholder": "智慧代理每次執行時應進行的操作",
+        "cancel": "取消",
+        "create": "建立循環任務",
+        "save": "儲存",
+        "created": "循環任務已建立",
+        "updated": "循環任務已更新",
+        "save_error": "無法儲存循環任務"
+      },
+      "runs": {
+        "title": "{name} 的執行記錄",
+        "empty": "此循環任務尚未執行。",
+        "load_error": "無法載入執行記錄",
+        "close": "關閉"
+      }
+    },
+    "ask": {
+      "title": "向您的工作區提問",
+      "placeholder": "詢問有關工作事項、里程碑、頁面或提取要求的問題",
+      "submit": "提問",
+      "follow_up_placeholder": "繼續追問",
+      "thinking": "正在搜尋您的工作區…",
+      "clear": "重新開始",
+      "error": "無法取得回答，請重試",
+      "hint": "回答僅使用您有權檢視的內容，並計入工作區的每月 AI 用量上限。"
+    },
+    "triage": {
+      "title": "建議",
+      "suggest": "取得建議",
+      "refresh": "重新取得建議",
+      "thinking": "正在檢視工作事項…",
+      "hint": "Claude 會建議擁有者、標籤、更合適的專案以及可能重複的工作事項。每次請求都會計入工作區的每月 AI 用量上限。",
+      "assignee": "指派對象",
+      "label": "標籤",
+      "project": "更合適的專案",
+      "duplicate": "可能重複",
+      "apply": "套用",
+      "applied": "已套用",
+      "mark_duplicate": "標記為重複",
+      "none": "此工作事項沒有建議。",
+      "error": "無法取得建議，請重試",
+      "apply_error": "無法套用建議"
+    },
+    "meeting_notes": {
+      "open": "來自會議記錄",
+      "title": "根據會議記錄建立工作事項",
+      "description": "貼上您的會議記錄，Claude 會提出待辦事項。在您接受之前不會建立任何內容。每次請求都會計入工作區的每月 AI 用量上限。",
+      "meeting_title": "會議標題",
+      "meeting_date": "會議日期",
+      "notes": "記錄",
+      "notes_placeholder": "在此貼上會議記錄",
+      "find": "尋找待辦事項",
+      "back": "返回記錄",
+      "none": "在這些記錄中未找到待辦事項。",
+      "include": "包含",
+      "name": "名稱",
+      "assignee": "指派對象",
+      "unassigned": "未指派",
+      "owner_hint": "記錄中寫明：{name}",
+      "due": "截止日期",
+      "priority": "優先順序",
+      "create": "建立 {count, plural, one {# 個工作事項} other {# 個工作事項}}",
+      "created": "已建立 {count, plural, one {# 個工作事項} other {# 個工作事項}}",
+      "cancel": "取消",
+      "error": "無法讀取記錄，請重試",
+      "create_error": "無法建立工作事項"
     }
   }
 }

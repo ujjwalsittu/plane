@@ -835,6 +835,164 @@
       "approval": "Schválení",
       "run": "Běh",
       "close": "Zavřít"
+    },
+    "loops": {
+      "settings_title": "Smyčky",
+      "settings_description": "Spouštějte agenta podle plánu nebo při změnách v tomto projektu. Každé spuštění probíhá jménem vlastníka smyčky a počítá se do měsíčního limitu AI pracovního prostoru.",
+      "load_error": "Smyčky se nepodařilo načíst",
+      "add": "Nová smyčka",
+      "empty": "Zatím žádné smyčky. Začněte předvolbou a získejte týdenní přehled nebo denní kontrolu.",
+      "agent": "Agent",
+      "owner": "Vlastník",
+      "trigger": "Spouštěč",
+      "next_run": "Další spuštění",
+      "last_run": "Poslední spuštění",
+      "never": "Nikdy",
+      "active": "Aktivní",
+      "paused": "Pozastaveno",
+      "edit": "Upravit",
+      "run_now": "Spustit nyní",
+      "history": "Historie",
+      "delete": "Smazat",
+      "started": "Spuštění zahájeno",
+      "run_error": "Spuštění se nepodařilo zahájit",
+      "toggle_error": "Smyčku se nepodařilo změnit",
+      "delete_title": "Smazat tuto smyčku?",
+      "delete_description": "Smyčka se přestane spouštět. Její dřívější spuštění zůstanou v auditním záznamu agenta.",
+      "deleted": "Smyčka smazána",
+      "delete_error": "Smyčku se nepodařilo smazat",
+      "summary": {
+        "hour": "Každou hodinu",
+        "day": "Každý den v {time} UTC",
+        "week": "Každý týden, {weekday}, v {time} UTC",
+        "event": "Při změnách: {types}, nejvýše každých {minutes} min"
+      },
+      "every": {
+        "hour": "Hodina",
+        "day": "Den",
+        "week": "Týden"
+      },
+      "weekdays": {
+        "0": "pondělí",
+        "1": "úterý",
+        "2": "středa",
+        "3": "čtvrtek",
+        "4": "pátek",
+        "5": "sobota",
+        "6": "neděle"
+      },
+      "event_types": {
+        "issue": "Pracovní položky",
+        "issue_comment": "Komentáře",
+        "decision": "Rozhodnutí",
+        "approval": "Schválení",
+        "milestone": "Milníky"
+      },
+      "presets": {
+        "title": "Začněte předvolbou",
+        "weekly_update": {
+          "name": "Týdenní aktualizace projektu",
+          "instructions": "Zveřejněte aktualizaci projektu: celkový stav (podle plánu, ohrožen nebo zpožděn), co se změnilo od minulého týdne, co je blokováno a co bude dál. Odkažte na zmíněné pracovní položky."
+        },
+        "daily_triage": {
+          "name": "Denní kontrola triage",
+          "instructions": "Projděte pracovní položky vytvořené od včerejška, které nemají přiřazenou osobu. U každé navrhněte v komentáři vlastníka a štítky. Sami nic nepřiřazujte ani neoznačujte štítky."
+        },
+        "stale_nudges": {
+          "name": "Upomínky u neaktivních položek",
+          "instructions": "Najděte rozpracované pracovní položky bez aktualizace 5 a více dní. Ke každé přidejte komentář s žádostí, aby přiřazená osoba poslala stav nebo uvedla, zda je položka blokována."
+        }
+      },
+      "form": {
+        "create_title": "Nová smyčka",
+        "edit_title": "Upravit smyčku",
+        "name": "Název",
+        "name_required": "Název je povinný",
+        "agent": "Agent",
+        "agent_placeholder": "Vyberte agenta",
+        "agent_required": "Vyberte agenta",
+        "no_agents": "Žádný aktivní agent nemá k tomuto projektu přístup. Přidejte ho v Nastavení v části Agenti.",
+        "owner": "Vlastník",
+        "owner_hint": "Spuštění probíhají jménem této osoby a využívají rozpočet AI pracovního prostoru",
+        "owner_placeholder": "Vyberte člena projektu",
+        "trigger": "Spouštěč",
+        "trigger_schedule": "Podle plánu",
+        "trigger_event": "Při změně",
+        "every": "Každý",
+        "at": "Čas (UTC)",
+        "at_invalid": "Použijte formát HH:MM",
+        "weekday": "Den",
+        "event_types": "Změny, které spustí běh",
+        "event_types_required": "Vyberte alespoň jeden druh změny",
+        "cooldown": "Prodleva (minuty)",
+        "cooldown_hint": "Mezi 15 a 10080. Změny během prodlevy čekají na další spuštění.",
+        "cooldown_invalid": "Použijte celé číslo od 15 do 10080",
+        "instructions": "Pokyny",
+        "instructions_placeholder": "Co má agent při každém spuštění udělat",
+        "cancel": "Zrušit",
+        "create": "Vytvořit smyčku",
+        "save": "Uložit",
+        "created": "Smyčka vytvořena",
+        "updated": "Smyčka aktualizována",
+        "save_error": "Smyčku se nepodařilo uložit"
+      },
+      "runs": {
+        "title": "Spuštění smyčky {name}",
+        "empty": "Tato smyčka zatím neběžela.",
+        "load_error": "Spuštění se nepodařilo načíst",
+        "close": "Zavřít"
+      }
+    },
+    "ask": {
+      "title": "Zeptejte se svého pracovního prostoru",
+      "placeholder": "Ptejte se na pracovní položky, milníky, stránky nebo pull requesty",
+      "submit": "Zeptat se",
+      "follow_up_placeholder": "Položte doplňující otázku",
+      "thinking": "Prohledávám váš pracovní prostor…",
+      "clear": "Začít znovu",
+      "error": "Odpověď se nepodařilo získat; zkuste to znovu",
+      "hint": "Odpovědi vycházejí jen z toho, co vidíte, a počítají se do měsíčního limitu AI pracovního prostoru."
+    },
+    "triage": {
+      "title": "Návrhy",
+      "suggest": "Navrhnout",
+      "refresh": "Navrhnout znovu",
+      "thinking": "Prohlížím pracovní položku…",
+      "hint": "Claude navrhuje vlastníka, štítky, vhodnější projekt a možné duplicity. Každý požadavek se počítá do měsíčního limitu AI pracovního prostoru.",
+      "assignee": "Přiřazeno",
+      "label": "Štítek",
+      "project": "Vhodnější projekt",
+      "duplicate": "Možná duplicita",
+      "apply": "Použít",
+      "applied": "Použito",
+      "mark_duplicate": "Označit jako duplicitu",
+      "none": "Pro tuto pracovní položku nejsou žádné návrhy.",
+      "error": "Návrhy se nepodařilo získat; zkuste to znovu",
+      "apply_error": "Návrh se nepodařilo použít"
+    },
+    "meeting_notes": {
+      "open": "Z poznámek ze schůzky",
+      "title": "Pracovní položky z poznámek ze schůzky",
+      "description": "Vložte své poznámky a Claude navrhne úkoly k provedení. Nic se nevytvoří, dokud to nepotvrdíte. Každý požadavek se počítá do měsíčního limitu AI pracovního prostoru.",
+      "meeting_title": "Název schůzky",
+      "meeting_date": "Datum schůzky",
+      "notes": "Poznámky",
+      "notes_placeholder": "Sem vložte poznámky ze schůzky",
+      "find": "Najít úkoly",
+      "back": "Zpět na poznámky",
+      "none": "V těchto poznámkách nebyly nalezeny žádné úkoly.",
+      "include": "Zahrnout",
+      "name": "Název",
+      "assignee": "Přiřazeno",
+      "unassigned": "Nepřiřazeno",
+      "owner_hint": "Podle poznámek: {name}",
+      "due": "Termín",
+      "priority": "Priorita",
+      "create": "Vytvořit {count, plural, one {# pracovní položku} few {# pracovní položky} many {# pracovní položky} other {# pracovních položek}}",
+      "created": "Vytvořeno: {count, plural, one {# pracovní položka} few {# pracovní položky} many {# pracovní položky} other {# pracovních položek}}",
+      "cancel": "Zrušit",
+      "error": "Poznámky se nepodařilo přečíst; zkuste to znovu",
+      "create_error": "Pracovní položky se nepodařilo vytvořit"
     }
   }
 }

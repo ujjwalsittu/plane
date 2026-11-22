@@ -835,6 +835,164 @@
       "approval": "Phê duyệt",
       "run": "Lượt chạy",
       "close": "Đóng"
+    },
+    "loops": {
+      "settings_title": "Vòng lặp",
+      "settings_description": "Chạy tác nhân theo lịch hoặc khi có thay đổi trong dự án này. Mỗi lượt chạy hoạt động với tư cách chủ sở hữu vòng lặp và được tính vào hạn mức AI hằng tháng của workspace.",
+      "load_error": "Không thể tải vòng lặp",
+      "add": "Vòng lặp mới",
+      "empty": "Chưa có vòng lặp nào. Hãy bắt đầu từ một mẫu có sẵn để nhận cập nhật hằng tuần hoặc rà soát hằng ngày.",
+      "agent": "Tác nhân",
+      "owner": "Chủ sở hữu",
+      "trigger": "Điều kiện kích hoạt",
+      "next_run": "Lượt chạy tiếp theo",
+      "last_run": "Lượt chạy gần nhất",
+      "never": "Chưa bao giờ",
+      "active": "Đang bật",
+      "paused": "Đã tạm dừng",
+      "edit": "Chỉnh sửa",
+      "run_now": "Chạy ngay",
+      "history": "Lịch sử",
+      "delete": "Xóa",
+      "started": "Đã bắt đầu lượt chạy",
+      "run_error": "Không thể bắt đầu lượt chạy",
+      "toggle_error": "Không thể thay đổi vòng lặp",
+      "delete_title": "Xóa vòng lặp này?",
+      "delete_description": "Vòng lặp sẽ ngừng chạy. Các lượt chạy trước đó vẫn được lưu trong nhật ký kiểm tra của tác nhân.",
+      "deleted": "Đã xóa vòng lặp",
+      "delete_error": "Không thể xóa vòng lặp",
+      "summary": {
+        "hour": "Mỗi giờ",
+        "day": "Mỗi ngày lúc {time} UTC",
+        "week": "Mỗi {weekday} lúc {time} UTC",
+        "event": "Khi có {types}, tối đa mỗi {minutes} phút"
+      },
+      "every": {
+        "hour": "Giờ",
+        "day": "Ngày",
+        "week": "Tuần"
+      },
+      "weekdays": {
+        "0": "Thứ Hai",
+        "1": "Thứ Ba",
+        "2": "Thứ Tư",
+        "3": "Thứ Năm",
+        "4": "Thứ Sáu",
+        "5": "Thứ Bảy",
+        "6": "Chủ Nhật"
+      },
+      "event_types": {
+        "issue": "Mục công việc",
+        "issue_comment": "Bình luận",
+        "decision": "Quyết định",
+        "approval": "Phê duyệt",
+        "milestone": "Cột mốc"
+      },
+      "presets": {
+        "title": "Bắt đầu từ mẫu có sẵn",
+        "weekly_update": {
+          "name": "Cập nhật dự án hằng tuần",
+          "instructions": "Đăng một bản cập nhật dự án: tình trạng chung (đúng tiến độ, có rủi ro hoặc chậm tiến độ), những gì đã thay đổi từ tuần trước, những gì đang bị chặn và bước tiếp theo. Gắn liên kết đến các mục công việc bạn nhắc đến."
+        },
+        "daily_triage": {
+          "name": "Rà soát phân loại hằng ngày",
+          "instructions": "Xem các mục công việc được tạo từ hôm qua mà chưa có người phụ trách. Với mỗi mục, hãy đề xuất chủ sở hữu và nhãn trong một bình luận. Không tự gán người phụ trách hay gắn nhãn."
+        },
+        "stale_nudges": {
+          "name": "Nhắc nhở các mục bị trì trệ",
+          "instructions": "Tìm các mục công việc đang thực hiện nhưng không có cập nhật trong 5 ngày trở lên. Bình luận vào từng mục để yêu cầu người phụ trách cập nhật trạng thái hoặc cho biết mục đó có bị chặn không."
+        }
+      },
+      "form": {
+        "create_title": "Vòng lặp mới",
+        "edit_title": "Chỉnh sửa vòng lặp",
+        "name": "Tên",
+        "name_required": "Vui lòng nhập tên",
+        "agent": "Tác nhân",
+        "agent_placeholder": "Chọn một tác nhân",
+        "agent_required": "Hãy chọn một tác nhân",
+        "no_agents": "Không có tác nhân đang hoạt động nào có quyền truy cập dự án này. Hãy thêm tác nhân trong Cài đặt, mục Tác nhân.",
+        "owner": "Chủ sở hữu",
+        "owner_hint": "Các lượt chạy hoạt động với tư cách người này và dùng ngân sách AI của workspace",
+        "owner_placeholder": "Chọn một thành viên dự án",
+        "trigger": "Điều kiện kích hoạt",
+        "trigger_schedule": "Theo lịch",
+        "trigger_event": "Khi có thay đổi",
+        "every": "Mỗi",
+        "at": "Thời gian (UTC)",
+        "at_invalid": "Hãy dùng định dạng HH:MM",
+        "weekday": "Thứ",
+        "event_types": "Các thay đổi bắt đầu một lượt chạy",
+        "event_types_required": "Hãy chọn ít nhất một loại thay đổi",
+        "cooldown": "Thời gian chờ (phút)",
+        "cooldown_hint": "Từ 15 đến 10080. Các thay đổi trong thời gian chờ sẽ đợi lượt chạy tiếp theo.",
+        "cooldown_invalid": "Hãy dùng một số nguyên từ 15 đến 10080",
+        "instructions": "Hướng dẫn",
+        "instructions_placeholder": "Việc tác nhân cần làm ở mỗi lượt chạy",
+        "cancel": "Hủy",
+        "create": "Tạo vòng lặp",
+        "save": "Lưu",
+        "created": "Đã tạo vòng lặp",
+        "updated": "Đã cập nhật vòng lặp",
+        "save_error": "Không thể lưu vòng lặp"
+      },
+      "runs": {
+        "title": "Các lượt chạy của {name}",
+        "empty": "Vòng lặp này chưa chạy lần nào.",
+        "load_error": "Không thể tải các lượt chạy",
+        "close": "Đóng"
+      }
+    },
+    "ask": {
+      "title": "Hỏi workspace của bạn",
+      "placeholder": "Hỏi về mục công việc, cột mốc, trang hoặc pull request",
+      "submit": "Hỏi",
+      "follow_up_placeholder": "Hỏi tiếp",
+      "thinking": "Đang tìm trong workspace của bạn…",
+      "clear": "Bắt đầu lại",
+      "error": "Không thể nhận câu trả lời; vui lòng thử lại",
+      "hint": "Câu trả lời chỉ dùng những gì bạn có thể xem và được tính vào hạn mức AI hằng tháng của workspace."
+    },
+    "triage": {
+      "title": "Gợi ý",
+      "suggest": "Gợi ý",
+      "refresh": "Gợi ý lại",
+      "thinking": "Đang xem mục công việc…",
+      "hint": "Claude đề xuất chủ sở hữu, nhãn, dự án phù hợp hơn và các mục có thể trùng lặp. Mỗi yêu cầu được tính vào hạn mức AI hằng tháng của workspace.",
+      "assignee": "Người phụ trách",
+      "label": "Nhãn",
+      "project": "Dự án phù hợp hơn",
+      "duplicate": "Có thể trùng lặp",
+      "apply": "Áp dụng",
+      "applied": "Đã áp dụng",
+      "mark_duplicate": "Đánh dấu là trùng lặp",
+      "none": "Không có gợi ý nào cho mục công việc này.",
+      "error": "Không thể nhận gợi ý; vui lòng thử lại",
+      "apply_error": "Không thể áp dụng gợi ý"
+    },
+    "meeting_notes": {
+      "open": "Từ ghi chú cuộc họp",
+      "title": "Mục công việc từ ghi chú cuộc họp",
+      "description": "Dán ghi chú của bạn và Claude sẽ đề xuất các việc cần làm. Sẽ không có gì được tạo cho đến khi bạn chấp nhận. Mỗi yêu cầu được tính vào hạn mức AI hằng tháng của workspace.",
+      "meeting_title": "Tiêu đề cuộc họp",
+      "meeting_date": "Ngày họp",
+      "notes": "Ghi chú",
+      "notes_placeholder": "Dán ghi chú cuộc họp vào đây",
+      "find": "Tìm các việc cần làm",
+      "back": "Quay lại ghi chú",
+      "none": "Không tìm thấy việc cần làm nào trong các ghi chú này.",
+      "include": "Bao gồm",
+      "name": "Tên",
+      "assignee": "Người phụ trách",
+      "unassigned": "Chưa gán",
+      "owner_hint": "Ghi chú ghi: {name}",
+      "due": "Hạn chót",
+      "priority": "Mức ưu tiên",
+      "create": "Tạo {count, plural, one {# mục công việc} other {# mục công việc}}",
+      "created": "Đã tạo {count, plural, one {# mục công việc} other {# mục công việc}}",
+      "cancel": "Hủy",
+      "error": "Không thể đọc ghi chú; vui lòng thử lại",
+      "create_error": "Không thể tạo các mục công việc"
     }
   }
 }

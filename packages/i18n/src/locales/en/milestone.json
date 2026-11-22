@@ -966,7 +966,6 @@
       "apply": "Apply",
       "applied": "Applied",
       "mark_duplicate": "Mark duplicate",
-      "open_project": "Open project",
       "none": "No suggestions for this work item.",
       "error": "Could not get suggestions; try again",
       "apply_error": "Could not apply the suggestion"

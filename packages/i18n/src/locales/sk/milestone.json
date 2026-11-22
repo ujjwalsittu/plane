@@ -835,6 +835,164 @@
       "approval": "Schválenie",
       "run": "Beh",
       "close": "Zavrieť"
+    },
+    "loops": {
+      "settings_title": "Slučky",
+      "settings_description": "Spúšťajte agenta podľa plánu alebo pri zmenách v tomto projekte. Každé spustenie prebieha v mene vlastníka slučky a počíta sa do mesačného limitu AI pracovného priestoru.",
+      "load_error": "Slučky sa nepodarilo načítať",
+      "add": "Nová slučka",
+      "empty": "Zatiaľ žiadne slučky. Začnite predvoľbou a získajte týždenný prehľad alebo dennú kontrolu.",
+      "agent": "Agent",
+      "owner": "Vlastník",
+      "trigger": "Spúšťač",
+      "next_run": "Ďalšie spustenie",
+      "last_run": "Posledné spustenie",
+      "never": "Nikdy",
+      "active": "Aktívna",
+      "paused": "Pozastavená",
+      "edit": "Upraviť",
+      "run_now": "Spustiť teraz",
+      "history": "História",
+      "delete": "Zmazať",
+      "started": "Spustenie sa začalo",
+      "run_error": "Spustenie sa nepodarilo začať",
+      "toggle_error": "Slučku sa nepodarilo zmeniť",
+      "delete_title": "Zmazať túto slučku?",
+      "delete_description": "Slučka sa prestane spúšťať. Jej predchádzajúce spustenia zostanú v auditnom zázname agenta.",
+      "deleted": "Slučka zmazaná",
+      "delete_error": "Slučku sa nepodarilo zmazať",
+      "summary": {
+        "hour": "Každú hodinu",
+        "day": "Každý deň o {time} UTC",
+        "week": "Každý týždeň, {weekday}, o {time} UTC",
+        "event": "Pri zmenách: {types}, najviac každých {minutes} min"
+      },
+      "every": {
+        "hour": "Hodina",
+        "day": "Deň",
+        "week": "Týždeň"
+      },
+      "weekdays": {
+        "0": "pondelok",
+        "1": "utorok",
+        "2": "streda",
+        "3": "štvrtok",
+        "4": "piatok",
+        "5": "sobota",
+        "6": "nedeľa"
+      },
+      "event_types": {
+        "issue": "Pracovné položky",
+        "issue_comment": "Komentáre",
+        "decision": "Rozhodnutia",
+        "approval": "Schválenia",
+        "milestone": "Míľniky"
+      },
+      "presets": {
+        "title": "Začnite predvoľbou",
+        "weekly_update": {
+          "name": "Týždenná aktualizácia projektu",
+          "instructions": "Zverejnite aktualizáciu projektu: celkový stav (podľa plánu, ohrozený alebo meškajúci), čo sa zmenilo od minulého týždňa, čo je blokované a čo bude ďalej. Odkážte na spomenuté pracovné položky."
+        },
+        "daily_triage": {
+          "name": "Denná kontrola triage",
+          "instructions": "Prejdite pracovné položky vytvorené od včera, ktoré nemajú priradenú osobu. Pri každej navrhnite v komentári vlastníka a štítky. Sami nič nepriraďujte ani neoznačujte štítkami."
+        },
+        "stale_nudges": {
+          "name": "Pripomienky pri neaktívnych položkách",
+          "instructions": "Nájdite rozpracované pracovné položky bez aktualizácie 5 a viac dní. Ku každej pridajte komentár so žiadosťou, aby priradená osoba poslala stav alebo uviedla, či je položka blokovaná."
+        }
+      },
+      "form": {
+        "create_title": "Nová slučka",
+        "edit_title": "Upraviť slučku",
+        "name": "Názov",
+        "name_required": "Názov je povinný",
+        "agent": "Agent",
+        "agent_placeholder": "Vyberte agenta",
+        "agent_required": "Vyberte agenta",
+        "no_agents": "Žiadny aktívny agent nemá k tomuto projektu prístup. Pridajte ho v Nastaveniach v časti Agenti.",
+        "owner": "Vlastník",
+        "owner_hint": "Spustenia prebiehajú v mene tejto osoby a využívajú rozpočet AI pracovného priestoru",
+        "owner_placeholder": "Vyberte člena projektu",
+        "trigger": "Spúšťač",
+        "trigger_schedule": "Podľa plánu",
+        "trigger_event": "Pri zmene",
+        "every": "Každý",
+        "at": "Čas (UTC)",
+        "at_invalid": "Použite formát HH:MM",
+        "weekday": "Deň",
+        "event_types": "Zmeny, ktoré spustia beh",
+        "event_types_required": "Vyberte aspoň jeden druh zmeny",
+        "cooldown": "Odstup (minúty)",
+        "cooldown_hint": "Medzi 15 a 10080. Zmeny počas odstupu čakajú na ďalšie spustenie.",
+        "cooldown_invalid": "Použite celé číslo od 15 do 10080",
+        "instructions": "Pokyny",
+        "instructions_placeholder": "Čo má agent pri každom spustení urobiť",
+        "cancel": "Zrušiť",
+        "create": "Vytvoriť slučku",
+        "save": "Uložiť",
+        "created": "Slučka vytvorená",
+        "updated": "Slučka aktualizovaná",
+        "save_error": "Slučku sa nepodarilo uložiť"
+      },
+      "runs": {
+        "title": "Spustenia slučky {name}",
+        "empty": "Táto slučka zatiaľ nebežala.",
+        "load_error": "Spustenia sa nepodarilo načítať",
+        "close": "Zavrieť"
+      }
+    },
+    "ask": {
+      "title": "Opýtajte sa svojho pracovného priestoru",
+      "placeholder": "Pýtajte sa na pracovné položky, míľniky, stránky alebo pull requesty",
+      "submit": "Opýtať sa",
+      "follow_up_placeholder": "Položte doplňujúcu otázku",
+      "thinking": "Prehľadávam váš pracovný priestor…",
+      "clear": "Začať odznova",
+      "error": "Odpoveď sa nepodarilo získať; skúste to znova",
+      "hint": "Odpovede vychádzajú len z toho, čo vidíte, a počítajú sa do mesačného limitu AI pracovného priestoru."
+    },
+    "triage": {
+      "title": "Návrhy",
+      "suggest": "Navrhnúť",
+      "refresh": "Navrhnúť znova",
+      "thinking": "Prezerám pracovnú položku…",
+      "hint": "Claude navrhuje vlastníka, štítky, vhodnejší projekt a možné duplicity. Každá požiadavka sa počíta do mesačného limitu AI pracovného priestoru.",
+      "assignee": "Priradené",
+      "label": "Štítok",
+      "project": "Vhodnejší projekt",
+      "duplicate": "Možná duplicita",
+      "apply": "Použiť",
+      "applied": "Použité",
+      "mark_duplicate": "Označiť ako duplicitu",
+      "none": "Pre túto pracovnú položku nie sú žiadne návrhy.",
+      "error": "Návrhy sa nepodarilo získať; skúste to znova",
+      "apply_error": "Návrh sa nepodarilo použiť"
+    },
+    "meeting_notes": {
+      "open": "Z poznámok zo stretnutia",
+      "title": "Pracovné položky z poznámok zo stretnutia",
+      "description": "Vložte svoje poznámky a Claude navrhne úlohy na vykonanie. Nič sa nevytvorí, kým to nepotvrdíte. Každá požiadavka sa počíta do mesačného limitu AI pracovného priestoru.",
+      "meeting_title": "Názov stretnutia",
+      "meeting_date": "Dátum stretnutia",
+      "notes": "Poznámky",
+      "notes_placeholder": "Sem vložte poznámky zo stretnutia",
+      "find": "Nájsť úlohy",
+      "back": "Späť na poznámky",
+      "none": "V týchto poznámkach sa nenašli žiadne úlohy.",
+      "include": "Zahrnúť",
+      "name": "Názov",
+      "assignee": "Priradené",
+      "unassigned": "Nepriradené",
+      "owner_hint": "Podľa poznámok: {name}",
+      "due": "Termín",
+      "priority": "Priorita",
+      "create": "Vytvoriť {count, plural, one {# pracovnú položku} few {# pracovné položky} many {# pracovnej položky} other {# pracovných položiek}}",
+      "created": "Vytvorené: {count, plural, one {# pracovná položka} few {# pracovné položky} many {# pracovnej položky} other {# pracovných položiek}}",
+      "cancel": "Zrušiť",
+      "error": "Poznámky sa nepodarilo prečítať; skúste to znova",
+      "create_error": "Pracovné položky sa nepodarilo vytvoriť"
     }
   }
 }

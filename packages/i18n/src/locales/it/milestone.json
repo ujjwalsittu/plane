@@ -835,6 +835,164 @@
       "approval": "Approvazione",
       "run": "Esecuzione",
       "close": "Chiudi"
+    },
+    "loops": {
+      "settings_title": "Loop",
+      "settings_description": "Esegua un agente in base a una pianificazione o quando qualcosa cambia in questo progetto. Ogni esecuzione agisce come proprietario del loop e conta per il limite mensile di IA dello spazio di lavoro.",
+      "load_error": "Impossibile caricare i loop",
+      "add": "Nuovo loop",
+      "empty": "Ancora nessun loop. Parta da un modello per ottenere un aggiornamento settimanale o una verifica giornaliera.",
+      "agent": "Agente",
+      "owner": "Proprietario",
+      "trigger": "Attivatore",
+      "next_run": "Prossima esecuzione",
+      "last_run": "Ultima esecuzione",
+      "never": "Mai",
+      "active": "Attivo",
+      "paused": "In pausa",
+      "edit": "Modifica",
+      "run_now": "Esegui ora",
+      "history": "Cronologia",
+      "delete": "Elimina",
+      "started": "Esecuzione avviata",
+      "run_error": "Impossibile avviare l'esecuzione",
+      "toggle_error": "Impossibile modificare il loop",
+      "delete_title": "Eliminare questo loop?",
+      "delete_description": "Il loop smette di essere eseguito. Le sue esecuzioni passate restano nel registro di audit dell'agente.",
+      "deleted": "Loop eliminato",
+      "delete_error": "Impossibile eliminare il loop",
+      "summary": {
+        "hour": "Ogni ora",
+        "day": "Ogni giorno alle {time} UTC",
+        "week": "Ogni {weekday} alle {time} UTC",
+        "event": "Su {types}, al massimo ogni {minutes} min"
+      },
+      "every": {
+        "hour": "Ora",
+        "day": "Giorno",
+        "week": "Settimana"
+      },
+      "weekdays": {
+        "0": "lunedì",
+        "1": "martedì",
+        "2": "mercoledì",
+        "3": "giovedì",
+        "4": "venerdì",
+        "5": "sabato",
+        "6": "domenica"
+      },
+      "event_types": {
+        "issue": "Elementi di lavoro",
+        "issue_comment": "Commenti",
+        "decision": "Decisioni",
+        "approval": "Approvazioni",
+        "milestone": "Traguardi"
+      },
+      "presets": {
+        "title": "Parta da un modello",
+        "weekly_update": {
+          "name": "Aggiornamento settimanale del progetto",
+          "instructions": "Pubblichi un aggiornamento del progetto: stato generale (nei tempi, a rischio o in ritardo), cosa è cambiato rispetto alla settimana scorsa, cosa è bloccato e cosa viene dopo. Colleghi gli elementi di lavoro che menziona."
+        },
+        "daily_triage": {
+          "name": "Verifica giornaliera del triage",
+          "instructions": "Esamini gli elementi di lavoro creati da ieri che non hanno un assegnatario. Per ciascuno, suggerisca un proprietario e delle etichette in un commento. Non assegni né etichetti nulla da solo."
+        },
+        "stale_nudges": {
+          "name": "Solleciti per elementi fermi",
+          "instructions": "Trovi gli elementi di lavoro in corso senza aggiornamenti da 5 o più giorni. Commenti su ciascuno per chiedere all'assegnatario un aggiornamento di stato o se è bloccato."
+        }
+      },
+      "form": {
+        "create_title": "Nuovo loop",
+        "edit_title": "Modifica loop",
+        "name": "Nome",
+        "name_required": "Il nome è obbligatorio",
+        "agent": "Agente",
+        "agent_placeholder": "Scelga un agente",
+        "agent_required": "Scelga un agente",
+        "no_agents": "Nessun agente attivo ha accesso a questo progetto. Ne aggiunga uno in Impostazioni, nella sezione Agenti.",
+        "owner": "Proprietario",
+        "owner_hint": "Le esecuzioni agiscono come questa persona e usano il budget di IA dello spazio di lavoro",
+        "owner_placeholder": "Scelga un membro del progetto",
+        "trigger": "Attivatore",
+        "trigger_schedule": "In base a una pianificazione",
+        "trigger_event": "Quando qualcosa cambia",
+        "every": "Ogni",
+        "at": "Ora (UTC)",
+        "at_invalid": "Usi il formato HH:MM",
+        "weekday": "Giorno",
+        "event_types": "Modifiche che avviano un'esecuzione",
+        "event_types_required": "Scelga almeno un tipo di modifica",
+        "cooldown": "Tempo di attesa (minuti)",
+        "cooldown_hint": "Tra 15 e 10080. Le modifiche durante il tempo di attesa aspettano la prossima esecuzione.",
+        "cooldown_invalid": "Usi un numero intero da 15 a 10080",
+        "instructions": "Istruzioni",
+        "instructions_placeholder": "Cosa deve fare l'agente a ogni esecuzione",
+        "cancel": "Annulla",
+        "create": "Crea loop",
+        "save": "Salva",
+        "created": "Loop creato",
+        "updated": "Loop aggiornato",
+        "save_error": "Impossibile salvare il loop"
+      },
+      "runs": {
+        "title": "Esecuzioni di {name}",
+        "empty": "Questo loop non è ancora stato eseguito.",
+        "load_error": "Impossibile caricare le esecuzioni",
+        "close": "Chiudi"
+      }
+    },
+    "ask": {
+      "title": "Chieda al suo spazio di lavoro",
+      "placeholder": "Chieda informazioni su elementi di lavoro, traguardi, pagine o pull request",
+      "submit": "Chiedi",
+      "follow_up_placeholder": "Faccia una domanda di approfondimento",
+      "thinking": "Ricerca nel suo spazio di lavoro in corso…",
+      "clear": "Ricomincia",
+      "error": "Impossibile ottenere una risposta; riprovi",
+      "hint": "Le risposte usano solo ciò che può vedere e contano per il limite mensile di IA dello spazio di lavoro."
+    },
+    "triage": {
+      "title": "Suggerimenti",
+      "suggest": "Suggerisci",
+      "refresh": "Suggerisci di nuovo",
+      "thinking": "Analisi dell'elemento di lavoro in corso…",
+      "hint": "Claude suggerisce un proprietario, delle etichette, un progetto più adatto e possibili duplicati. Ogni richiesta conta per il limite mensile di IA dello spazio di lavoro.",
+      "assignee": "Assegnatario",
+      "label": "Etichetta",
+      "project": "Progetto più adatto",
+      "duplicate": "Possibile duplicato",
+      "apply": "Applica",
+      "applied": "Applicato",
+      "mark_duplicate": "Segna come duplicato",
+      "none": "Nessun suggerimento per questo elemento di lavoro.",
+      "error": "Impossibile ottenere suggerimenti; riprovi",
+      "apply_error": "Impossibile applicare il suggerimento"
+    },
+    "meeting_notes": {
+      "open": "Da note di riunione",
+      "title": "Elementi di lavoro dalle note di riunione",
+      "description": "Incolli le sue note e Claude propone le azioni da svolgere. Non viene creato nulla finché non accetta. Ogni richiesta conta per il limite mensile di IA dello spazio di lavoro.",
+      "meeting_title": "Titolo della riunione",
+      "meeting_date": "Data della riunione",
+      "notes": "Note",
+      "notes_placeholder": "Incolli qui le note della riunione",
+      "find": "Trova azioni da svolgere",
+      "back": "Torna alle note",
+      "none": "Nessuna azione da svolgere trovata in queste note.",
+      "include": "Includi",
+      "name": "Nome",
+      "assignee": "Assegnatario",
+      "unassigned": "Non assegnato",
+      "owner_hint": "Le note dicono: {name}",
+      "due": "Scadenza",
+      "priority": "Priorità",
+      "create": "Crea {count, plural, one {# elemento di lavoro} many {# di elementi di lavoro} other {# elementi di lavoro}}",
+      "created": "{count, plural, one {# elemento di lavoro creato} many {# di elementi di lavoro creati} other {# elementi di lavoro creati}}",
+      "cancel": "Annulla",
+      "error": "Impossibile leggere le note; riprovi",
+      "create_error": "Impossibile creare gli elementi di lavoro"
     }
   }
 }

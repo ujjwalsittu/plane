@@ -835,6 +835,164 @@
       "approval": "Onay",
       "run": "Çalıştırma",
       "close": "Kapat"
+    },
+    "loops": {
+      "settings_title": "Loop'lar",
+      "settings_description": "Bir ajanı zamanlamaya göre veya bu projede bir şey değiştiğinde çalıştırın. Her çalıştırma Loop sahibi olarak hareket eder ve çalışma alanının aylık yapay zeka sınırına dahil edilir.",
+      "load_error": "Loop'lar yüklenemedi",
+      "add": "Yeni Loop",
+      "empty": "Henüz Loop yok. Haftalık güncelleme veya günlük tarama için hazır bir şablonla başlayın.",
+      "agent": "Ajan",
+      "owner": "Sahip",
+      "trigger": "Tetikleyici",
+      "next_run": "Sonraki çalıştırma",
+      "last_run": "Son çalıştırma",
+      "never": "Hiç",
+      "active": "Etkin",
+      "paused": "Duraklatıldı",
+      "edit": "Düzenle",
+      "run_now": "Şimdi çalıştır",
+      "history": "Geçmiş",
+      "delete": "Sil",
+      "started": "Çalıştırma başlatıldı",
+      "run_error": "Çalıştırma başlatılamadı",
+      "toggle_error": "Loop değiştirilemedi",
+      "delete_title": "Bu Loop silinsin mi?",
+      "delete_description": "Loop çalışmayı durdurur. Geçmiş çalıştırmaları ajanın denetim kaydında kalır.",
+      "deleted": "Loop silindi",
+      "delete_error": "Loop silinemedi",
+      "summary": {
+        "hour": "Her saat",
+        "day": "Her gün {time} UTC",
+        "week": "Her {weekday} {time} UTC",
+        "event": "{types} olduğunda, en fazla her {minutes} dk"
+      },
+      "every": {
+        "hour": "Saat",
+        "day": "Gün",
+        "week": "Hafta"
+      },
+      "weekdays": {
+        "0": "Pazartesi",
+        "1": "Salı",
+        "2": "Çarşamba",
+        "3": "Perşembe",
+        "4": "Cuma",
+        "5": "Cumartesi",
+        "6": "Pazar"
+      },
+      "event_types": {
+        "issue": "İş öğeleri",
+        "issue_comment": "Yorumlar",
+        "decision": "Kararlar",
+        "approval": "Onaylar",
+        "milestone": "Kilometre taşları"
+      },
+      "presets": {
+        "title": "Hazır şablonla başlayın",
+        "weekly_update": {
+          "name": "Haftalık proje güncellemesi",
+          "instructions": "Bir proje güncellemesi yayınlayın: genel durum (yolunda, risk altında veya geride), geçen haftadan beri neyin değiştiği, neyin engellendiği ve sırada ne olduğu. Bahsettiğiniz iş öğelerine bağlantı verin."
+        },
+        "daily_triage": {
+          "name": "Günlük triyaj taraması",
+          "instructions": "Dünden beri oluşturulan ve atananı olmayan iş öğelerine bakın. Her biri için bir yorumda sahip ve etiket önerin. Kendiniz hiçbir şey atamayın veya etiketlemeyin."
+        },
+        "stale_nudges": {
+          "name": "Durağan öğe hatırlatmaları",
+          "instructions": "5 gün veya daha uzun süredir güncellenmeyen devam eden iş öğelerini bulun. Her birine yorum yazarak atananın durum güncellemesi vermesini veya engellenip engellenmediğini belirtmesini isteyin."
+        }
+      },
+      "form": {
+        "create_title": "Yeni Loop",
+        "edit_title": "Loop'u düzenle",
+        "name": "Ad",
+        "name_required": "Ad gerekli",
+        "agent": "Ajan",
+        "agent_placeholder": "Bir ajan seçin",
+        "agent_required": "Bir ajan seçin",
+        "no_agents": "Bu projeye erişimi olan etkin bir ajan yok. Ayarlar altındaki Ajanlar bölümünden bir ajan ekleyin.",
+        "owner": "Sahip",
+        "owner_hint": "Çalıştırmalar bu kişi olarak hareket eder ve çalışma alanının yapay zeka bütçesini kullanır",
+        "owner_placeholder": "Bir proje üyesi seçin",
+        "trigger": "Tetikleyici",
+        "trigger_schedule": "Zamanlamaya göre",
+        "trigger_event": "Bir şey değiştiğinde",
+        "every": "Sıklık",
+        "at": "Saat (UTC)",
+        "at_invalid": "SS:DD biçimini kullanın",
+        "weekday": "Gün",
+        "event_types": "Çalıştırma başlatan değişiklikler",
+        "event_types_required": "En az bir değişiklik türü seçin",
+        "cooldown": "Bekleme süresi (dakika)",
+        "cooldown_hint": "15 ile 10080 arasında. Bekleme süresi içindeki değişiklikler sonraki çalıştırmayı bekler.",
+        "cooldown_invalid": "15 ile 10080 arasında bir tam sayı kullanın",
+        "instructions": "Talimatlar",
+        "instructions_placeholder": "Ajanın her çalıştırmada yapması gerekenler",
+        "cancel": "İptal",
+        "create": "Loop oluştur",
+        "save": "Kaydet",
+        "created": "Loop oluşturuldu",
+        "updated": "Loop güncellendi",
+        "save_error": "Loop kaydedilemedi"
+      },
+      "runs": {
+        "title": "{name} çalıştırmaları",
+        "empty": "Bu Loop henüz çalıştırılmadı.",
+        "load_error": "Çalıştırmalar yüklenemedi",
+        "close": "Kapat"
+      }
+    },
+    "ask": {
+      "title": "Çalışma alanınıza sorun",
+      "placeholder": "İş öğeleri, kilometre taşları, sayfalar veya pull request'ler hakkında sorun",
+      "submit": "Sor",
+      "follow_up_placeholder": "Takip sorusu sorun",
+      "thinking": "Çalışma alanınıza bakılıyor…",
+      "clear": "Baştan başla",
+      "error": "Yanıt alınamadı; tekrar deneyin",
+      "hint": "Yanıtlar yalnızca sizin görebildiklerinizi kullanır ve çalışma alanının aylık yapay zeka sınırına dahil edilir."
+    },
+    "triage": {
+      "title": "Öneriler",
+      "suggest": "Öner",
+      "refresh": "Tekrar öner",
+      "thinking": "İş öğesi inceleniyor…",
+      "hint": "Claude bir sahip, etiketler, daha uygun bir proje ve olası kopyalar önerir. Her istek çalışma alanının aylık yapay zeka sınırına dahil edilir.",
+      "assignee": "Atanan",
+      "label": "Etiket",
+      "project": "Daha uygun proje",
+      "duplicate": "Olası kopya",
+      "apply": "Uygula",
+      "applied": "Uygulandı",
+      "mark_duplicate": "Kopya olarak işaretle",
+      "none": "Bu iş öğesi için öneri yok.",
+      "error": "Öneriler alınamadı; tekrar deneyin",
+      "apply_error": "Öneri uygulanamadı"
+    },
+    "meeting_notes": {
+      "open": "Toplantı notlarından",
+      "title": "Toplantı notlarından iş öğeleri",
+      "description": "Notlarınızı yapıştırın, Claude eylem maddeleri önersin. Siz kabul edene kadar hiçbir şey oluşturulmaz. Her istek çalışma alanının aylık yapay zeka sınırına dahil edilir.",
+      "meeting_title": "Toplantı başlığı",
+      "meeting_date": "Toplantı tarihi",
+      "notes": "Notlar",
+      "notes_placeholder": "Toplantı notlarını buraya yapıştırın",
+      "find": "Eylem maddelerini bul",
+      "back": "Notlara dön",
+      "none": "Bu notlarda eylem maddesi bulunamadı.",
+      "include": "Dahil et",
+      "name": "Ad",
+      "assignee": "Atanan",
+      "unassigned": "Atanmamış",
+      "owner_hint": "Notlarda şöyle yazıyor: {name}",
+      "due": "Son tarih",
+      "priority": "Öncelik",
+      "create": "{count, plural, one {# iş öğesi} other {# iş öğesi}} oluştur",
+      "created": "{count, plural, one {# iş öğesi} other {# iş öğesi}} oluşturuldu",
+      "cancel": "İptal",
+      "error": "Notlar okunamadı; tekrar deneyin",
+      "create_error": "İş öğeleri oluşturulamadı"
     }
   }
 }
