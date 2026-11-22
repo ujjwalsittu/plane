@@ -45,6 +45,7 @@ EVENTS_READ_MAX = 500
 BRIEF_EVENTS = 20
 BRIEF_LIST_MAX = 20
 STALE_AFTER = timedelta(days=5)
+SKIPPED_OPEN = "Skipped: the previous run is still open"
 MILESTONES_WITHIN = timedelta(days=14)
 RUNS_MAX = 50
 
@@ -443,6 +444,11 @@ def run_due_loops():
                 # Advanced first, so a run that fails part way is never started again; missed slots are not replayed
                 loop.next_run_at = next_run_after(loop.schedule, now)
                 loop.save(update_fields=["next_run_at", "updated_at"])
+                if _has_open_run(loop):
+                    # The slot is skipped, not queued
+                    loop.last_error = SKIPPED_OPEN
+                    loop.save(update_fields=["last_error", "updated_at"])
+                    continue
                 run_loop(loop, "schedule")
             except Exception as exc:
                 log_exception(exc)
@@ -455,8 +461,15 @@ def run_due_loops():
         cache.delete(DUE_LOCK)
 
 
+def _has_open_run(loop):
+    return AgentRun.objects.filter(loop=loop, status__in=agent_runs.OPEN_STATUSES).exists()
+
+
 def _run_event_loop(loop, now):
     if loop.last_run_at and now - loop.last_run_at < timedelta(minutes=loop.cooldown_minutes):
+        return
+    # The cursor stays put, so the events are picked up once the open run ends
+    if _has_open_run(loop):
         return
     rows = list(
         WorkspaceEvent.objects.filter(

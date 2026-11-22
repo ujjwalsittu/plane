@@ -156,12 +156,14 @@ class TestLoops:
         loops.run_due_loops()
         assert AgentRun.objects.filter(loop=loop).count() == 1
 
-        # Past the cooldown, the event that waited starts the next run
+        # Past the cooldown, with the first run finished, the event that waited starts the next run
+        AgentRun.objects.filter(loop=loop).update(status="succeeded")
         AgentLoop.objects.filter(pk=loop.pk).update(last_run_at=timezone.now() - timedelta(hours=2))
         loops.run_due_loops()
         assert AgentRun.objects.filter(loop=loop).count() == 2
 
         # Past the cooldown again, but only events of another type or from the loop's own agent
+        AgentRun.objects.filter(loop=loop).update(status="succeeded")
         AgentLoop.objects.filter(pk=loop.pk).update(last_run_at=timezone.now() - timedelta(hours=2))
         loop.refresh_from_db()
         cursor = loop.last_event_id
@@ -172,6 +174,33 @@ class TestLoops:
         loop.refresh_from_db()
         assert loop.last_event_id > cursor
         assert loop.last_event_id == newest.id
+
+    def test_due_loop_skips_while_previous_run_open(self, workspace, project, agent, client, create_user):
+        scheduled = _loop(project, agent, create_user, name="Scheduled")
+        assert loops.run_loop(scheduled, "manual") is not None
+        AgentLoop.objects.filter(pk=scheduled.pk).update(next_run_at=timezone.now() - timedelta(minutes=1))
+        listening = _loop(project, agent, create_user, name="Listening", trigger="event", event_types=["issue"])
+        assert loops.run_loop(listening, "manual") is not None
+        AgentLoop.objects.filter(pk=listening.pk).update(last_run_at=timezone.now() - timedelta(hours=2))
+        listening.refresh_from_db()
+        cursor = listening.last_event_id
+        _issue_event(workspace, project, create_user)
+
+        loops.run_due_loops()
+
+        # The scheduled slot is skipped, not queued
+        scheduled.refresh_from_db()
+        assert AgentRun.objects.filter(loop=scheduled).count() == 1
+        assert scheduled.next_run_at > timezone.now()
+        assert scheduled.last_error == "Skipped: the previous run is still open"
+        # The event loop keeps its cursor, so the event waits for the open run to end
+        listening.refresh_from_db()
+        assert AgentRun.objects.filter(loop=listening).count() == 1
+        assert listening.last_event_id == cursor
+
+        AgentRun.objects.filter(loop=listening).update(status="succeeded")
+        loops.run_due_loops()
+        assert AgentRun.objects.filter(loop=listening).count() == 2
 
     def test_loop_refused_over_limit_records_error(self, workspace, project, agent, client, create_user):
         config = get_config(workspace)
