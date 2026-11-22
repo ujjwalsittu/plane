@@ -689,7 +689,6 @@
       "expand": "Show steps",
       "collapse": "Hide steps",
       "no_steps": "No steps reported yet.",
-      "steps_load_error": "Could not load the steps",
       "open_session": "Open session",
       "pull_request": "Pull request",
       "commit": "Commit",
