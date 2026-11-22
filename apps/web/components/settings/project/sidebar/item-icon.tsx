@@ -15,6 +15,7 @@ import {
   MilestoneOutline,
   ModuleOutline,
   PagesOutline,
+  RecurringWorkItemsOutline,
   StateOutline,
   TriggerOutline,
   ViewsOutline,
@@ -41,4 +42,5 @@ export const PROJECT_SETTINGS_ICONS: Record<TProjectSettingsTabs, IconGlyph | Re
   labels: LabelsOutline,
   estimates: EstimateOutline,
   automations: TriggerOutline,
+  loops: RecurringWorkItemsOutline,
 };

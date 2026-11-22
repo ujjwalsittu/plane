@@ -5,7 +5,15 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TAgentAuditEntry, TAgentRun, TAISettings, TWorkspaceAgent, TWorkspaceAgentPayload } from "@plane/types";
+import type {
+  TAgentAuditEntry,
+  TAgentLoop,
+  TAgentLoopPayload,
+  TAgentRun,
+  TAISettings,
+  TWorkspaceAgent,
+  TWorkspaceAgentPayload,
+} from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 /** A new agent comes back with its token, which is never returned again. */
@@ -107,6 +115,61 @@ export class AgentsService extends APIService {
 
   setupCloudAgents(workspaceSlug: string): Promise<TAISettings> {
     return this.call(this.post(this.url(workspaceSlug, "ai-settings/cloud-agents/")));
+  }
+
+  private loopsUrl(workspaceSlug: string, projectId: string, path = "") {
+    return this.url(workspaceSlug, `projects/${projectId}/loops/${path}`);
+  }
+
+  getLoops(workspaceSlug: string, projectId: string): Promise<TAgentLoop[]> {
+    return this.call(this.get(this.loopsUrl(workspaceSlug, projectId)));
+  }
+
+  createLoop(workspaceSlug: string, projectId: string, data: TAgentLoopPayload): Promise<TAgentLoop> {
+    return this.call(this.post(this.loopsUrl(workspaceSlug, projectId), data));
+  }
+
+  updateLoop(
+    workspaceSlug: string,
+    projectId: string,
+    loopId: string,
+    data: Partial<TAgentLoopPayload>
+  ): Promise<TAgentLoop> {
+    return this.call(this.patch(this.loopsUrl(workspaceSlug, projectId, `${loopId}/`), data));
+  }
+
+  deleteLoop(workspaceSlug: string, projectId: string, loopId: string): Promise<void> {
+    return this.call(this.delete(this.loopsUrl(workspaceSlug, projectId, `${loopId}/`)));
+  }
+
+  /** Start the loop now; refused (409) while one of its runs is still open. */
+  runLoopNow(workspaceSlug: string, projectId: string, loopId: string): Promise<TAgentRun> {
+    return this.call(this.post(this.loopsUrl(workspaceSlug, projectId, `${loopId}/run/`)));
+  }
+
+  /** The loop's runs, newest first (50). */
+  getLoopRuns(workspaceSlug: string, projectId: string, loopId: string): Promise<TAgentRun[]> {
+    return this.call(this.get(this.loopsUrl(workspaceSlug, projectId, `${loopId}/runs/`)));
+  }
+
+  getLoopRun(workspaceSlug: string, projectId: string, loopId: string, runId: string): Promise<TAgentRun> {
+    return this.call(this.get(this.loopsUrl(workspaceSlug, projectId, `${loopId}/runs/${runId}/`)));
+  }
+
+  followUpLoopRun(
+    workspaceSlug: string,
+    projectId: string,
+    loopId: string,
+    runId: string,
+    text: string
+  ): Promise<TAgentRun> {
+    return this.call(
+      this.post(this.loopsUrl(workspaceSlug, projectId, `${loopId}/runs/${runId}/follow-up/`), { text })
+    );
+  }
+
+  cancelLoopRun(workspaceSlug: string, projectId: string, loopId: string, runId: string): Promise<TAgentRun> {
+    return this.call(this.post(this.loopsUrl(workspaceSlug, projectId, `${loopId}/runs/${runId}/cancel/`)));
   }
 }
 

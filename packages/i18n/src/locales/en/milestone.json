@@ -835,6 +835,113 @@
       "approval": "Approval",
       "run": "Run",
       "close": "Close"
+    },
+    "loops": {
+      "settings_title": "Loops",
+      "settings_description": "Run an agent on a schedule or when things change in this project. Each run acts as the loop's owner and counts toward the workspace's monthly AI limit.",
+      "load_error": "Could not load loops",
+      "add": "New loop",
+      "empty": "No loops yet. Start from a preset to get a weekly update or a daily sweep.",
+      "agent": "Agent",
+      "owner": "Owner",
+      "trigger": "Trigger",
+      "next_run": "Next run",
+      "last_run": "Last run",
+      "never": "Never",
+      "active": "Active",
+      "paused": "Paused",
+      "edit": "Edit",
+      "run_now": "Run now",
+      "history": "History",
+      "delete": "Delete",
+      "started": "Run started",
+      "run_error": "Could not start the run",
+      "toggle_error": "Could not change the loop",
+      "delete_title": "Delete this loop?",
+      "delete_description": "The loop stops running. Its past runs stay in the agent's audit trail.",
+      "deleted": "Loop deleted",
+      "delete_error": "Could not delete the loop",
+      "summary": {
+        "hour": "Every hour",
+        "day": "Every day at {time} UTC",
+        "week": "Every {weekday} at {time} UTC",
+        "event": "On {types}, at most every {minutes} min"
+      },
+      "every": {
+        "hour": "Hour",
+        "day": "Day",
+        "week": "Week"
+      },
+      "weekdays": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      },
+      "event_types": {
+        "issue": "Work items",
+        "issue_comment": "Comments",
+        "decision": "Decisions",
+        "approval": "Approvals",
+        "milestone": "Milestones"
+      },
+      "presets": {
+        "title": "Start from a preset",
+        "weekly_update": {
+          "name": "Weekly project update",
+          "instructions": "Post a project update: overall health (on track, at risk or off track), what changed since last week, what is blocked and what comes next. Link the work items you mention."
+        },
+        "daily_triage": {
+          "name": "Daily triage sweep",
+          "instructions": "Look at work items created since yesterday that have no assignee. For each, suggest an owner and labels in a comment. Do not assign or label anything yourself."
+        },
+        "stale_nudges": {
+          "name": "Stale-item nudges",
+          "instructions": "Find in-progress work items with no update for 5 or more days. Comment on each to ask the assignee for a status update or whether it is blocked."
+        }
+      },
+      "form": {
+        "create_title": "New loop",
+        "edit_title": "Edit loop",
+        "name": "Name",
+        "name_required": "A name is required",
+        "agent": "Agent",
+        "agent_placeholder": "Choose an agent",
+        "agent_required": "Choose an agent",
+        "no_agents": "No active agent has access to this project. Add one in Settings, then Agents.",
+        "owner": "Owner",
+        "owner_hint": "Runs act as this person and use the workspace's AI budget",
+        "owner_placeholder": "Choose a project member",
+        "trigger": "Trigger",
+        "trigger_schedule": "On a schedule",
+        "trigger_event": "When something changes",
+        "every": "Every",
+        "at": "Time (UTC)",
+        "at_invalid": "Use HH:MM",
+        "weekday": "Day",
+        "event_types": "Changes that start a run",
+        "event_types_required": "Pick at least one kind of change",
+        "cooldown": "Cooldown (minutes)",
+        "cooldown_hint": "Between 15 and 10080. Changes during the cooldown wait for the next run.",
+        "cooldown_invalid": "Use a whole number from 15 to 10080",
+        "instructions": "Instructions",
+        "instructions_placeholder": "What the agent should do on each run",
+        "cancel": "Cancel",
+        "create": "Create loop",
+        "save": "Save",
+        "created": "Loop created",
+        "updated": "Loop updated",
+        "save_error": "Could not save the loop"
+      },
+      "runs": {
+        "title": "Runs of {name}",
+        "empty": "This loop has not run yet.",
+        "load_error": "Could not load the runs",
+        "close": "Close"
+      }
     }
   }
 }

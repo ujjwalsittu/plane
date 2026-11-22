@@ -34,17 +34,33 @@ const STATUS_VARIANT: Record<TAgentRunStatus, BadgeVariant> = {
   cancelled: "grey",
 };
 
+/** A run on a work item (`issueId`) or a loop's run (`loopId`, no work item): the endpoints differ. */
 type Props = {
   workspaceSlug: string;
   projectId: string;
-  issueId: string;
   run: TAgentRun;
   disabled: boolean;
   onChanged: () => void;
-};
+} & ({ issueId: string; loopId?: never } | { loopId: string; issueId?: never });
 
-export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onChanged }: Props) {
+const runApi = (workspaceSlug: string, projectId: string, issueId?: string, loopId?: string) =>
+  loopId
+    ? {
+        get: (runId: string) => service.getLoopRun(workspaceSlug, projectId, loopId, runId),
+        followUp: (runId: string, text: string) =>
+          service.followUpLoopRun(workspaceSlug, projectId, loopId, runId, text),
+        cancel: (runId: string) => service.cancelLoopRun(workspaceSlug, projectId, loopId, runId),
+      }
+    : {
+        get: (runId: string) => service.getRun(workspaceSlug, projectId, issueId ?? "", runId),
+        followUp: (runId: string, text: string) =>
+          service.followUp(workspaceSlug, projectId, issueId ?? "", runId, text),
+        cancel: (runId: string) => service.cancelRun(workspaceSlug, projectId, issueId ?? "", runId),
+      };
+
+export function RunRow({ workspaceSlug, projectId, issueId, loopId, run, disabled, onChanged }: Props) {
   const { t } = useTranslation();
+  const api = runApi(workspaceSlug, projectId, issueId, loopId);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -56,7 +72,7 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
     data: detail,
     error: stepsError,
     mutate,
-  } = useSWR(open ? getAgentRunKey(run.id) : null, () => service.getRun(workspaceSlug, projectId, issueId, run.id), {
+  } = useSWR(open ? getAgentRunKey(run.id) : null, () => api.get(run.id), {
     refreshInterval: run.is_live ? AGENT_RUNS_LIVE_REFRESH_MS : 0,
   });
 
@@ -77,7 +93,7 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
     if (!text.trim()) return;
     setSending(true);
     try {
-      await service.followUp(workspaceSlug, projectId, issueId, run.id, text.trim());
+      await api.followUp(run.id, text.trim());
       setText("");
       void mutate();
       onChanged();
@@ -92,7 +108,7 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
     setCancelling(true);
     setConfirmCancel(false);
     try {
-      await service.cancelRun(workspaceSlug, projectId, issueId, run.id);
+      await api.cancel(run.id);
       setToast({ type: "success", title: t("agents.runs.cancelled") });
       void mutate();
       onChanged();

@@ -629,7 +629,9 @@ export type TAgentRunStep = {
 
 export type TAgentRun = {
   id: string;
-  issue_id: string;
+  /** None for a loop's run. */
+  issue_id: string | null;
+  loop_id: string | null;
   project_id: string;
   kind: TAgentRunKind;
   status: TAgentRunStatus;
@@ -650,6 +652,45 @@ export type TAgentRun = {
   steps?: TAgentRunStep[];
 };
 
+export type TAgentLoopTrigger = "schedule" | "event";
+export type TAgentLoopEvery = "hour" | "day" | "week";
+export type TAgentLoopEventType = "issue" | "issue_comment" | "decision" | "approval" | "milestone";
+
+/** When a schedule loop runs: `at` is HH:MM UTC (not for hour), `weekday` 0 (Monday) to 6 (week only). */
+export type TAgentLoopSchedule = { every: TAgentLoopEvery; at?: string; weekday?: number };
+
+/** A project runs an agent on a schedule or on workspace events, as a person (the owner). */
+export type TAgentLoop = {
+  id: string;
+  project_id: string;
+  name: string;
+  agent: { id: string; name: string; avatar_url: string | null; is_active: boolean };
+  owner: { id: string; display_name: string };
+  instructions: string;
+  trigger: TAgentLoopTrigger;
+  schedule: TAgentLoopSchedule | Record<string, never>;
+  event_types: TAgentLoopEventType[];
+  cooldown_minutes: number;
+  is_active: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_error: string;
+  last_run: { id: string; status: TAgentRunStatus; created_at: string } | null;
+  created_at: string;
+};
+
+export type TAgentLoopPayload = {
+  name: string;
+  agent_id: string;
+  owner_id?: string;
+  instructions: string;
+  trigger: TAgentLoopTrigger;
+  schedule?: TAgentLoopSchedule;
+  event_types?: TAgentLoopEventType[];
+  cooldown_minutes?: number;
+  is_active?: boolean;
+};
+
 /** One row of an agent's audit trail, newest first. */
 export type TAgentAuditEntry =
   | { at: string; kind: "request"; method: string; path: string; status: number }
@@ -663,4 +704,4 @@ export type TAgentAuditEntry =
       decided_by: string | null;
       decided_at: string | null;
     }
-  | { at: string; kind: "run"; id: string; issue_id: string; title: string; status: TAgentRunStatus };
+  | { at: string; kind: "run"; id: string; issue_id: string | null; title: string; status: TAgentRunStatus };
