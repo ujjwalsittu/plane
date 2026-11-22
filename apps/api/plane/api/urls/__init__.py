@@ -28,6 +28,7 @@ from .agents import urlpatterns as agents_patterns
 from .template import urlpatterns as template_patterns
 from .teamspace import urlpatterns as teamspace_patterns
 from .work_item_count import urlpatterns as work_item_count_patterns
+from .customer import urlpatterns as customer_patterns
 
 urlpatterns = [
     *work_item_count_patterns,
@@ -56,4 +57,5 @@ urlpatterns = [
     *agents_patterns,
     *template_patterns,
     *teamspace_patterns,
+    *customer_patterns,
 ]

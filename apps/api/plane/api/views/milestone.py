@@ -478,7 +478,7 @@ class WorkspaceFeatureAPIEndpoint(BaseAPIView):
         "project_grouping": False,
         "initiatives": True,
         "teams": True,
-        "customers": False,
+        "customers": True,
         "wiki": False,
         "pi": False,
         "work_item_types": False,

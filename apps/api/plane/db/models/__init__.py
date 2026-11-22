@@ -86,6 +86,14 @@ from .milestone import Milestone
 from .work_item_page import IssuePage
 from .work_log import IssueWorkLog
 from .initiative import Initiative, InitiativeProject, InitiativeWorkItem
+from .customer import (
+    Customer,
+    CustomerProperty,
+    CustomerPropertyOption,
+    CustomerPropertyValue,
+    CustomerRequest,
+    CustomerRequestIssue,
+)
 from .release import Release, ReleaseLabel, ReleaseLabelLink, ReleaseTag, ReleaseWorkItem
 from .supervision import (
     BriefVisit,
