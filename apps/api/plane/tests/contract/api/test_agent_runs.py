@@ -19,6 +19,7 @@ from plane.db.models import (
     ProjectMember,
     State,
     User,
+    WorkspaceAgent,
     WorkspaceMember,
 )
 from plane.utils import agent_runs
@@ -176,3 +177,30 @@ def test_run_links_include_prs_since_start(api_key_client, workspace, project, i
         ("commit", "abc123"),
         ("pull_request", "8"),
     ]
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_live_meta_reports_poll(api_key_client, workspace, project, issue, create_user):
+    session = _client(create_user)
+    url = f"/api/workspaces/{workspace.slug}/agent-runs/live/?issue_ids={issue.id}"
+
+    # Nothing that could be live: no agents, no open runs
+    quiet = session.get(url + "&meta=1")
+    assert quiet.data == {"runs": {}, "poll": False}
+
+    # An active agent means runs can start
+    bot = User.objects.create(email="bot@plane.test", username="bot", is_bot=True, bot_type="agent")
+    agent = WorkspaceAgent.objects.create(workspace=workspace, user=bot, name="Bot", owner=create_user)
+    assert session.get(url + "&meta=1").data["poll"] is True
+    agent.is_active = False
+    agent.save()
+    assert session.get(url + "&meta=1").data["poll"] is False
+
+    # No agents, but a running external run
+    run_id = _start(api_key_client, workspace, project, issue).data["id"]
+    shown = session.get(url + "&meta=1").data
+    assert shown["poll"] is True and shown["runs"][str(issue.id)]["id"] == run_id
+
+    # Without meta the old bare dict comes back
+    assert session.get(url).data[str(issue.id)]["id"] == run_id

@@ -98,10 +98,10 @@ export class AgentsService extends APIService {
     return this.call(this.post(this.runsUrl(workspaceSlug, projectId, issueId, `${runId}/cancel/`)));
   }
 
-  /** The live run per work item id, for up to 200 ids in one request. */
-  getLiveRuns(workspaceSlug: string, issueIds: string[]): Promise<Record<string, TAgentRun>> {
+  /** The live run per work item id, for up to 200 ids in one request, and whether anything in the workspace can be live. */
+  getLiveRuns(workspaceSlug: string, issueIds: string[]): Promise<{ runs: Record<string, TAgentRun>; poll: boolean }> {
     return this.call(
-      this.get(this.url(workspaceSlug, "agent-runs/live/"), { params: { issue_ids: issueIds.join(",") } })
+      this.get(this.url(workspaceSlug, "agent-runs/live/"), { params: { issue_ids: issueIds.join(","), meta: 1 } })
     );
   }
 

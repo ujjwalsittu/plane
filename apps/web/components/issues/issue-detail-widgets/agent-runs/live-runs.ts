@@ -13,6 +13,7 @@ const service = new AgentsService();
 const MAX_IDS = 200;
 const BATCH_DELAY_MS = 60;
 const POLL_MS = 15000;
+const IDLE_RECHECK_MS = 300_000;
 
 type TKey = string;
 const keyOf = (workspaceSlug: string, issueId: string): TKey => `${workspaceSlug}/${issueId}`;
@@ -26,6 +27,8 @@ const live = new Map<TKey, TAgentRun | null>();
 const listeners = new Map<TKey, Set<() => void>>();
 const pending = new Set<TKey>();
 let batchTimer: ReturnType<typeof setTimeout> | undefined;
+// Workspaces whose last answer said nothing can be live, and when that answer came in.
+const idleSince = new Map<string, number>();
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 
 const split = (key: TKey) => {
@@ -37,7 +40,9 @@ const notify = (key: TKey) => listeners.get(key)?.forEach((listener) => listener
 
 const fetchChunk = async (slug: string, chunk: string[]) => {
   try {
-    const runs = await service.getLiveRuns(slug, chunk);
+    const { runs, poll } = await service.getLiveRuns(slug, chunk);
+    if (poll) idleSince.delete(slug);
+    else idleSince.set(slug, Date.now());
     for (const id of chunk) {
       const key = keyOf(slug, id);
       const next = runs?.[id] ?? null;
@@ -79,7 +84,12 @@ const ensurePolling = () => {
   if (pollTimer || listeners.size === 0) return;
   pollTimer = setInterval(() => {
     if (typeof document !== "undefined" && document.hidden) return;
-    if (listeners.size > 0) void fetchKeys([...listeners.keys()]);
+    const now = Date.now();
+    const keys = [...listeners.keys()].filter((key) => {
+      const since = idleSince.get(split(key)[0]);
+      return since === undefined || now - since >= IDLE_RECHECK_MS;
+    });
+    if (keys.length > 0) void fetchKeys(keys);
   }, POLL_MS);
 };
 

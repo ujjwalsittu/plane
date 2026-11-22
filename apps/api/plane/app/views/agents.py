@@ -21,7 +21,7 @@ from plane.api.views.agents import (
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.api.views.issue import visible_issue_q
-from plane.db.models import AgentApproval, Issue, WorkspaceAgent
+from plane.db.models import AgentApproval, AgentRun, Issue, WorkspaceAgent
 from plane.utils import agent_runs, agents, ai_config, guardrails, managed_agents
 
 
@@ -196,7 +196,15 @@ class LiveAgentRunsEndpoint(_Session, BaseAPIView):
             except ValueError:
                 continue
         visible = Issue.issue_objects.filter(visible_issue_q(request.user), workspace=workspace, pk__in=ids)
-        return Response(agent_runs.live_runs_for(list(visible.values_list("pk", flat=True).distinct())))
+        runs = agent_runs.live_runs_for(list(visible.values_list("pk", flat=True).distinct()))
+        if request.query_params.get("meta") != "1":
+            return Response(runs)
+        # `poll` tells the web app whether anything in this workspace can be live, so idle workspaces stop polling
+        can_be_live = (
+            WorkspaceAgent.objects.filter(workspace=workspace, is_active=True).exists()
+            or AgentRun.objects.filter(issue__workspace=workspace, status__in=agent_runs.OPEN_STATUSES).exists()
+        )
+        return Response({"runs": runs, "poll": can_be_live})
 
 
 class AgentApprovalsEndpoint(_Session, BaseAPIView):

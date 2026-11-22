@@ -23,7 +23,7 @@ describe("live run batching", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     getLiveRuns.mockReset();
-    getLiveRuns.mockResolvedValue({});
+    getLiveRuns.mockResolvedValue({ runs: {}, poll: true });
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -64,5 +64,37 @@ describe("live run batching", () => {
     unsubscribe();
     await vi.advanceTimersByTimeAsync(60000);
     expect(getLiveRuns).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops polling a workspace that has nothing live", async () => {
+    getLiveRuns.mockResolvedValue({ runs: {}, poll: false });
+    const { subscribe } = await load();
+    subscribe("ws/a", () => {});
+    await vi.advanceTimersByTimeAsync(100);
+    expect(getLiveRuns).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(15000);
+    await vi.advanceTimersByTimeAsync(15000);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(getLiveRuns).toHaveBeenCalledTimes(1);
+  });
+
+  it("rechecks an idle workspace after five minutes", async () => {
+    getLiveRuns.mockResolvedValue({ runs: {}, poll: false });
+    const { subscribe } = await load();
+    subscribe("ws/a", () => {});
+    await vi.advanceTimersByTimeAsync(100);
+    expect(getLiveRuns).toHaveBeenCalledTimes(1);
+    // five minutes, rounded up to the next 15s tick
+    await vi.advanceTimersByTimeAsync(315_000);
+    expect(getLiveRuns).toHaveBeenCalledTimes(2);
+    // Still idle: no more requests until the next five minutes
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(getLiveRuns).toHaveBeenCalledTimes(2);
+
+    getLiveRuns.mockResolvedValue({ runs: {}, poll: true });
+    await vi.advanceTimersByTimeAsync(240_000);
+    expect(getLiveRuns).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(getLiveRuns).toHaveBeenCalledTimes(4);
   });
 });
