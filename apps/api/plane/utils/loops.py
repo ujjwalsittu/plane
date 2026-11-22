@@ -6,11 +6,12 @@
 the project's state as the brief. Each run is an ordinary cloud run with no work item, linked to its loop."""
 
 import re
+import uuid
 from datetime import timedelta, timezone as dt_timezone
 
 from django.core.cache import cache
 from django.db import IntegrityError
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
 from plane.db.models import (
@@ -230,7 +231,12 @@ def update_loop(loop, data, actor):
 
 
 def delete_loop(loop, actor):
+    """The loop's open runs are cancelled first, so none keeps running (and billing) without a loop to reach it
+    from; a run that fails to cancel is logged and doesn't stop the delete."""
+    from plane.utils.managed_agents import cancel_loop_runs
+
     require_manager(loop.project, actor)
+    cancel_loop_runs(loop, actor)
     loop.delete()
 
 
@@ -416,9 +422,11 @@ def run_loop(loop, reason, events=()):
 
 
 def run_now(loop, actor):
-    """A manager starts the loop now; refused while one of its runs is still open."""
+    """A manager starts the loop now; refused while one of its runs is still open or a sweep is starting it."""
     require_manager(loop.project, actor)
-    if AgentRun.objects.filter(loop=loop, status__in=agent_runs.OPEN_STATUSES).exists():
+    if not _claim(loop):
+        raise AgentError("The loop is starting already", 409, "status")
+    if _has_open_run(loop):
         raise AgentError("A run of this loop is still open", 409, "status")
     run = run_loop(loop, "manual")
     if run is None:
@@ -432,24 +440,34 @@ def _due_loops():
     ).select_related("agent__user", "owner", "project__workspace")
 
 
+def _claim(loop, **changes):
+    """Take the loop's next start, atomically: the row is updated (with `changes`) only if no other sweep or manual
+    run has claimed it since `loop` was read, so two of them can never both start a run from the same state.
+    Returns whether this caller got it."""
+    changes["updated_at"] = timezone.now()
+    claimed = AgentLoop.objects.filter(
+        pk=loop.pk,
+        next_run_at=loop.next_run_at,
+        last_event_id=loop.last_event_id,
+        updated_at=loop.updated_at,
+    ).update(**changes)
+    if claimed:
+        for field, value in changes.items():
+            setattr(loop, field, value)
+    return claimed == 1
+
+
 def run_due_loops():
     """The beat task: start every schedule loop whose slot has come and every event loop past its cooldown that has
     new matching events. One sweep at a time."""
-    if not cache.add(DUE_LOCK, 1, DUE_LOCK_SECONDS):
+    token = uuid.uuid4().hex
+    if not cache.add(DUE_LOCK, token, DUE_LOCK_SECONDS):
         return
     try:
         now = timezone.now()
         for loop in _due_loops().filter(trigger="schedule", next_run_at__lte=now):
             try:
-                # Advanced first, so a run that fails part way is never started again; missed slots are not replayed
-                loop.next_run_at = next_run_after(loop.schedule, now)
-                loop.save(update_fields=["next_run_at", "updated_at"])
-                if _has_open_run(loop):
-                    # The slot is skipped, not queued
-                    loop.last_error = SKIPPED_OPEN
-                    loop.save(update_fields=["last_error", "updated_at"])
-                    continue
-                run_loop(loop, "schedule")
+                _run_schedule_loop(loop, now)
             except Exception as exc:
                 log_exception(exc)
         for loop in _due_loops().filter(trigger="event"):
@@ -458,11 +476,33 @@ def run_due_loops():
             except Exception as exc:
                 log_exception(exc)
     finally:
-        cache.delete(DUE_LOCK)
+        # Get-then-delete isn't atomic: if this sweep outlived the lock and another took it in between, that lock
+        # is dropped early. Harmless, as each loop is claimed atomically before it starts.
+        if cache.get(DUE_LOCK) == token:
+            cache.delete(DUE_LOCK)
 
 
 def _has_open_run(loop):
     return AgentRun.objects.filter(loop=loop, status__in=agent_runs.OPEN_STATUSES).exists()
+
+
+def _run_schedule_loop(loop, now):
+    # The slot is claimed by advancing it, so a run that fails part way is never started again; missed slots are
+    # not replayed
+    if not _claim(loop, next_run_at=next_run_after(loop.schedule, now)):
+        return
+    if _has_open_run(loop):
+        # The slot is skipped, not queued
+        loop.last_error = SKIPPED_OPEN
+        loop.save(update_fields=["last_error", "updated_at"])
+        return
+    run_loop(loop, "schedule")
+
+
+def _not_by_agents():
+    """Events by people or by nobody: any agent's events (its own or another loop's agent) never trigger a loop, so
+    loops in a project can't set each other off."""
+    return Q(actor_id__isnull=True) | ~Q(actor_id__in=User.objects.filter(is_bot=True).values("id"))
 
 
 def _run_event_loop(loop, now):
@@ -474,15 +514,16 @@ def _run_event_loop(loop, now):
     newer = WorkspaceEvent.objects.filter(
         workspace_id=loop.workspace_id, project_id=loop.project_id, id__gt=loop.last_event_id
     )
-    # Filtered in SQL, so a busy feed of other events (agent_run steps, the loop's own agent) never crowds out a match
-    matching = list(
-        newer.filter(event__in=loop.event_types).exclude(actor_id=loop.agent.user_id).order_by("id")[:EVENTS_READ_MAX]
-    )
+    # Filtered in SQL, so a busy feed of other events (agent_run steps, agents' own events) never crowds out a match
+    matching = list(newer.filter(_not_by_agents(), event__in=loop.event_types).order_by("id")[:EVENTS_READ_MAX])
     # The cursor moves to the newest matching row, or past everything newer when nothing matched
     cursor = matching[-1].id if matching else newer.aggregate(m=Max("id"))["m"]
     if cursor is None:
         return
-    loop.last_event_id = cursor
-    loop.save(update_fields=["last_event_id", "updated_at"])
-    if matching:
-        run_loop(loop, "event", matching)
+    previous = loop.last_event_id
+    if not _claim(loop, last_event_id=cursor):
+        return
+    if matching and run_loop(loop, "event", matching) is None:
+        # Not started (a refused start or a paused loop): the cursor goes back, so the next sweep retries the events
+        AgentLoop.objects.filter(pk=loop.pk, last_event_id=cursor).update(last_event_id=previous)
+        loop.last_event_id = previous

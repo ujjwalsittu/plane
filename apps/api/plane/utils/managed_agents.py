@@ -800,6 +800,19 @@ def _cancel_run(run, user):
     return agent_runs.finish_run(run, "cancelled", summary=f"Cancelled by {_person_name(user)}")
 
 
+def cancel_loop_runs(loop, user):
+    """Cancel a deleted loop's open cloud runs as `user`, who manages the loop (checked by the caller) and need not
+    be a project member. A run that fails to cancel is logged and the others are still cancelled."""
+    for run in AgentRun.objects.filter(loop=loop, kind="managed", status__in=agent_runs.OPEN_STATUSES):
+        try:
+            with _run_lock(run, wait=LOCK_WAIT_SECONDS):
+                run.refresh_from_db()
+                if run.status not in agent_runs.TERMINAL_STATUSES:
+                    _cancel_run(run, user)
+        except Exception as exc:
+            log_exception(exc)
+
+
 def cancel_agent_runs(agent):
     """A deactivated agent's open cloud runs are cancelled now; their sessions are interrupted in the background
     (independently of the archive the deactivation also queues)."""

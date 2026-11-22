@@ -322,3 +322,111 @@ class TestLoops:
         finally:
             cache.delete(loops.DUE_LOCK)
         assert not AgentRun.objects.filter(loop=loop).exists()
+
+    def test_same_loop_claimed_twice_starts_one_run(self, workspace, project, agent, client, create_user):
+        now = timezone.now()
+        scheduled = _loop(project, agent, create_user, name="Scheduled")
+        AgentLoop.objects.filter(pk=scheduled.pk).update(next_run_at=now - timedelta(minutes=1))
+        # Two sweeps that read the same row: only the first to claim the slot starts a run
+        first, second = AgentLoop.objects.get(pk=scheduled.pk), AgentLoop.objects.get(pk=scheduled.pk)
+        loops._run_schedule_loop(first, now)
+        loops._run_schedule_loop(second, now)
+        assert AgentRun.objects.filter(loop=scheduled).count() == 1
+
+        listening = _loop(project, agent, create_user, name="Listening", trigger="event", event_types=["issue"])
+        _issue_event(workspace, project, create_user)
+        first, second = AgentLoop.objects.get(pk=listening.pk), AgentLoop.objects.get(pk=listening.pk)
+        loops._run_event_loop(first, now)
+        loops._run_event_loop(second, now)
+        assert AgentRun.objects.filter(loop=listening).count() == 1
+
+        # A manual run made from the state a sweep already claimed is refused, not started alongside it
+        manual = _loop(project, agent, create_user, name="Manual")
+        AgentLoop.objects.filter(pk=manual.pk).update(next_run_at=now - timedelta(minutes=1))
+        stale, fresh = AgentLoop.objects.get(pk=manual.pk), AgentLoop.objects.get(pk=manual.pk)
+        loops._run_schedule_loop(fresh, now)
+        with pytest.raises(agents.AgentError) as error:
+            loops.run_now(stale, create_user)
+        assert (error.value.status_code, error.value.message) == (409, "The loop is starting already")
+        assert AgentRun.objects.filter(loop=manual).count() == 1
+
+    def test_due_lock_released_only_by_its_holder(self, monkeypatch):
+        loops.run_due_loops()
+        assert cache.get(loops.DUE_LOCK) is None
+
+        # This sweep outlived its lock and another sweep took it: the other sweep's lock stays
+        def lock_taken_over():
+            cache.set(loops.DUE_LOCK, "another-sweep", 120)
+            return AgentLoop.objects.none()
+
+        monkeypatch.setattr(loops, "_due_loops", lock_taken_over)
+        try:
+            loops.run_due_loops()
+            assert cache.get(loops.DUE_LOCK) == "another-sweep"
+        finally:
+            cache.delete(loops.DUE_LOCK)
+
+    def test_delete_cancels_open_runs(self, workspace, project, agent, client, create_user):
+        loop = _loop(project, agent, create_user)
+        stuck = loops.run_loop(loop, "manual")
+        running = loops.run_loop(loop, "manual")
+        real_cancel = managed_agents._cancel_run
+
+        def cancel(run, user):
+            if run.pk == stuck.pk:
+                raise RuntimeError("session unreachable")
+            return real_cancel(run, user)
+
+        with (
+            patch.object(managed_agents, "_cancel_run", side_effect=cancel),
+            patch.object(managed_agents, "log_exception") as logged,
+        ):
+            loops.delete_loop(loop, create_user)
+
+        running.refresh_from_db()
+        assert running.status == "cancelled"
+        assert client.beta.sessions.events.send.call_args.kwargs["events"] == [{"type": "user.interrupt"}]
+        # One run failing to cancel is logged and doesn't stop the delete
+        assert logged.call_count == 1
+        assert not AgentLoop.objects.filter(pk=loop.pk).exists()
+
+    def test_refused_event_start_keeps_cursor(self, workspace, project, agent, client, create_user):
+        loop = _loop(project, agent, create_user, trigger="event", event_types=["issue"])
+        cursor = loop.last_event_id
+        config = get_config(workspace)
+        config.monthly_limit_cents = 100
+        config.save()
+        event = _issue_event(workspace, project, create_user)
+
+        loops.run_due_loops()
+
+        loop.refresh_from_db()
+        assert not AgentRun.objects.filter(loop=loop).exists()
+        assert loop.last_error == "Monthly AI limit reached"
+        assert loop.last_event_id == cursor
+
+        # Once the limit allows it, the next sweep retries the same event
+        config.monthly_limit_cents = None
+        config.save()
+        loops.run_due_loops()
+        loop.refresh_from_db()
+        assert AgentRun.objects.filter(loop=loop).count() == 1
+        assert loop.last_event_id == event.id
+
+    def test_other_agents_events_never_trigger_a_loop(self, workspace, project, agent, client, create_user):
+        reviewer, _ = agents.create_agent(
+            workspace, {"name": "Reviewer", "owner": str(create_user.id), "project_ids": [str(project.id)]}, create_user
+        )
+        loop = _loop(project, agent, create_user, trigger="event", event_types=["issue_comment"])
+        newest = _issue_event(workspace, project, reviewer.user, event="issue_comment")
+
+        loops.run_due_loops()
+
+        assert not AgentRun.objects.filter(loop=loop).exists()
+        loop.refresh_from_db()
+        assert loop.last_event_id == newest.id
+
+        # Events with no actor still count
+        _issue_event(workspace, project, None, event="issue_comment")
+        loops.run_due_loops()
+        assert AgentRun.objects.filter(loop=loop).count() == 1
