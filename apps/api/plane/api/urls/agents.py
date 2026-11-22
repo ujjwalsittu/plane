@@ -14,6 +14,8 @@ from plane.api.views.agents import (
     AgentRunFollowUpAPIEndpoint,
     AgentRunsAPIEndpoint,
     AgentRunStepsAPIEndpoint,
+    MeetingNotesCreateAPIEndpoint,
+    MeetingNotesExtractAPIEndpoint,
     WorkItemTriageAPIEndpoint,
     WorkspaceAgentsAPIEndpoint,
 )
@@ -97,6 +99,16 @@ urlpatterns = [
                 f"workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/triage{suffix}",
                 WorkItemTriageAPIEndpoint.as_view(http_method_names=["get"]),
                 name=f"work-item-triage{tag}",
+            ),
+            path(
+                f"workspaces/<str:slug>/projects/<uuid:project_id>/meeting-notes/extract{suffix}",
+                MeetingNotesExtractAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"meeting-notes-extract{tag}",
+            ),
+            path(
+                f"workspaces/<str:slug>/projects/<uuid:project_id>/meeting-notes/create{suffix}",
+                MeetingNotesCreateAPIEndpoint.as_view(http_method_names=["post"]),
+                name=f"meeting-notes-create{tag}",
             ),
         )
     ],

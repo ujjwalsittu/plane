@@ -970,6 +970,30 @@
       "none": "No suggestions for this work item.",
       "error": "Could not get suggestions; try again",
       "apply_error": "Could not apply the suggestion"
+    },
+    "meeting_notes": {
+      "open": "From meeting notes",
+      "title": "Work items from meeting notes",
+      "description": "Paste your notes and Claude proposes action items. Nothing is created until you accept. Each request counts toward the workspace's monthly AI limit.",
+      "meeting_title": "Meeting title",
+      "meeting_date": "Meeting date",
+      "notes": "Notes",
+      "notes_placeholder": "Paste the meeting notes here",
+      "find": "Find action items",
+      "back": "Back to notes",
+      "none": "No action items found in these notes.",
+      "include": "Include",
+      "name": "Name",
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "owner_hint": "Notes say: {name}",
+      "due": "Due date",
+      "priority": "Priority",
+      "create": "Create {count, plural, one {# work item} other {# work items}}",
+      "created": "Created {count, plural, one {# work item} other {# work items}}",
+      "cancel": "Cancel",
+      "error": "Could not read the notes; try again",
+      "create_error": "Could not create the work items"
     }
   }
 }

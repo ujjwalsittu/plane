@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // icons
@@ -21,6 +22,7 @@ import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
 // constants
 import { HeaderFilters } from "@/components/issues/filters";
+import { MeetingNotesModal } from "@/components/issues/meeting-notes/modal";
 // helpers
 // hooks
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
@@ -38,8 +40,9 @@ export const IssuesHeader = observer(function IssuesHeader() {
   const projectCrumb = useProjectCrumbProps(workspaceSlug?.toString(), projectId?.toString());
   // store hooks
   const {
-    issues: { getGroupIssueCount },
+    issues: { getGroupIssueCount, fetchIssuesWithExistingPagination },
   } = useIssues(EIssuesStoreType.PROJECT);
+  const [isMeetingNotesOpen, setIsMeetingNotesOpen] = useState(false);
   // i18n
   const { t } = useTranslation();
 
@@ -117,6 +120,30 @@ export const IssuesHeader = observer(function IssuesHeader() {
             canUserCreateIssue={canUserCreateIssue}
           />
         </div>
+        {canUserCreateIssue && workspaceSlug && projectId && (
+          <>
+            <div className="hidden sm:block">
+              <Button
+                variant="secondary"
+                size="md"
+                stretch="auto"
+                type="button"
+                onClick={() => setIsMeetingNotesOpen(true)}
+              >
+                {t("agents.meeting_notes.open")}
+              </Button>
+            </div>
+            <MeetingNotesModal
+              isOpen={isMeetingNotesOpen}
+              workspaceSlug={workspaceSlug.toString()}
+              projectId={projectId.toString()}
+              onClose={() => setIsMeetingNotesOpen(false)}
+              onCreated={() =>
+                void fetchIssuesWithExistingPagination(workspaceSlug.toString(), projectId.toString(), "mutation")
+              }
+            />
+          </>
+        )}
         {canUserCreateIssue && (
           <Button
             variant="primary"

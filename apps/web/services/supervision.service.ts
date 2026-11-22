@@ -11,6 +11,9 @@ import type {
   TBrief,
   TBriefSummary,
   TDecisionRequest,
+  TMeetingNotesCreated,
+  TMeetingNotesExtract,
+  TMeetingProposal,
   TTriageSuggestions,
   TWorkItemWaiting,
 } from "@plane/types";
@@ -59,6 +62,25 @@ export class SupervisionService extends APIService {
     return this.call(
       this.get(`${this.base(workspaceSlug)}/projects/${projectId}/work-items/${issueId}/triage/${query}`)
     );
+  }
+
+  /** Proposed work items from pasted meeting notes; nothing is created.
+   * Rejects with `{ error, field }` when the server refuses (no key, monthly limit, notes too short or long). */
+  extractMeetingNotes(
+    workspaceSlug: string,
+    projectId: string,
+    data: { text: string; title: string; meeting_date: string | null }
+  ): Promise<TMeetingNotesExtract> {
+    return this.call(this.post(`${this.base(workspaceSlug)}/projects/${projectId}/meeting-notes/extract/`, data));
+  }
+
+  /** Creates the accepted items as work items, all or none. Rejects with `{ error, field }`. */
+  createFromMeetingNotes(
+    workspaceSlug: string,
+    projectId: string,
+    data: { items: TMeetingProposal[]; title: string; meeting_date: string | null }
+  ): Promise<TMeetingNotesCreated[]> {
+    return this.call(this.post(`${this.base(workspaceSlug)}/projects/${projectId}/meeting-notes/create/`, data));
   }
 
   markSeen(workspaceSlug: string): Promise<unknown> {

@@ -360,6 +360,16 @@ urlpatterns = [
         name="app-work-item-triage",
     ),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/meeting-notes/extract/",
+        ai_views.MeetingNotesExtractEndpoint.as_view(http_method_names=["post"]),
+        name="app-meeting-notes-extract",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/meeting-notes/create/",
+        ai_views.MeetingNotesCreateEndpoint.as_view(http_method_names=["post"]),
+        name="app-meeting-notes-create",
+    ),
+    path(
         "workspaces/<str:slug>/brief/",
         supervision_views.BriefEndpoint.as_view(http_method_names=["get"]),
         name="app-brief",

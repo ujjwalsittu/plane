@@ -577,6 +577,32 @@ export type TTriageSuggestions = {
   generated_at: string;
 };
 
+/** One action item Claude proposed from meeting notes; the person edits it before accepting. */
+export type TMeetingProposal = {
+  name: string;
+  description: string;
+  assignee_id: string | null;
+  /** The owner's name as written in the notes, kept when no member matched. */
+  owner_hint: string;
+  /** YYYY-MM-DD */
+  target_date: string | null;
+  priority: "urgent" | "high" | "medium" | "low" | "none";
+};
+
+export type TMeetingNotesExtract = {
+  items: TMeetingProposal[];
+  /** The people who can be assigned (active, non-agent project members). */
+  members: { id: string; display_name: string }[];
+};
+
+export type TMeetingNotesCreated = {
+  id: string;
+  name: string;
+  sequence_id: number;
+  project_id: string;
+  project_identifier: string;
+};
+
 export type TWorkItemWaiting = {
   id: string;
   issue_id: string;

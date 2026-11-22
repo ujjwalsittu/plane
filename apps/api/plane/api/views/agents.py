@@ -11,7 +11,8 @@ from plane.api.views.base import BaseAPIView
 from plane.api.views.issue import guest_cannot_view_issue
 from plane.app.permissions import ROLE, ProjectEntityPermission
 from plane.db.models import AgentApproval, AgentRun, Issue, Project, ProjectMember, Workspace, WorkspaceAgent
-from plane.utils import agent_runs, agents, guardrails, loops, managed_agents, triage
+from plane.utils import agent_runs, agents, guardrails, loops, managed_agents, meeting_notes, triage
+from plane.utils.host import base_host
 
 
 def workspace_for(request, slug):
@@ -243,5 +244,67 @@ class WorkItemTriageAPIEndpoint(BaseAPIView):
             return Response({"error": refusal[0]}, status=refusal[1])
         try:
             return Response(triage.suggest(issue, request.user, refresh=request.query_params.get("refresh") == "1"))
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+
+
+def meeting_notes_request(request, slug, project_id):
+    """(project, data, meeting date) for a meeting notes request; raises AgentError when the person may not turn
+    notes into work items in the project or the date is malformed."""
+    project = project_for(request, slug, project_id)
+    if project is None:
+        raise agents.AgentError("Project not found", status.HTTP_404_NOT_FOUND, "error")
+    meeting_notes.require_member(project, request.user)
+    data = _data(request)
+    meeting_date = data.get("meeting_date") or None
+    if meeting_date is not None:
+        parsed = meeting_notes.parse_date(meeting_date)
+        if parsed is None:
+            raise agents.AgentError("Give the meeting date as YYYY-MM-DD", 400, "meeting_date")
+        meeting_date = parsed
+    return project, data, meeting_date
+
+
+def extract_meeting_notes(request, slug, project_id):
+    project, data, meeting_date = meeting_notes_request(request, slug, project_id)
+    items = meeting_notes.extract_action_items(
+        project, request.user, data.get("text"), title=data.get("title") or "", meeting_date=meeting_date
+    )
+    members = [
+        {"id": str(person.id), "display_name": person.display_name}
+        for person in meeting_notes.assignable_people(project)
+    ]
+    return {"items": items, "members": members}
+
+
+def create_from_meeting_notes(request, slug, project_id):
+    project, data, meeting_date = meeting_notes_request(request, slug, project_id)
+    created = meeting_notes.create_action_items(
+        project,
+        request.user,
+        data.get("items"),
+        title=data.get("title") or "",
+        meeting_date=meeting_date,
+        origin=base_host(request=request, is_app=True),
+    )
+    return [meeting_notes.created_payload(issue) for issue in created]
+
+
+class MeetingNotesExtractAPIEndpoint(BaseAPIView):
+    """Proposed work items from pasted meeting notes (`text`, `title`, `meeting_date`); nothing is created."""
+
+    def post(self, request, slug, project_id):
+        try:
+            return Response(extract_meeting_notes(request, slug, project_id))
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
+
+
+class MeetingNotesCreateAPIEndpoint(BaseAPIView):
+    """Create the accepted meeting note items (`items`, `title`) as work items, all or none."""
+
+    def post(self, request, slug, project_id):
+        try:
+            return Response(create_from_meeting_notes(request, slug, project_id), status=status.HTTP_201_CREATED)
         except agents.AgentError as exc:
             return Response({exc.field: exc.message}, status=exc.status_code)

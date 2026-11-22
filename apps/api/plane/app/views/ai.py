@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Session-authenticated (web app) AI features a person starts: Ask the workspace, triage suggestions."""
+"""Session-authenticated (web app) AI features a person starts: Ask the workspace, triage suggestions, meeting
+notes to work items."""
 
 from rest_framework import status
 from rest_framework.response import Response
 
-from plane.api.views.agents import triage_issue, workspace_for
+from plane.api.views.agents import create_from_meeting_notes, extract_meeting_notes, triage_issue, workspace_for
 from plane.api.views.base import BaseAPIView
 from plane.app.permissions import ROLE
 from plane.authentication.session import BaseSessionAuthentication
@@ -56,5 +57,25 @@ class TriageEndpoint(_Session, BaseAPIView):
             return Response({"error": refusal[0], "field": None}, status=refusal[1])
         try:
             return Response(triage.suggest(issue, request.user, refresh=request.query_params.get("refresh") == "1"))
+        except AgentError as exc:
+            return _error(exc)
+
+
+class MeetingNotesExtractEndpoint(_Session, BaseAPIView):
+    """Proposed work items from pasted meeting notes, for the person to edit and accept."""
+
+    def post(self, request, slug, project_id):
+        try:
+            return Response(extract_meeting_notes(request, slug, project_id))
+        except AgentError as exc:
+            return _error(exc)
+
+
+class MeetingNotesCreateEndpoint(_Session, BaseAPIView):
+    """Create the accepted meeting note items as work items, all or none."""
+
+    def post(self, request, slug, project_id):
+        try:
+            return Response(create_from_meeting_notes(request, slug, project_id), status=status.HTTP_201_CREATED)
         except AgentError as exc:
             return _error(exc)
