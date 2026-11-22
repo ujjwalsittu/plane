@@ -355,6 +355,11 @@ urlpatterns = [
     ),
     path("workspaces/<str:slug>/ask/", ai_views.AskEndpoint.as_view(), name="app-ask"),
     path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/triage/",
+        ai_views.TriageEndpoint.as_view(http_method_names=["get"]),
+        name="app-work-item-triage",
+    ),
+    path(
         "workspaces/<str:slug>/brief/",
         supervision_views.BriefEndpoint.as_view(http_method_names=["get"]),
         name="app-brief",

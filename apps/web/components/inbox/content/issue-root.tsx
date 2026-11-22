@@ -20,6 +20,7 @@ import { IssueAttachmentRoot } from "@/components/issues/attachment";
 import type { TIssueOperations } from "@/components/issues/issue-detail";
 import { IssueActivity } from "@/components/issues/issue-detail/issue-activity";
 import { IssueReaction } from "@/components/issues/issue-detail/reactions";
+import { TriageCollapsible } from "@/components/issues/issue-detail-widgets/triage";
 import { IssueTitleInput } from "@/components/issues/title-input";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -53,7 +54,7 @@ export const InboxIssueMainContent = observer(function InboxIssueMainContent(pro
   const { data: currentUser } = useUser();
   const { getUserDetails } = useMember();
   const { loader } = useProjectInbox();
-  const { removeIssue, archiveIssue } = useIssueDetail();
+  const { removeIssue, archiveIssue, createRelation } = useIssueDetail();
   // reload confirmation
   const { setShowAlert } = useReloadConfirmations(isSubmitting === "submitting");
 
@@ -122,6 +123,7 @@ export const InboxIssueMainContent = observer(function InboxIssueMainContent(pro
   if (!issue) return <></>;
 
   if (!issue?.project_id || !issue?.id) return <></>;
+  const workItemId = issue.id;
 
   return (
     <>
@@ -198,6 +200,21 @@ export const InboxIssueMainContent = observer(function InboxIssueMainContent(pro
           )}
         </div>
       </div>
+
+      <TriageCollapsible
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+        issueId={issue.id}
+        createdAt={issue.created_at}
+        assigneeIds={issue.assignee_ids ?? []}
+        labelIds={issue.label_ids ?? []}
+        disabled={!isEditable}
+        onAssign={(memberId) => inboxIssue.updateIssue({ assignee_ids: [...(issue.assignee_ids ?? []), memberId] })}
+        onAddLabel={(labelId) => inboxIssue.updateIssue({ label_ids: [...(issue.label_ids ?? []), labelId] })}
+        onMarkDuplicate={async (relatedId) => {
+          await createRelation(workspaceSlug, projectId, workItemId, "duplicate", [relatedId]);
+        }}
+      />
 
       <div className="py-4">
         <IssueAttachmentRoot

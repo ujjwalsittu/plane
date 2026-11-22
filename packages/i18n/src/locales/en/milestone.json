@@ -952,6 +952,24 @@
       "clear": "Start over",
       "error": "Could not get an answer; try again",
       "hint": "Answers use only what you can see and count toward the workspace's monthly AI limit."
+    },
+    "triage": {
+      "title": "Suggestions",
+      "suggest": "Suggest",
+      "refresh": "Suggest again",
+      "thinking": "Looking at the work item…",
+      "hint": "Claude suggests an owner, labels, a better project and likely duplicates. Each request counts toward the workspace's monthly AI limit.",
+      "assignee": "Assignee",
+      "label": "Label",
+      "project": "Better project",
+      "duplicate": "Possible duplicate",
+      "apply": "Apply",
+      "applied": "Applied",
+      "mark_duplicate": "Mark duplicate",
+      "open_project": "Open project",
+      "none": "No suggestions for this work item.",
+      "error": "Could not get suggestions; try again",
+      "apply_error": "Could not apply the suggestion"
     }
   }
 }

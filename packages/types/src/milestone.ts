@@ -567,6 +567,16 @@ export type TAskTurn = {
   content: string;
 };
 
+export type TTriagePick = { id: string; reason: string };
+
+export type TTriageSuggestions = {
+  assignee: (TTriagePick & { display_name: string }) | null;
+  labels: (TTriagePick & { name: string })[];
+  project: (TTriagePick & { name: string }) | null;
+  duplicates: (TTriagePick & { identifier: string; name: string })[];
+  generated_at: string;
+};
+
 export type TWorkItemWaiting = {
   id: string;
   issue_id: string;

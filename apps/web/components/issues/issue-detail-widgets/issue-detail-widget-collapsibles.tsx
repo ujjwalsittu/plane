@@ -22,6 +22,7 @@ import { WorkItemPagesCollapsible } from "./pages";
 import { WorkLogsCollapsible } from "./work-logs";
 import { RelationsCollapsible } from "./relations";
 import { SubIssuesCollapsible } from "./sub-issues";
+import { TriageCollapsible } from "./triage";
 
 type Props = {
   workspaceSlug: string;
@@ -36,6 +37,8 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
   const { workspaceSlug, projectId, issueId, disabled, issueServiceType, hideWidgets } = props;
   // store hooks
   const {
+    updateIssue,
+    createRelation,
     issue: { getIssueById },
     subIssues: { subIssuesByIssueId },
     attachment: { getAttachmentsCountByIssueId, getAttachmentsUploadStatusByIssueId },
@@ -96,6 +99,24 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
         projectId={projectId}
         issueId={issueId}
         disabled={disabled}
+      />
+      <TriageCollapsible
+        workspaceSlug={workspaceSlug}
+        projectId={projectId}
+        issueId={issueId}
+        createdAt={issue?.created_at}
+        assigneeIds={issue?.assignee_ids ?? []}
+        labelIds={issue?.label_ids ?? []}
+        disabled={disabled}
+        onAssign={(memberId) =>
+          updateIssue(workspaceSlug, projectId, issueId, { assignee_ids: [...(issue?.assignee_ids ?? []), memberId] })
+        }
+        onAddLabel={(labelId) =>
+          updateIssue(workspaceSlug, projectId, issueId, { label_ids: [...(issue?.label_ids ?? []), labelId] })
+        }
+        onMarkDuplicate={async (relatedId) => {
+          await createRelation(workspaceSlug, projectId, issueId, "duplicate", [relatedId]);
+        }}
       />
       <AgentRunsCollapsible workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       <WorkLogsCollapsible workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />

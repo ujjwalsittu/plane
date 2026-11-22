@@ -14,6 +14,7 @@ from plane.api.views.agents import (
     AgentRunFollowUpAPIEndpoint,
     AgentRunsAPIEndpoint,
     AgentRunStepsAPIEndpoint,
+    WorkItemTriageAPIEndpoint,
     WorkspaceAgentsAPIEndpoint,
 )
 
@@ -91,6 +92,11 @@ urlpatterns = [
                 f"{_runs}/<uuid:run_id>/cancel{suffix}",
                 AgentRunCancelAPIEndpoint.as_view(http_method_names=["post"]),
                 name=f"work-item-agent-run-cancel{tag}",
+            ),
+            path(
+                f"workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/triage{suffix}",
+                WorkItemTriageAPIEndpoint.as_view(http_method_names=["get"]),
+                name=f"work-item-triage{tag}",
             ),
         )
     ],

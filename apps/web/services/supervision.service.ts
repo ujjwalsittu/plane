@@ -5,7 +5,15 @@
  */
 
 import { API_BASE_URL } from "@plane/constants";
-import type { TAskAnswer, TAskTurn, TBrief, TBriefSummary, TDecisionRequest, TWorkItemWaiting } from "@plane/types";
+import type {
+  TAskAnswer,
+  TAskTurn,
+  TBrief,
+  TBriefSummary,
+  TDecisionRequest,
+  TTriageSuggestions,
+  TWorkItemWaiting,
+} from "@plane/types";
 import { APIService } from "@/services/api.service";
 
 /** The Brief, decision requests, agent approvals and "waiting on" markers. */
@@ -42,6 +50,15 @@ export class SupervisionService extends APIService {
   /** Rejects with `{ error, field }` when the server refuses (no key, monthly limit, too many questions). */
   ask(workspaceSlug: string, question: string, history: TAskTurn[]): Promise<TAskAnswer> {
     return this.call(this.post(`${this.base(workspaceSlug)}/ask/`, { question, history }));
+  }
+
+  /** Triage suggestions for a work item or intake item; `refresh` asks Claude again instead of using the cache.
+   * Rejects with `{ error, field }` when the server refuses (no key, monthly limit). */
+  triage(workspaceSlug: string, projectId: string, issueId: string, refresh = false): Promise<TTriageSuggestions> {
+    const query = refresh ? "?refresh=1" : "";
+    return this.call(
+      this.get(`${this.base(workspaceSlug)}/projects/${projectId}/work-items/${issueId}/triage/${query}`)
+    );
   }
 
   markSeen(workspaceSlug: string): Promise<unknown> {

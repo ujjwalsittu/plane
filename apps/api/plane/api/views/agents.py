@@ -9,9 +9,9 @@ from rest_framework.response import Response
 
 from plane.api.views.base import BaseAPIView
 from plane.api.views.issue import guest_cannot_view_issue
-from plane.app.permissions import ProjectEntityPermission
-from plane.db.models import AgentApproval, AgentRun, Issue, Project, Workspace, WorkspaceAgent
-from plane.utils import agent_runs, agents, guardrails, loops, managed_agents
+from plane.app.permissions import ROLE, ProjectEntityPermission
+from plane.db.models import AgentApproval, AgentRun, Issue, Project, ProjectMember, Workspace, WorkspaceAgent
+from plane.utils import agent_runs, agents, guardrails, loops, managed_agents, triage
 
 
 def workspace_for(request, slug):
@@ -207,3 +207,41 @@ class AgentLoopsAPIEndpoint(BaseAPIView):
         except agents.AgentError as exc:
             return Response({exc.field: exc.message}, status=exc.status_code)
         return Response([loops.loop_payload(loop) for loop in loops.loops_for(project)])
+
+
+def triage_issue(request, slug, project_id, issue_id):
+    """(work item, None) when the person may get triage suggestions for it, else (None, (message, status)).
+
+    Members and admins of the project only. Intake items sit in a triage state the default work item manager
+    hides, so this looks the item up with the plain manager."""
+    if not ProjectMember.objects.filter(
+        workspace__slug=slug,
+        project_id=project_id,
+        member=request.user,
+        is_active=True,
+        role__gte=ROLE.MEMBER.value,
+        project__archived_at__isnull=True,
+        project__deleted_at__isnull=True,
+    ).exists():
+        return None, ("Only project members can get suggestions", status.HTTP_403_FORBIDDEN)
+    issue = (
+        Issue.objects.filter(workspace__slug=slug, project_id=project_id, pk=issue_id, is_draft=False)
+        .select_related("project", "workspace")
+        .first()
+    )
+    if issue is None:
+        return None, ("Work item not found", status.HTTP_404_NOT_FOUND)
+    return issue, None
+
+
+class WorkItemTriageAPIEndpoint(BaseAPIView):
+    """Suggested assignee, labels, project and duplicates for a work item; `?refresh=1` asks Claude again."""
+
+    def get(self, request, slug, project_id, issue_id):
+        issue, refusal = triage_issue(request, slug, project_id, issue_id)
+        if refusal is not None:
+            return Response({"error": refusal[0]}, status=refusal[1])
+        try:
+            return Response(triage.suggest(issue, request.user, refresh=request.query_params.get("refresh") == "1"))
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
