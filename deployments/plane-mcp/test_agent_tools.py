@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-"""Checks for the fork's MCP bearer auth and agent tools; run inside the built image:
+"""Checks for the fork's MCP bearer auth, agent tools and project_update tool; run inside the built image:
 
     docker run --rm -v "$PWD":/t --entrypoint python plane-mcp-p7 -m unittest -v /t/test_agent_tools.py
 
@@ -20,7 +20,7 @@ from fastmcp.server.auth.auth import AccessToken
 
 from plane_mcp.auth import plane_header_auth_provider as provider_module
 from plane_mcp.auth.plane_header_auth_provider import PlaneHeaderAuthProvider, PlaneUnavailableError
-from plane_mcp.tools import agent_tools
+from plane_mcp.tools import agent_tools, project_update_tools
 
 TOKEN = "plane_api_test_token_value"
 RUN = "11111111-1111-1111-1111-111111111111"
@@ -264,6 +264,63 @@ class AgentToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent["params"], {"after": 7, "types": "issue,decision", "project": PROJECT})
 
 
+class ProjectUpdateToolTests(unittest.IsolatedAsyncioTestCase):
+    """project_update goes through agent_tools' request helper, so it authenticates like the agent tools."""
+
+    def setUp(self):
+        self.requests: list[dict] = []
+        patches = [
+            mock.patch.object(project_update_tools, "get_plane_client_context", return_value=(None, "acme")),
+            mock.patch.object(agent_tools, "_auth_headers", return_value={"x-api-key": TOKEN}),
+            mock.patch.object(agent_tools.httpx, "request", side_effect=self.fake_request),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.mcp = FastMCP("test")
+        for resource in project_update_tools.RESOURCES:
+            resource.register(self.mcp)
+
+    def fake_request(self, method, url, **kwargs):
+        self.requests.append({"method": method, "url": url, **kwargs})
+        return httpx.Response(201, json={"id": RUN}, request=httpx.Request(method, url))
+
+    async def call(self, **arguments):
+        async with Client(self.mcp) as client:
+            result = await client.call_tool("project_update", arguments, raise_on_error=False)
+        return result.content[0].text if result.content else ""
+
+    async def test_project_update_create_posts_health_and_body(self):
+        await self.call(action="create", project_id=PROJECT, health="at_risk", body_html="<p>Slipping</p>")
+        sent = self.requests[0]
+        self.assertEqual(sent["method"], "POST")
+        self.assertTrue(sent["url"].endswith(f"/api/v1/workspaces/acme/projects/{PROJECT}/updates/"))
+        self.assertEqual(sent["json"], {"health": "at_risk", "body_html": "<p>Slipping</p>"})
+        self.assertEqual(sent["headers"], {"x-api-key": TOKEN})
+
+    async def test_plain_text_body_is_escaped_into_paragraphs(self):
+        await self.call(action="create", project_id=PROJECT, health="on_track", body="Done <b>\n\nNext: QA")
+        self.assertEqual(
+            self.requests[0]["json"],
+            {"health": "on_track", "body_html": "<p>Done &lt;b&gt;</p><p>Next: QA</p>"},
+        )
+
+    async def test_health_only_and_list(self):
+        await self.call(action="create", project_id=PROJECT, health="off_track")
+        await self.call(action="list", project_id=PROJECT)
+        self.assertEqual(self.requests[0]["json"], {"health": "off_track"})
+        self.assertEqual(self.requests[1]["method"], "GET")
+        self.assertTrue(self.requests[1]["url"].endswith(f"/projects/{PROJECT}/updates/"))
+
+    async def test_bad_input_is_refused_without_calling_plane(self):
+        self.assertIn("health must be one of", await self.call(action="create", project_id=PROJECT, health="ok"))
+        self.assertIn("health", await self.call(action="create", project_id=PROJECT))
+        self.assertIn("project_id", await self.call(action="list"))
+        text = await self.call(action="create", project_id=PROJECT, health="at_risk", body="a", body_html="<p>b</p>")
+        self.assertIn("not both", text)
+        self.assertEqual(self.requests, [])
+
+
 class RegistryTests(unittest.TestCase):
     def test_patched_registry_advertises_the_agent_tools_and_validates(self):
         from plane_mcp.tools import register_tools
@@ -272,9 +329,10 @@ class RegistryTests(unittest.TestCase):
         mcp = FastMCP("registry")
         count = register_tools(mcp)
         names = {tool.name for tool in asyncio.run(mcp.list_tools())}
-        self.assertTrue({"agent_run", "approval", "event", "workitem"} <= names)
+        self.assertTrue({"agent_run", "approval", "event", "project_update", "workitem"} <= names)
         self.assertEqual(count, len(names))
         self.assertEqual(set(action_arguments()["agent_run"]), {"list", "retrieve", "start", "step", "finish"})
+        self.assertEqual(set(action_arguments()["project_update"]), {"list", "create"})
         alias_table()  # raises on a collision
 
 

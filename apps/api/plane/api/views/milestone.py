@@ -405,9 +405,12 @@ PROJECT_FEATURE_FIELDS = {
     "intakes": "intake_view",
     "work_item_types": "is_issue_type_enabled",
     "milestones": "milestone_view",
+    "parallel_cycles": "parallel_cycles",
 }
+# Toggles that must be a real JSON boolean: a model or caller sending "false" must not turn them on.
+STRICT_BOOL_FEATURES = ("parallel_cycles",)
 # Known to the SDK, not available on this edition.
-UNSUPPORTED_PROJECT_FEATURES = ("workflows", "parallel_cycles", "project_updates")
+UNSUPPORTED_PROJECT_FEATURES = ("workflows",)
 
 
 def _project_features(project):
@@ -416,6 +419,8 @@ def _project_features(project):
         project.is_issue_type_enabled
         and project_issue_types(project.workspace.slug, project.id).filter(is_epic=True).exists()
     )
+    # Project updates (health posts) are built in here and cannot be switched off.
+    data["project_updates"] = True
     for name in UNSUPPORTED_PROJECT_FEATURES:
         data[name] = False
     return data
@@ -438,6 +443,13 @@ class ProjectFeatureAPIEndpoint(BaseAPIView):
                 {"error": f"Not available on this Plane edition: {', '.join(unsupported)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if "project_updates" in data and data["project_updates"] is not True:
+            return Response(
+                {"error": "Project updates are always on in this edition"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        for name in STRICT_BOOL_FEATURES:
+            if name in data and not isinstance(data[name], bool):
+                return Response({"error": f"{name} must be true or false"}, status=status.HTTP_400_BAD_REQUEST)
         changed = []
         for name, field in PROJECT_FEATURE_FIELDS.items():
             if name in data and data[name] is not None:

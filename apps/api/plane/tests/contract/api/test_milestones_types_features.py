@@ -5,12 +5,14 @@
 """v1 milestones, work item types, feature flags and the pql subset, in the
 shapes the Plane SDK / MCP server use."""
 
+from datetime import timedelta
 from unittest import mock
 
 import pytest
+from django.utils import timezone
 from rest_framework import status
 
-from plane.db.models import Issue, IssueType, Milestone, Project, ProjectIssueType, ProjectMember
+from plane.db.models import Cycle, Issue, IssueType, Milestone, Project, ProjectIssueType, ProjectMember
 
 
 @pytest.fixture(autouse=True)
@@ -229,6 +231,78 @@ def test_project_features_and_epics_toggle(api_key_client, workspace, project):
 
     refused = api_key_client.patch(url, {"workflows": True}, format="json")
     assert refused.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_features_report_project_updates_on_and_parallel_cycles_flag(api_key_client, workspace, project):
+    url = _url(workspace, project, "features")
+    features = api_key_client.get(url).data
+    assert features["project_updates"] is True
+    assert features["parallel_cycles"] is False
+
+    Project.objects.filter(pk=project.pk).update(parallel_cycles=True)
+    assert api_key_client.get(url).data["parallel_cycles"] is True
+
+    # Turning project updates on is a no-op; turning them off is refused.
+    assert api_key_client.patch(url, {"project_updates": True}, format="json").status_code == status.HTTP_200_OK
+    refused = api_key_client.patch(url, {"project_updates": False}, format="json")
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    assert refused.data["error"] == "Project updates are always on in this edition"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_parallel_cycles_toggle_and_workflows_still_refused(api_key_client, workspace, project):
+    url = _url(workspace, project, "features")
+    turned_on = api_key_client.patch(url, {"parallel_cycles": True}, format="json")
+    assert turned_on.status_code == status.HTTP_200_OK
+    assert turned_on.data["parallel_cycles"] is True
+    project.refresh_from_db()
+    assert project.parallel_cycles is True
+
+    # A string is not a bool: "false" must not switch anything on or off.
+    for value in ("false", "true", 1, None):
+        bad = api_key_client.patch(url, {"parallel_cycles": value}, format="json")
+        assert bad.status_code == status.HTTP_400_BAD_REQUEST, value
+    project.refresh_from_db()
+    assert project.parallel_cycles is True
+
+    turned_off = api_key_client.patch(url, {"parallel_cycles": False}, format="json")
+    assert turned_off.data["parallel_cycles"] is False
+    project.refresh_from_db()
+    assert project.parallel_cycles is False
+
+    refused = api_key_client.patch(url, {"workflows": True}, format="json")
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    assert refused.data["error"] == "Not available on this Plane edition: workflows"
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+def test_date_check_allows_overlap_when_parallel(session_client, workspace, project, create_user):
+    Cycle.objects.create(
+        name="Sprint 1",
+        project=project,
+        workspace=workspace,
+        owned_by=create_user,
+        start_date=timezone.now(),
+        end_date=timezone.now() + timedelta(days=13),
+    )
+    url = f"/api/workspaces/{workspace.slug}/projects/{project.id}/cycles/date-check/"
+    dates = {
+        "start_date": (timezone.now() + timedelta(days=2)).date().isoformat(),
+        "end_date": (timezone.now() + timedelta(days=9)).date().isoformat(),
+    }
+
+    refused = session_client.post(url, dates, format="json")
+    assert refused.status_code == status.HTTP_200_OK
+    assert refused.data["status"] is False
+
+    Project.objects.filter(pk=project.pk).update(parallel_cycles=True)
+    allowed = session_client.post(url, dates, format="json")
+    assert allowed.status_code == status.HTTP_200_OK
+    assert allowed.data == {"status": True}
 
 
 @pytest.mark.contract

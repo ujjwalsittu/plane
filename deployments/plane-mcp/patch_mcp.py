@@ -9,6 +9,7 @@
 - workitem create/update: completed_at (for imports)
 - workitem_property options: color
 - agent_run, approval and event tools (agent_tools.py), registered next to the upstream resources
+- project_update tool (project_update_tools.py), registered the same way
 
 The SDK's request models drop unknown fields (extra="ignore"); the patched ones allow them, and the
 tools pass the new arguments through. Every replacement must find its anchor, so a new MCP version
@@ -149,8 +150,18 @@ replace(
 # --- agent tools --------------------------------------------------------------------------------
 # Runs, approvals and events: the module is copied in and its RESOURCES appended to the registry.
 shutil.copy("/tmp/agent_tools.py", TOOLS / "agent_tools.py")
+# Project updates: same pattern; the module reuses agent_tools' request and auth headers.
+shutil.copy("/tmp/project_update_tools.py", TOOLS / "project_update_tools.py")
 registry = TOOLS / "registry.py"
-replace(registry, "from plane_mcp.tools import (\n    collection,\n", "from plane_mcp.tools import agent_tools\nfrom plane_mcp.tools import (\n    collection,\n")
-replace(registry, "    template,\n    collection,\n)\n", "    template,\n    collection,\n    *agent_tools.RESOURCES,\n)\n")
+replace(
+    registry,
+    "from plane_mcp.tools import (\n    collection,\n",
+    "from plane_mcp.tools import agent_tools, project_update_tools\nfrom plane_mcp.tools import (\n    collection,\n",
+)
+replace(
+    registry,
+    "    template,\n    collection,\n)\n",
+    "    template,\n    collection,\n    *agent_tools.RESOURCES,\n    *project_update_tools.RESOURCES,\n)\n",
+)
 
 print("patch_mcp: applied")

@@ -536,6 +536,10 @@ class CycleDateCheckEndpoint(BaseAPIView):
             project_id=project_id,
         )
 
+        # Projects with parallel cycles allow overlapping dates.
+        if Project.objects.filter(pk=project_id, workspace__slug=slug, parallel_cycles=True).exists():
+            return Response({"status": True}, status=status.HTTP_200_OK)
+
         # Check if any cycle intersects in the given interval
         cycles = Cycle.objects.filter(
             Q(workspace__slug=slug)

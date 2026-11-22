@@ -127,6 +127,8 @@ class Project(ChangeTrackerMixin, BaseModel):
     is_time_tracking_enabled = models.BooleanField(default=False)
     is_issue_type_enabled = models.BooleanField(default=False)
     milestone_view = models.BooleanField(default=False)
+    # Cycles may overlap in time (the date check stops refusing overlapping dates).
+    parallel_cycles = models.BooleanField(default=False)
     guest_view_all_features = models.BooleanField(default=False)
     cover_image = models.TextField(blank=True, null=True)
     cover_image_asset = models.ForeignKey(
