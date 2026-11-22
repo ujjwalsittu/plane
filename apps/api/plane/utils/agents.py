@@ -114,7 +114,7 @@ def _clean_owner(workspace, value):
 
 
 def _clean_permission(value):
-    if value not in dict(WorkspaceAgent.PERMISSION_CHOICES):
+    if not isinstance(value, str) or value not in dict(WorkspaceAgent.PERMISSION_CHOICES):
         raise AgentError("Permission must be read, contribute or manage", 400, "permission")
     return value
 
@@ -233,6 +233,7 @@ def update_agent(agent, data, actor):
             if WorkspaceAgent.objects.filter(workspace=agent.workspace, name=agent.name).exclude(pk=agent.pk).exists():
                 raise AgentError("An agent with this name already exists", 400, "name")
             User.objects.filter(pk=agent.user_id).update(display_name=agent.name, first_name=agent.name)
+            APIToken.objects.filter(user_id=agent.user_id, is_active=True).update(label=f"agent:{agent.name}")
         if "description" in data:
             agent.description = data["description"] or ""
         if "owner" in data:

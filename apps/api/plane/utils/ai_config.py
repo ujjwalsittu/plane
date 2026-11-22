@@ -130,14 +130,26 @@ def update_settings(workspace, data, actor):
         fields["model"] = _clean_model(data["model"])
     if "monthly_limit_cents" in data:
         fields["monthly_limit_cents"] = _clean_limit(data["monthly_limit_cents"])
-    if data.get("api_key") is not None:
+    new_key = data.get("api_key") is not None
+    if new_key:
         set_api_key(workspace, data["api_key"], actor)
     config = get_config(workspace)
+    model_changed = "model" in fields and fields["model"] != config.model
     if fields:
         for name, value in fields.items():
             setattr(config, name, value)
         config.save(update_fields=[*fields, "updated_at"])
+    if (model_changed or new_key) and config.ma_environment_id:
+        _resync_cloud_agents(workspace)
     return config
+
+
+def _resync_cloud_agents(workspace):
+    """Cloud agents follow the workspace model and key: queue a sync for every active agent."""
+    from plane.utils.managed_agents import queue_sync
+
+    for agent in WorkspaceAgent.objects.filter(workspace=workspace, is_active=True).select_related("workspace"):
+        queue_sync(agent)
 
 
 def agent_cloud_ready(agent):

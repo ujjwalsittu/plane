@@ -152,6 +152,16 @@ def sync_vault(agent, token, client=None):
     agent.save(update_fields=["ma_vault_token_id", "updated_at"])
 
 
+def sync_vault_name(agent, client=None):
+    """A renamed agent's vault follows: its display name is plane-<workspace slug>-<agent name>."""
+    if not agent.ma_vault_id:
+        return
+    vaults = _client(agent.workspace, client).beta.vaults
+    name = f"plane-{agent.workspace.slug}-{agent.name}"
+    if vaults.retrieve(agent.ma_vault_id).display_name != name:
+        vaults.update(agent.ma_vault_id, display_name=name)
+
+
 def archive_ma_agent(agent, client=None):
     """A deactivated agent can't start new cloud sessions, and its vault (and token) is purged."""
     beta = _client(agent.workspace, client).beta
@@ -202,6 +212,10 @@ def sync_agent(agent):
             sync_vault(agent, token.token)
         except Exception as exc:
             _record_error(agent.workspace, agent, exc)
+    try:
+        sync_vault_name(agent)
+    except Exception as exc:
+        _record_error(agent.workspace, agent, exc)
 
 
 def queue_sync(agent):

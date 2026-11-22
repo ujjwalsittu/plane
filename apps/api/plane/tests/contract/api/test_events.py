@@ -5,12 +5,13 @@
 """Workspace event log: the cursor feed, the live stream and the webhooks for the newer event kinds."""
 
 import json
+import time
 from contextlib import contextmanager
 from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from django.db import connection
 from django.test import AsyncClient, RequestFactory
 from django.utils import timezone
@@ -231,7 +232,7 @@ def test_stream_sends_events_and_ping(monkeypatch, workspace, project, issue, cr
     assert response.status_code == 200
     assert response["Content-Type"] == "text/event-stream"
     assert response["Cache-Control"] == "no-cache" and response["X-Accel-Buffering"] == "no"
-    assert frames[0].startswith(":")
+    assert frames[0] == "retry: 5000\n\n"
     assert frames[1].startswith(f"id: {first.id}\nevent: milestone\ndata: ")
     assert json.loads(frames[1].split("data: ", 1)[1])["action"] == "created"
     assert frames[2].startswith(f"id: {second.id}\n")  # the hidden project's row never appears
@@ -348,7 +349,7 @@ def test_stream_through_middleware_is_not_gzipped(monkeypatch, mock_celery, work
         response, body = async_to_sync(run)()
     assert response.status_code == 200 and response["Content-Type"] == "text/event-stream"
     assert "Content-Encoding" not in response or response["Content-Encoding"] != "gzip"
-    assert body.startswith(b": connected\n\n") and f"id: {event.id}\n".encode() in body
+    assert body.startswith(b"retry: 5000\n\n") and f"id: {event.id}\n".encode() in body
     # The API token log row is written without a body, and the logger didn't fail on the streaming response
     logged.assert_not_called()
     log_data = mock_celery.call_args.kwargs["log_data"]
@@ -425,3 +426,36 @@ def test_bulk_delete_reaches_feed(session_client, workspace, project, issue):
     assert response.status_code == 200, response.data
     rows = _deleted_rows(workspace, "issue")
     assert {r.entity_id for r in rows} == {issue.id, second.id} and len(rows) == 2
+
+
+def test_stream_sends_retry_first(monkeypatch, workspace, project, create_user):
+    monkeypatch.setattr(events_views, "STREAM_MAX_SECONDS", 0.2)
+    _, _, token = _agent(workspace, create_user, [project])
+
+    async def run():
+        response = await events_views.workspace_events_stream(_stream_request(token, workspace), workspace.slug)
+        return await _collect(response, 1)
+
+    assert async_to_sync(run)() == ["retry: 5000\n\n"]
+
+
+def test_stream_ends_after_member_removed(monkeypatch, workspace, project, create_user):
+    monkeypatch.setattr(events_views, "STREAM_POLL_SECONDS", 0.02)
+    monkeypatch.setattr(events_views, "STREAM_MAX_SECONDS", 5)
+    monkeypatch.setattr(events_views, "MEMBERSHIP_CHECK_SECONDS", 0.1)
+    agent, _, _ = _agent(workspace, create_user, [project])
+
+    async def run():
+        frames = []
+        async for frame in events_views._generate(workspace, agent.user, 0, None, None):
+            frames.append(frame)
+            if len(frames) == 1:
+                # Removed while the stream is open
+                await sync_to_async(WorkspaceMember.objects.filter(workspace=workspace, member=agent.user).update)(
+                    is_active=False
+                )
+        return frames
+
+    started = time.monotonic()
+    assert async_to_sync(run)() == ["retry: 5000\n\n"]
+    assert time.monotonic() - started < 3

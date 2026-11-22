@@ -246,6 +246,57 @@ class TestManagedAgents:
         assert not WorkspaceAIConfig.objects.filter(workspace=workspace).exclude(ma_environment_id="").exists()
         assert session_client.get(SETTINGS_URL).data["cloud_agents_ready"] is False
 
+    def test_rename_updates_the_vault_display_name(self, session_client, workspace, create_user, client, run_tasks):
+        agent, _ = _agent(workspace, create_user)
+        assert _setup(session_client).status_code == 200
+        client.beta.vaults.retrieve.return_value = SimpleNamespace(
+            id="vlt_1", display_name="plane-test-workspace-Builder"
+        )
+        with run_tasks():
+            agents.update_agent(WorkspaceAgent.objects.get(pk=agent.pk), {"name": "Maker"}, create_user)
+        client.beta.vaults.update.assert_called_once_with("vlt_1", display_name="plane-test-workspace-Maker")
+
+        # Already named right: nothing to update
+        client.beta.vaults.update.reset_mock()
+        client.beta.vaults.retrieve.return_value = SimpleNamespace(
+            id="vlt_1", display_name="plane-test-workspace-Maker"
+        )
+        managed_agents.sync_agent(WorkspaceAgent.objects.get(pk=agent.pk))
+        client.beta.vaults.update.assert_not_called()
+
+    def test_model_change_resyncs_cloud_agents(
+        self, session_client, workspace, create_user, client, django_capture_on_commit_callbacks
+    ):
+        first, _ = _agent(workspace, create_user, "One")
+        second, _ = _agent(workspace, create_user, "Two")
+        deactivated, _ = _agent(workspace, create_user, "Three")
+        agents.deactivate_agent(WorkspaceAgent.objects.get(pk=deactivated.pk), create_user)
+        model = "claude-opus-4-7"
+
+        # Not set up for cloud agents: nothing queued
+        with patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay") as delay:
+            with django_capture_on_commit_callbacks(execute=True):
+                assert session_client.put(SETTINGS_URL, {"model": model}, format="json").status_code == 200
+        delay.assert_not_called()
+
+        assert _setup(session_client).status_code == 200
+        with patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay") as delay:
+            with django_capture_on_commit_callbacks(execute=True):
+                response = session_client.put(SETTINGS_URL, {"model": "claude-sonnet-4-6"}, format="json")
+            assert response.status_code == 200, response.data
+            assert sorted(c.args[0] for c in delay.call_args_list) == sorted([str(first.id), str(second.id)])
+
+            # A limit-only change does not resync
+            delay.reset_mock()
+            with django_capture_on_commit_callbacks(execute=True):
+                session_client.put(SETTINGS_URL, {"monthly_limit_cents": 5000}, format="json")
+            delay.assert_not_called()
+
+            # A new key does
+            with patch("anthropic.Anthropic"), django_capture_on_commit_callbacks(execute=True):
+                assert session_client.put(SETTINGS_URL, {"api_key": "sk-ant-new-key"}, format="json").status_code == 200
+            assert delay.call_count == 2
+
 
 @pytest.mark.contract
 @pytest.mark.django_db

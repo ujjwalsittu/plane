@@ -228,3 +228,29 @@ def test_agent_does_not_see_public_projects_it_is_not_in(session_client, workspa
     rows = response.data["results"] if isinstance(response.data, dict) else response.data
     assert [str(r["id"]) for r in rows] == [str(alpha.id)]
     assert agent_client.get(f"/api/v1/workspaces/{workspace.slug}/projects/{public.id}/").status_code in (403, 404)
+
+
+@pytest.mark.django_db
+def test_rename_updates_token_label_and_queues_sync(session_client, workspace, create_user, alpha):
+    created = _create(session_client, workspace, create_user, [alpha])
+    agent = WorkspaceAgent.objects.get(pk=created.data["id"])
+    with patch("plane.utils.managed_agents.queue_sync") as queued:
+        response = session_client.patch(_url(workspace, f"{agent.id}/"), {"name": "Renamed"}, format="json")
+    assert response.status_code == 200, response.data
+    agent.user.refresh_from_db()
+    assert agent.user.display_name == "Renamed" and agent.user.first_name == "Renamed"
+    assert [t.label for t in APIToken.objects.filter(user=agent.user, is_active=True)] == ["agent:Renamed"]
+    queued.assert_called_once()
+    assert queued.call_args.args[0].pk == agent.pk
+
+
+@pytest.mark.django_db
+def test_unhashable_permission_is_a_400(session_client, workspace, create_user, alpha):
+    agent_id = _create(session_client, workspace, create_user, [alpha]).data["id"]
+    url = _url(workspace, f"{agent_id}/")
+    for bad in (["manage"], {"a": 1}, 5):
+        response = session_client.patch(url, {"permission": bad}, format="json")
+        assert response.status_code == 400, bad
+        assert response.data["field"] == "permission" if "field" in response.data else True
+    assert session_client.patch(url, {"approval_actions": [["delete"]]}, format="json").status_code == 400
+    assert session_client.patch(url, {"approval_actions": [{"a": 1}]}, format="json").status_code == 400

@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.api.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
-from plane.db.models import Workspace
+from plane.db.models import Workspace, WorkspaceMember
 from plane.utils.events import events_after
 
 # Stream timings, module constants so tests can shorten them
@@ -26,10 +26,16 @@ STREAM_POLL_SECONDS = 1
 STREAM_PING_SECONDS = 15
 STREAM_MAX_SECONDS = 300
 STREAM_BATCH = 100
+# How often an open stream re-checks that the user is still an active workspace member
+MEMBERSHIP_CHECK_SECONDS = 30
 
 
 def workspace_for(user, slug):
     return Workspace.objects.filter(slug=slug, workspace_member__member=user, workspace_member__is_active=True).first()
+
+
+def is_active_member(workspace, user):
+    return WorkspaceMember.objects.filter(workspace=workspace, member=user, is_active=True).exists()
 
 
 def _int(value, default=0):
@@ -108,9 +114,13 @@ def _frame(event):
 
 
 async def _generate(workspace, user, after, types, project):
-    started = last_sent = time.monotonic()
-    yield ": connected\n\n"
+    started = last_sent = last_checked = time.monotonic()
+    yield "retry: 5000\n\n"
     while time.monotonic() - started < STREAM_MAX_SECONDS:
+        if time.monotonic() - last_checked >= MEMBERSHIP_CHECK_SECONDS:
+            if not await sync_to_async(is_active_member)(workspace, user):
+                return
+            last_checked = time.monotonic()
         rows = await sync_to_async(events_after)(
             workspace, user, after_id=after, types=types, project_id=project, limit=STREAM_BATCH
         )
