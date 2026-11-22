@@ -167,6 +167,18 @@ MANAGED_FIELDS = {"delegated_by", "external_session_id", "external_url", "status
 PATCH_STATUSES = ("running", "waiting")
 
 
+def close_external_runs(agent):
+    """Cancel the open external runs the agent reported (its session is gone with it); returns how many closed."""
+    closed = 0
+    for run in AgentRun.objects.filter(kind="external", actor_id=agent.user_id, status__in=OPEN_STATUSES):
+        try:
+            finish_run(run, "cancelled", summary="Cancelled because the agent was deactivated")
+        except AgentError:
+            continue  # finished concurrently
+        closed += 1
+    return closed
+
+
 def update_managed_run(run, **fields):
     """Plane's own writes to a cloud run (no actor check): delegated_by, external_session_id, external_url, a
     non-terminal status, token totals and cost_cents. A status change touches last_event_at and is one feed

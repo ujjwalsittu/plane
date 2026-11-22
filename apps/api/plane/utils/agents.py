@@ -46,10 +46,24 @@ def _sync_cloud_agent(agent):
 
 
 def on_agent_deactivated(agent):
-    """Work that stops with the agent: its open cloud runs are cancelled and their sessions interrupted."""
+    """Work that stops with the agent: its open cloud runs are cancelled and their sessions interrupted, its
+    open approvals expire, and the external runs it reported are closed. Each step is independent."""
+    from plane.utils.agent_runs import close_external_runs
+    from plane.utils.guardrails import expire_open_approvals
     from plane.utils.managed_agents import cancel_agent_runs
 
-    cancel_agent_runs(agent)
+    steps = (
+        lambda: cancel_agent_runs(agent),
+        lambda: expire_open_approvals(AgentApproval.objects.filter(agent=agent, status="open")),
+        lambda: close_external_runs(agent),
+    )
+    for step in steps:
+        try:
+            # A savepoint, so a failed database write in one step leaves the connection usable for the next
+            with transaction.atomic():
+                step()
+        except Exception as exc:
+            log_exception(exc)
 
 
 def _require_admin(workspace, actor):

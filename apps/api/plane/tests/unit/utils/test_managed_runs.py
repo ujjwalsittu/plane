@@ -20,6 +20,7 @@ from rest_framework.test import APIClient
 
 from plane.bgtasks import agent_runs_task
 from plane.db.models import (
+    AgentApproval,
     AgentRun,
     DecisionRequest,
     GitHubInstallation,
@@ -28,6 +29,7 @@ from plane.db.models import (
     Issue,
     IssueComment,
     Milestone,
+    Notification,
     Project,
     ProjectMember,
     State,
@@ -608,6 +610,112 @@ class TestManagedRuns:
             agents.deactivate_agent(agent, create_user)
         agent.refresh_from_db()
         assert agent.is_active is False
+        archive.assert_called_once_with(str(agent.id))
+        logged.assert_called_once()
+
+    def _approval(self, workspace, project, agent, user, n, status="open"):
+        approval = AgentApproval.objects.create(
+            workspace=workspace,
+            project=project,
+            agent=agent,
+            asked_user=user,
+            action="delete",
+            summary=f"delete item {n}",
+            method="DELETE",
+            path=f"/api/v1/x/{n}/",
+            status=status,
+        )
+        note = Notification.objects.create(
+            workspace=workspace,
+            project=project,
+            receiver=user,
+            entity_name="approval",
+            title=f"approval {n}",
+            data={"approval": {"id": str(approval.id)}},
+        )
+        return approval, note
+
+    def test_deactivating_agent_expires_its_approvals(
+        self, workspace, project, agent, create_user, client, django_capture_on_commit_callbacks
+    ):
+        first, first_note = self._approval(workspace, project, agent, create_user, 1)
+        second, second_note = self._approval(workspace, project, agent, create_user, 2)
+        executed, executed_note = self._approval(workspace, project, agent, create_user, 3, status="executed")
+        with (
+            patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay"),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            agents.deactivate_agent(agent, create_user)
+        for approval, note in ((first, first_note), (second, second_note)):
+            approval.refresh_from_db()
+            note.refresh_from_db()
+            assert approval.status == "expired"
+            assert note.read_at is not None
+        executed.refresh_from_db()
+        executed_note.refresh_from_db()
+        assert executed.status == "executed"
+        assert executed_note.read_at is None
+
+    def test_deactivating_agent_closes_its_external_runs(
+        self, issue, agent, create_user, client, django_capture_on_commit_callbacks
+    ):
+        now = timezone.now()
+
+        def external(actor, status="running"):
+            return AgentRun.objects.create(
+                project=issue.project,
+                issue=issue,
+                agent=agent,
+                actor=actor,
+                kind="external",
+                status=status,
+                started_at=now,
+            )
+
+        reported = external(agent.user)
+        waiting = external(agent.user, status="waiting")
+        done = external(agent.user, status="succeeded")
+        persons = external(create_user)
+        with (
+            patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay"),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            agents.deactivate_agent(agent, create_user)
+        for run in (reported, waiting):
+            run.refresh_from_db()
+            assert run.status == "cancelled" and run.ended_at is not None
+            assert run.summary == "Cancelled because the agent was deactivated"
+        done.refresh_from_db()
+        persons.refresh_from_db()
+        assert done.status == "succeeded"
+        assert persons.status == "running"
+
+    def test_deactivation_steps_are_independent(
+        self, workspace, project, issue, agent, create_user, client, django_capture_on_commit_callbacks
+    ):
+        approval, _ = self._approval(workspace, project, agent, create_user, 1)
+        run = AgentRun.objects.create(
+            project=issue.project,
+            issue=issue,
+            agent=agent,
+            actor=agent.user,
+            kind="external",
+            status="running",
+            started_at=timezone.now(),
+        )
+        with (
+            patch("plane.utils.guardrails.expire_open_approvals", side_effect=RuntimeError("boom")),
+            patch("plane.utils.agents.log_exception") as logged,
+            patch("plane.bgtasks.cloud_agents_task.sync_cloud_agent.delay") as archive,
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            agents.deactivate_agent(agent, create_user)
+        agent.refresh_from_db()
+        run.refresh_from_db()
+        approval.refresh_from_db()
+        assert agent.is_active is False
+        assert run.status == "cancelled"
+        assert approval.status == "open"
         archive.assert_called_once_with(str(agent.id))
         logged.assert_called_once()
 
