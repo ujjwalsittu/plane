@@ -18,6 +18,7 @@ from plane.db.models import (
     Customer,
     CustomerRequest,
     CustomerRequestIssue,
+    FileAsset,
     Issue,
     Project,
     ProjectMember,
@@ -508,6 +509,28 @@ def test_requests_and_work_item_links(api_key_client, workspace, create_user):
     assert api_key_client.get(one_request).status_code == 404
     assert not CustomerRequestIssue.objects.filter(customer_request_id=request_data["id"]).exists()
     assert _json(api_key_client.get(f"{customers}/{customer['id']}"))["customer_request_count"] == 0
+
+
+def test_website_url_and_logo_are_checked(api_key_client, workspace, create_user):
+    customers = f"{_base(workspace)}/customers"
+    for bad in ("javascript:alert(1)", "ftp://acme.test", "acme"):
+        response = api_key_client.post(customers, {"name": "Acme", "website_url": bad}, format="json")
+        assert response.status_code == 400, bad
+        assert "website_url" in _json(response)["error"]
+
+    project = _project(workspace, create_user, "Support", "SUP")
+    attachment = FileAsset.objects.create(
+        asset="a.png", workspace=workspace, project=project, entity_type="ISSUE_ATTACHMENT"
+    )
+    logo = FileAsset.objects.create(asset="logo.png", workspace=workspace, entity_type="WORKSPACE_LOGO")
+    # A project's file would show to people outside the project
+    response = api_key_client.post(customers, {"name": "Acme", "logo_asset": str(attachment.id)}, format="json")
+    assert response.status_code == 400
+    response = api_key_client.post(
+        customers, {"name": "Acme", "website_url": "https://acme.test", "logo_asset": str(logo.id)}, format="json"
+    )
+    assert response.status_code == 201, response.content
+    assert _json(response)["logo_asset"] == str(logo.id)
 
 
 def test_guest_cannot_read_customers(api_key_client, workspace):

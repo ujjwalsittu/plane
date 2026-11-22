@@ -143,7 +143,7 @@ def apply_customer(customer, data, partial):
                 raise CustomerError("email is not a valid address", field="email")
         customer.email = email
     if "website_url" in data:
-        customer.website_url = text(data, "website_url", max_length=800)
+        customer.website_url = url(data, "website_url")
     if "logo_props" in data:
         customer.logo_props = json_object(data, "logo_props")
     for field in ("domain", "stage", "contract_status", "revenue", "external_source", "external_id"):
@@ -160,8 +160,11 @@ def apply_customer(customer, data, partial):
         asset_id = data.get("logo_asset")
         if asset_id is not None:
             asset_id = uuid_string(asset_id, "logo_asset")
-            if not FileAsset.objects.filter(pk=asset_id, workspace_id=customer.workspace_id).exists():
-                raise CustomerError("logo_asset is not a file in this workspace", field="logo_asset")
+            # Workspace-level files only (no project): a project's attachment would show to people outside it
+            if not FileAsset.objects.filter(
+                pk=asset_id, workspace_id=customer.workspace_id, project_id__isnull=True
+            ).exists():
+                raise CustomerError("logo_asset is not a workspace file in this workspace", field="logo_asset")
         customer.logo_asset_id = asset_id
 
     others = Customer.objects.filter(workspace_id=customer.workspace_id).exclude(pk=customer.pk)
