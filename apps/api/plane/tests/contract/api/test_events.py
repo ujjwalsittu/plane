@@ -5,6 +5,7 @@
 """Workspace event log: the cursor feed, the live stream and the webhooks for the newer event kinds."""
 
 import json
+from contextlib import contextmanager
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -17,11 +18,13 @@ from rest_framework.test import APIClient
 
 from plane.api.views import events as events_views
 from plane.bgtasks.events_task import prune_events as prune_events_task
+from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.webhook_task import webhook_activity
 from plane.db.models import (
     APIToken,
     DecisionRequest,
     Issue,
+    IssueComment,
     Project,
     ProjectMember,
     State,
@@ -351,3 +354,74 @@ def test_stream_through_middleware_is_not_gzipped(monkeypatch, mock_celery, work
     log_data = mock_celery.call_args.kwargs["log_data"]
     assert log_data["path"] == f"/api/v1/workspaces/{workspace.slug}/events/stream/"
     assert log_data["response_code"] == 200 and log_data["response_body"] is None
+
+
+@contextmanager
+def _run_activity_tasks():
+    """Run the activity and webhook tasks inline, as the workers do, so deletes land in the feed."""
+    with (
+        patch.object(issue_activity, "delay", side_effect=issue_activity),
+        patch.object(webhook_activity, "delay", side_effect=webhook_activity),
+        patch("plane.bgtasks.issue_activities_task.notifications.delay"),
+    ):
+        yield
+
+
+def _deleted_rows(workspace, event):
+    return list(WorkspaceEvent.objects.filter(workspace=workspace, event=event, action="deleted"))
+
+
+def test_app_delete_reaches_feed(session_client, workspace, project, issue, create_user):
+    with _run_activity_tasks():
+        response = session_client.delete(f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/")
+    assert response.status_code == 204
+    rows = _deleted_rows(workspace, "issue")
+    assert [(r.entity_id, r.is_agent, r.project_id) for r in rows] == [(issue.id, False, project.id)]
+
+
+def test_approved_agent_delete_emits_issue_deleted(session_client, workspace, project, create_user):
+    agent, agent_client, _ = _agent(workspace, create_user, [project])
+    created = agent_client.post(
+        f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/issues/", {"name": "Agent item"}, format="json"
+    )
+    assert created.status_code == 201, created.data
+    url = f"/api/v1/workspaces/{workspace.slug}/projects/{project.id}/issues/{created.data['id']}/"
+    with _run_activity_tasks():
+        held = agent_client.delete(url)
+        assert held.status_code == 403 and held.data["error"] == "approval_required"
+        approved = session_client.post(
+            f"/api/workspaces/{workspace.slug}/approvals/{held.data['approval_id']}/approve/"
+        )
+    assert approved.status_code == 200, approved.data
+    rows = WorkspaceEvent.objects.filter(workspace=workspace, event__in=("approval", "issue"))
+    actions = {(r.event, r.action): r for r in rows if r.action in ("approved", "executed", "deleted")}
+    assert {("approval", "approved"), ("approval", "executed"), ("issue", "deleted")} <= set(actions)
+    deleted = actions[("issue", "deleted")]
+    assert deleted.is_agent is True and str(deleted.entity_id) == str(created.data["id"])
+    assert deleted.project_id == project.id
+
+
+def test_comment_delete_reaches_feed(session_client, workspace, project, issue, create_user):
+    comment = IssueComment.objects.create(
+        issue=issue, project=project, workspace=workspace, comment_html="<p>Hi</p>", actor=create_user
+    )
+    base = f"/api/workspaces/{workspace.slug}/projects/{project.id}/issues/{issue.id}/comments/{comment.id}/"
+    with _run_activity_tasks():
+        assert session_client.delete(base).status_code == 204
+    rows = _deleted_rows(workspace, "issue_comment")
+    assert [(r.entity_id, r.issue_id, r.project_id, r.is_agent) for r in rows] == [
+        (comment.id, issue.id, project.id, False)
+    ]
+
+
+def test_bulk_delete_reaches_feed(session_client, workspace, project, issue):
+    second = Issue.objects.create(name="Two", project=project, workspace=workspace)
+    with _run_activity_tasks():
+        response = session_client.delete(
+            f"/api/workspaces/{workspace.slug}/projects/{project.id}/bulk-delete-issues/",
+            {"issue_ids": [str(issue.id), str(second.id)]},
+            format="json",
+        )
+    assert response.status_code == 200, response.data
+    rows = _deleted_rows(workspace, "issue")
+    assert {r.entity_id for r in rows} == {issue.id, second.id} and len(rows) == 2

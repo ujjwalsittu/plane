@@ -786,7 +786,8 @@ class BulkDeleteIssuesEndpoint(BaseAPIView):
 
         issues = Issue.issue_objects.filter(workspace__slug=slug, project_id=project_id, pk__in=issue_ids)
 
-        total_issues = len(issues)
+        deleted_ids = [str(pk) for pk in issues.values_list("pk", flat=True)]
+        total_issues = len(deleted_ids)
 
         # First, delete all related cycle issues
         CycleIssue.objects.filter(issue__in=issues).delete()
@@ -796,6 +797,20 @@ class BulkDeleteIssuesEndpoint(BaseAPIView):
 
         # Finally, delete the issues themselves
         issues.delete()
+
+        for deleted_id in deleted_ids:
+            issue_activity.delay(
+                type="issue.activity.deleted",
+                requested_data=json.dumps({"issue_id": deleted_id}),
+                actor_id=str(request.user.id),
+                issue_id=deleted_id,
+                project_id=str(project_id),
+                current_instance={},
+                epoch=int(timezone.now().timestamp()),
+                notification=True,
+                origin=base_host(request=request, is_app=True),
+                subscriber=False,
+            )
 
         return Response(
             {"message": f"{total_issues} issues were deleted"},

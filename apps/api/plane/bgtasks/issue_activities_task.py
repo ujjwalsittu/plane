@@ -1627,6 +1627,10 @@ def create_intake_activity(
         )
 
 
+# Deletes never pass through model_activity, so they reach the event feed and webhooks from here.
+DELETE_EVENTS = {"issue.activity.deleted": "issue", "comment.activity.deleted": "issue_comment"}
+
+
 # Receive message from room group
 @shared_task
 def issue_activity(
@@ -1717,6 +1721,32 @@ def issue_activity(
 
         # Save all the values to database
         issue_activities_created = IssueActivity.objects.bulk_create(issue_activities)
+
+        if type in DELETE_EVENTS:
+            try:
+                from plane.bgtasks.webhook_task import webhook_activity
+
+                if type == "comment.activity.deleted":
+                    data = json.loads(requested_data) if isinstance(requested_data, str) else requested_data
+                    event_id = (data or {}).get("comment_id")
+                else:
+                    event_id = issue_id
+                if event_id:
+                    webhook_activity.delay(
+                        event=DELETE_EVENTS[type],
+                        verb="deleted",
+                        field=None,
+                        old_value=None,
+                        new_value=None,
+                        actor_id=actor_id,
+                        slug=project.workspace.slug,
+                        current_site=origin,
+                        event_id=event_id,
+                        old_identifier=None,
+                        new_identifier=None,
+                    )
+            except Exception as e:  # noqa: BLE001 - must never break activity tracking
+                log_exception(e)
 
         # Two-way GitHub issue sync: push changes made in Plane (never the GitHub bot's own).
         try:
