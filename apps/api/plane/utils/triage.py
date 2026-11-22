@@ -66,8 +66,9 @@ TOOL = {
 }
 
 
-def cache_key(issue):
-    return f"triage:{issue.id}:{int(issue.updated_at.timestamp())}"
+def cache_key(issue, user):
+    """Per item and per person: an answer is built from what that person can see, reasons included."""
+    return f"triage:{issue.id}:{user.id}:{int(issue.updated_at.timestamp())}"
 
 
 def _identifier(issue):
@@ -331,7 +332,9 @@ def _checked(raw, allowed, issue):
 
 
 def _for_viewer(result, issue, user):
-    """A cached answer, re-checked for the person viewing it now: the cache is per item, not per person."""
+    """The person's own cached answer, re-checked against what is true now: within the 24 hours they may have
+    left a project (its duplicates and the project suggestion are dropped), or the suggested assignee may have
+    left the project or a label been deleted (Apply would fail)."""
     project_ids = {str(pk) for pk in _projects(user, issue.workspace_id).values_list("id", flat=True)}
     member_ids = {str(row.member_id) for row in _people(issue.project)}
     label_ids = {str(pk) for pk in _labels(issue.project).values_list("id", flat=True)}
@@ -359,7 +362,7 @@ def _tool_input(response):
 def suggest(issue, user, refresh=False):
     """Suggestions for `issue` as `user` may see them. Cached for 24 hours until the item changes; `refresh`
     asks Claude again. Raises AgentError when AI isn't set up, the monthly limit is reached, or the call fails."""
-    key = cache_key(issue)
+    key = cache_key(issue, user)
     if not refresh:
         cached = cache.get(key)
         if cached is not None:

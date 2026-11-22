@@ -209,8 +209,15 @@ export const InboxIssueMainContent = observer(function InboxIssueMainContent(pro
         assigneeIds={issue.assignee_ids ?? []}
         labelIds={issue.label_ids ?? []}
         disabled={!isEditable}
-        onAssign={(memberId) => inboxIssue.updateIssue({ assignee_ids: [...(issue.assignee_ids ?? []), memberId] })}
-        onAddLabel={(labelId) => inboxIssue.updateIssue({ label_ids: [...(issue.label_ids ?? []), labelId] })}
+        onAssign={async (memberId) => {
+          await inboxIssue.updateIssue({ assignee_ids: [...(issue.assignee_ids ?? []), memberId] });
+          // updateIssue rolls back silently on failure, so check the value stuck
+          if (!inboxIssue.issue.assignee_ids?.includes(memberId)) throw new Error("Assignee not applied");
+        }}
+        onAddLabel={async (labelId) => {
+          await inboxIssue.updateIssue({ label_ids: [...(issue.label_ids ?? []), labelId] });
+          if (!inboxIssue.issue.label_ids?.includes(labelId)) throw new Error("Label not applied");
+        }}
         onMarkDuplicate={async (relatedId) => {
           await createRelation(workspaceSlug, projectId, workItemId, "duplicate", [relatedId]);
         }}

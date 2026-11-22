@@ -252,6 +252,10 @@ class TestTriage:
         second = triage.suggest(issue, create_user)
         assert client.messages.create.call_count == 1
         assert second == first
+        assert triage.cache_key(issue, create_user) == (
+            f"triage:{issue.id}:{create_user.id}:{int(issue.updated_at.timestamp())}"
+        )
+        assert cache.get(triage.cache_key(issue, create_user)) is not None
 
         triage.suggest(issue, create_user, refresh=True)
         assert client.messages.create.call_count == 2
@@ -261,10 +265,37 @@ class TestTriage:
         triage.suggest(issue, create_user)
         assert client.messages.create.call_count == 3
 
-    def test_cached_suggestions_rechecked_for_each_viewer(self, workspace, create_user, client):
+    def test_each_viewer_gets_their_own_answer(self, workspace, create_user, client):
         project, state = _project(workspace, "SHR", member=create_user)
         side, side_state = _project(workspace, "SIDE", member=create_user)
         other = _person(workspace, "colleague@plane.so", project=project)
+        issue = _issue(project, state, "Upload fails for big files")
+        twin = _issue(side, side_state, "Upload fails for big files on mobile")
+        client.messages.create.return_value = _suggestion_turn(
+            {
+                "assignee": {"id": str(other.id), "reason": f"Same root cause as {twin.name}"},
+                "labels": [],
+                "project": {"id": str(side.id), "reason": "Mobile"},
+                "duplicates": [{"id": str(twin.id), "reason": "Same"}],
+            }
+        )
+        assert triage.suggest(issue, create_user)["duplicates"][0]["id"] == str(twin.id)
+
+        # A colleague who isn't in SIDE never gets the first answer (its reasons name SIDE's items): own call
+        client.messages.create.return_value = _suggestion_turn(
+            {"assignee": {"id": str(create_user.id), "reason": "Owns uploads"}, "labels": [], "duplicates": []}
+        )
+        result = triage.suggest(issue, other)
+
+        assert client.messages.create.call_count == 2
+        assert twin.name not in json.dumps(result)
+        assert result["assignee"]["reason"] == "Owns uploads"
+        assert twin.name not in client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert triage.cache_key(issue, create_user) != triage.cache_key(issue, other)
+
+    def test_cached_answer_rechecked_when_access_changes(self, workspace, create_user, client):
+        project, state = _project(workspace, "RCK", member=create_user)
+        side, side_state = _project(workspace, "RSIDE", member=create_user)
         issue = _issue(project, state, "Upload fails for big files")
         twin = _issue(side, side_state, "Upload fails for big files on mobile")
         client.messages.create.return_value = _suggestion_turn(
@@ -275,10 +306,11 @@ class TestTriage:
                 "duplicates": [{"id": str(twin.id), "reason": "Same"}],
             }
         )
-        assert triage.suggest(issue, create_user)["duplicates"][0]["id"] == str(twin.id)
+        triage.suggest(issue, create_user)
 
-        # A colleague who isn't in SIDE gets the cached answer without what they can't see
-        result = triage.suggest(issue, other)
+        # Leaving RSIDE within the 24 hours drops what came from it from the cached answer
+        ProjectMember.objects.filter(project=side, member=create_user).update(is_active=False)
+        result = triage.suggest(issue, create_user)
 
         assert client.messages.create.call_count == 1
         assert result["duplicates"] == [] and result["project"] is None
