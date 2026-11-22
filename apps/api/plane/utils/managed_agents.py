@@ -271,6 +271,12 @@ def _identifier(issue):
     return f"{issue.project.identifier}-{issue.sequence_id}"
 
 
+def _require_person(user):
+    """Cloud runs cost money: only people start or continue them (cancelling stays open to agents)."""
+    if user.is_bot:
+        raise AgentError("Only people can start or continue cloud runs", 403, "agent_id")
+
+
 def _require_member(project, user):
     """Delegating, following up and cancelling need project role member (15) or higher."""
     if not ProjectMember.objects.filter(project=project, member=user, is_active=True, role__gte=MEMBER).exists():
@@ -364,6 +370,7 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
     """Delegate a work item to a cloud agent. Refusals raise AgentError and create nothing; once the run exists,
     an Anthropic error marks it failed (no retry)."""
     project, workspace = issue.project, issue.workspace
+    _require_person(delegated_by)
     _require_member(project, delegated_by)
     instructions = agent_runs._text(instructions, "instructions", agent_runs.TEXT_MAX)
     if agent.workspace_id != workspace.id or not agent.is_active:
@@ -633,6 +640,7 @@ def _require_managed(run, session=True):
 
 def send_follow_up(run, user, text):
     """Send the session another message: only after the run succeeded or while it waits. It runs again."""
+    _require_person(user)
     _require_member(run.project, user)
     _require_managed(run)
     text = agent_runs._text(text, "text", agent_runs.TEXT_MAX, required=True)

@@ -39,7 +39,7 @@ from plane.db.models import (
 )
 from plane.utils import agent_runs, agents, managed_agents
 from plane.utils.agents import AgentError
-from plane.utils.ai_config import get_config
+from plane.utils.ai_config import get_config, spent_this_month_cents
 
 
 @pytest.fixture(autouse=True)
@@ -295,6 +295,39 @@ class TestManagedRuns:
         # Through the API too: a guest is turned away and nothing starts.
         response = _as(guest).post(_ext(workspace, project, issue, "delegate/"), {"agent_id": str(agent.id)})
         assert response.status_code == 403 and AgentRun.objects.count() == 0
+
+    def test_agent_token_cannot_delegate(self, workspace, project, issue, agent, client):
+        api = APIClient()
+        api.credentials(HTTP_X_API_KEY=managed_agents.active_token(agent).token)
+        response = api.post(_ext(workspace, project, issue, "delegate/"), {"agent_id": str(agent.id)}, format="json")
+        assert response.status_code == 403, response.data
+        assert AgentRun.objects.count() == 0
+        client.beta.sessions.create.assert_not_called()
+
+    def test_agent_cannot_send_follow_up(self, workspace, project, issue, agent, create_user, client):
+        run = _running_run(issue, agent, create_user, status="waiting")
+        with pytest.raises(AgentError) as exc:
+            managed_agents.send_follow_up(run, agent.user, "Keep going")
+        assert (exc.value.status_code, exc.value.field) == (403, "agent_id")
+        client.beta.sessions.events.send.assert_not_called()
+        run.refresh_from_db()
+        assert run.status == "waiting"
+
+    def test_external_run_cost_not_counted(self, workspace, project, issue, agent, create_user, client):
+        AgentRun.objects.create(
+            project=project, issue=issue, agent=agent, actor=agent.user, kind="external", cost_cents=900
+        )
+        AgentRun.objects.create(
+            project=project, issue=issue, agent=agent, actor=agent.user, kind="managed", cost_cents=100
+        )
+        assert spent_this_month_cents(workspace) == 100
+        config = WorkspaceAIConfig.objects.get(workspace=workspace)
+        config.monthly_limit_cents = 500
+        config.save()
+        agent.run_budget_cents = 300
+        agent.save()
+        run = managed_agents.start_managed_run(issue, agent, create_user)
+        assert run.status in ("queued", "running")
 
     def test_start_marks_failed_when_api_errors(self, workspace, project, issue, agent, create_user, client):
         client.beta.sessions.create.side_effect = _api_error(anthropic.InternalServerError, 500)

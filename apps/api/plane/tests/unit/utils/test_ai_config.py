@@ -103,7 +103,7 @@ class TestAIConfig:
 
 @pytest.mark.unit
 @pytest.mark.django_db
-def test_spent_sums_this_months_run_cost_only(workspace, create_user):
+def test_spent_sums_this_months_cloud_run_cost_only(workspace, create_user):
     from datetime import datetime, timedelta, timezone
 
     from plane.db.models import AgentRun, Issue, Project, State
@@ -113,7 +113,7 @@ def test_spent_sums_this_months_run_cost_only(workspace, create_user):
     issue = Issue.objects.create(name="Item", project=project, workspace=workspace, state=state)
 
     def run(cost):
-        return AgentRun.objects.create(project=project, issue=issue, actor=create_user, cost_cents=cost)
+        return AgentRun.objects.create(project=project, issue=issue, actor=create_user, kind="managed", cost_cents=cost)
 
     run(30)
     run(12)

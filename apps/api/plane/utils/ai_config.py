@@ -56,10 +56,11 @@ def model_for(workspace):
 
 
 def spent_this_month_cents(workspace):
-    """Sum of this UTC month's agent run cost."""
+    """Sum of this UTC month's cloud (managed) run cost; external runs report cost but do not count."""
     now = datetime.now(timezone.utc)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    total = AgentRun.objects.filter(workspace=workspace, created_at__gte=start).aggregate(total=Sum("cost_cents"))
+    runs = AgentRun.objects.filter(workspace=workspace, kind="managed", created_at__gte=start)
+    total = runs.aggregate(total=Sum("cost_cents"))
     return int(total["total"] or 0)
 
 
