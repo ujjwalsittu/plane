@@ -40,7 +40,7 @@ AT = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 # One sweep of due loops at a time; the lock outlives a crashed worker by at most this long
 DUE_LOCK = "agent-loops:due"
 DUE_LOCK_SECONDS = 120
-# Events one sweep reads per loop, and how many of them the brief lists
+# Matching events one sweep reads per loop, and how many of them the brief lists
 EVENTS_READ_MAX = 500
 BRIEF_EVENTS = 20
 BRIEF_LIST_MAX = 20
@@ -471,17 +471,18 @@ def _run_event_loop(loop, now):
     # The cursor stays put, so the events are picked up once the open run ends
     if _has_open_run(loop):
         return
-    rows = list(
-        WorkspaceEvent.objects.filter(
-            workspace_id=loop.workspace_id, project_id=loop.project_id, id__gt=loop.last_event_id
-        ).order_by("id")[:EVENTS_READ_MAX]
+    newer = WorkspaceEvent.objects.filter(
+        workspace_id=loop.workspace_id, project_id=loop.project_id, id__gt=loop.last_event_id
     )
-    if not rows:
+    # Filtered in SQL, so a busy feed of other events (agent_run steps, the loop's own agent) never crowds out a match
+    matching = list(
+        newer.filter(event__in=loop.event_types).exclude(actor_id=loop.agent.user_id).order_by("id")[:EVENTS_READ_MAX]
+    )
+    # The cursor moves to the newest matching row, or past everything newer when nothing matched
+    cursor = matching[-1].id if matching else newer.aggregate(m=Max("id"))["m"]
+    if cursor is None:
         return
-    # The cursor moves past every row read, whether or not it matched or a run started
-    loop.last_event_id = rows[-1].id
+    loop.last_event_id = cursor
     loop.save(update_fields=["last_event_id", "updated_at"])
-    types, agent_user_id = set(loop.event_types), loop.agent.user_id
-    matching = [row for row in rows if row.event in types and row.actor_id != agent_user_id]
     if matching:
         run_loop(loop, "event", matching)

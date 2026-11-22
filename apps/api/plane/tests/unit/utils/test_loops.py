@@ -16,7 +16,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from plane.db.models import AgentLoop, AgentRun, Project, ProjectMember, User, WorkspaceMember
+from plane.db.models import AgentLoop, AgentRun, Project, ProjectMember, User, WorkspaceEvent, WorkspaceMember
 from plane.utils import agents, loops, managed_agents
 from plane.utils.ai_config import get_config
 from plane.utils.events import emit_event
@@ -173,6 +173,41 @@ class TestLoops:
         assert AgentRun.objects.filter(loop=loop).count() == 2
         loop.refresh_from_db()
         assert loop.last_event_id > cursor
+        assert loop.last_event_id == newest.id
+
+    def test_event_loop_finds_match_behind_many_other_events(self, workspace, project, agent, client, create_user):
+        loop = _loop(project, agent, create_user, trigger="event", event_types=["issue"])
+        WorkspaceEvent.objects.bulk_create(
+            [
+                WorkspaceEvent(
+                    workspace=workspace,
+                    project_id=project.id,
+                    event="agent_run",
+                    action="step",
+                    entity_id=uuid.uuid4(),
+                    actor_id=agent.user_id,
+                )
+                for _ in range(loops.EVENTS_READ_MAX + 20)
+            ]
+        )
+        match = _issue_event(workspace, project, create_user)
+        _issue_event(workspace, project, create_user, event="milestone")
+
+        loops.run_due_loops()
+
+        assert AgentRun.objects.filter(loop=loop).count() == 1
+        loop.refresh_from_db()
+        assert loop.last_event_id == match.id
+
+    def test_event_loop_cursor_skips_past_non_matching_events(self, workspace, project, agent, client, create_user):
+        loop = _loop(project, agent, create_user, trigger="event", event_types=["issue"])
+        _issue_event(workspace, project, create_user, event="milestone")
+        newest = _issue_event(workspace, project, agent.user)
+
+        loops.run_due_loops()
+
+        assert not AgentRun.objects.filter(loop=loop).exists()
+        loop.refresh_from_db()
         assert loop.last_event_id == newest.id
 
     def test_due_loop_skips_while_previous_run_open(self, workspace, project, agent, client, create_user):
