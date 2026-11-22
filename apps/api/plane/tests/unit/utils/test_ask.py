@@ -170,7 +170,16 @@ class TestAsk:
         public = Page.objects.create(workspace=workspace, name="Alpha plan", owned_by=other, access=0)
         private = Page.objects.create(workspace=workspace, name="Alpha private", owned_by=other, access=1)
         hidden_project_page = Page.objects.create(workspace=workspace, name="Alpha theirs", owned_by=other, access=0)
-        for page, project in ((public, mine), (private, mine), (hidden_project_page, theirs)):
+        # A project guest only opens pages they own (unless the project lets guests see everything)
+        guest_public = Page.objects.create(workspace=workspace, name="Alpha guest public", owned_by=other, access=0)
+        guest_own = Page.objects.create(workspace=workspace, name="Alpha guest own", owned_by=create_user, access=1)
+        for page, project in (
+            (public, mine),
+            (private, mine),
+            (hidden_project_page, theirs),
+            (guest_public, guest),
+            (guest_own, guest),
+        ):
             ProjectPage.objects.create(page=page, project=project, workspace=workspace)
         context = ask.AskContext(workspace, create_user)
 
@@ -189,13 +198,21 @@ class TestAsk:
         assert "Alpha secret" not in json.dumps(blocked)
 
         pages = json.loads(ask.run_tool(context, "search_pages", {"query": "Alpha"}))["results"]
-        assert [row["title"] for row in pages] == ["Alpha plan"]
+        assert sorted(row["title"] for row in pages) == ["Alpha guest own", "Alpha plan"]
+        assert "Alpha guest public" not in json.dumps(pages)
+
+        # With guest_view_all_features the guest sees the project's public pages too
+        Project.objects.filter(pk=guest.pk).update(guest_view_all_features=True)
+        pages = json.loads(ask.run_tool(context, "search_pages", {"query": "Alpha guest"}))["results"]
+        assert sorted(row["title"] for row in pages) == ["Alpha guest own", "Alpha guest public"]
 
         # Only entities the person could see become citable sources
         assert {source["title"] for source in context.sources.values()} <= {
             "Alpha visible",
             "Alpha guest mine",
             "Alpha plan",
+            "Alpha guest own",
+            "Alpha guest public",
         }
 
     def test_project_filter_accepts_identifier_or_name(self, workspace, create_user):

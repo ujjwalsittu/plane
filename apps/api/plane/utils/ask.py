@@ -400,24 +400,35 @@ def _blocked(context, tool_input):
 
 
 def _search_pages(context, tool_input):
-    from plane.db.models import Page
+    from plane.app.permissions import ROLE
+    from plane.db.models import Page, ProjectMember, ProjectPage
     from plane.utils.workspace_pages import workspace_pages
 
     query = str(tool_input.get("query") or "").strip()
     text = Q(name__icontains=query) | Q(description_stripped__icontains=query) if query else Q()
-    # Project pages, with the rule the project pages list uses
-    project_pages = (
-        Page.objects.filter(
-            workspace_id=context.workspace.id,
-            projects__project_projectmember__member=context.user,
-            projects__project_projectmember__is_active=True,
-            projects__archived_at__isnull=True,
-            archived_at__isnull=True,
+    # Project pages, with the access rule ProjectPagePermission applies: a person sees their own pages in
+    # their projects, and public pages only where they are above guest or the project lets guests see all.
+    memberships = ProjectMember.objects.filter(
+        workspace_id=context.workspace.id,
+        member=context.user,
+        is_active=True,
+        project__archived_at__isnull=True,
+        project__deleted_at__isnull=True,
+    )
+    member_of = set(memberships.values_list("project_id", flat=True))
+    readable = set(
+        memberships.filter(Q(role__gt=ROLE.GUEST.value) | Q(project__guest_view_all_features=True)).values_list(
+            "project_id", flat=True
         )
-        .filter(Q(owned_by=context.user) | Q(access=Page.PUBLIC_ACCESS))
+    )
+    in_projects = ProjectPage.objects.filter(deleted_at__isnull=True)
+    own = in_projects.filter(project_id__in=member_of).values("page_id")
+    public = in_projects.filter(project_id__in=readable).values("page_id")
+    project_pages = (
+        Page.objects.filter(workspace_id=context.workspace.id, archived_at__isnull=True)
+        .filter(Q(owned_by=context.user, id__in=own) | Q(access=Page.PUBLIC_ACCESS, id__in=public))
         .filter(text)
         .prefetch_related("projects")
-        .distinct()
         .order_by("-updated_at")
     )
     pages = list(project_pages[: MAX_ROWS + 1])
@@ -429,11 +440,11 @@ def _search_pages(context, tool_input):
     )
     pages += list(wiki.order_by("-updated_at")[: MAX_ROWS + 1 - len(pages)]) if len(pages) <= MAX_ROWS else []
     more = len(pages) > MAX_ROWS
-    member_of = set(_member_projects(context).values_list("id", flat=True))
     rows = []
     for page in pages[:MAX_ROWS]:
-        # A page can sit in several projects; link it through one the person is in. Wiki pages have none.
-        project = next((p for p in page.projects.all() if p.id in member_of), None)
+        # A page can sit in several projects; link it through one the person can open it in. Wiki pages have none.
+        allowed = member_of if page.owned_by_id == context.user.id else readable
+        project = next((p for p in page.projects.all() if p.id in allowed), None)
         if project is not None:
             url = f"/{context.slug}/projects/{project.id}/pages/{page.id}"
         else:
