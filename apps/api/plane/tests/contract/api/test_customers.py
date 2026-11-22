@@ -553,3 +553,64 @@ def test_contribute_agent_cannot_write_customers(api_key_client, workspace, crea
 
     manage = agent_client("Manager", "manage")
     assert manage.post(customers, {"name": "Agent Co"}, format="json").status_code == 201
+
+
+def test_issue_values_respect_visibility(api_key_client, workspace, create_user):
+    """ISSUE relation values: reads hide work items the caller can't see, the caller can't write them, and the
+    caller's writes keep them."""
+    alpha = _project(workspace, create_user, "Alpha", "ALP")
+    secret = _project(workspace, create_user, "Secret", "SEC")
+    member_user = _member(workspace, "member@plane.so", 15)
+    ProjectMember.objects.create(project=alpha, member=member_user, workspace=workspace, role=15)
+    member = _client_for(member_user, "member-token")
+    shown = Issue.objects.create(name="Shown", project=alpha, workspace=workspace)
+    other = Issue.objects.create(name="Other", project=alpha, workspace=workspace)
+    hidden = Issue.objects.create(name="Hidden", project=secret, workspace=workspace)
+
+    properties = f"{_base(workspace)}/customer-properties"
+    related = _json(
+        api_key_client.post(
+            properties,
+            {"display_name": "Related", "property_type": "RELATION", "relation_type": "ISSUE", "is_multi": True},
+            format="json",
+        )
+    )["id"]
+    blocker = _json(
+        api_key_client.post(
+            properties,
+            {"display_name": "Blocker", "property_type": "RELATION", "relation_type": "ISSUE"},
+            format="json",
+        )
+    )["id"]
+    customer = _json(api_key_client.post(f"{_base(workspace)}/customers", {"name": "Acme"}, format="json"))["id"]
+    values_url = f"{_base(workspace)}/customers/{customer}/property-values"
+    saved = api_key_client.post(
+        values_url,
+        {"customer_property_values": {related: [str(shown.id), str(hidden.id)], blocker: [str(hidden.id)]}},
+        format="json",
+    )
+    assert saved.status_code == 200, saved.content
+    assert _json(saved)[related] == [str(shown.id), str(hidden.id)]
+
+    # Reads leave out the hidden work item.
+    assert _json(member.get(values_url)) == {related: [str(shown.id)]}
+    assert _json(member.get(f"{values_url}/{related}")) == {related: [str(shown.id)]}
+    assert _json(member.get(f"{values_url}/{blocker}")) == {blocker: []}
+
+    # The caller can't write a hidden id.
+    refused = member.patch(f"{values_url}/{related}", {"values": [str(hidden.id)]}, format="json")
+    assert refused.status_code == 400 and "error" in _json(refused)
+
+    # Replacing what the caller sees keeps the hidden value.
+    patched = member.patch(f"{values_url}/{related}", {"values": [str(other.id)]}, format="json")
+    assert patched.status_code == 200, patched.content
+    assert _json(patched) == {related: [str(other.id)]}
+    assert sorted(_json(api_key_client.get(values_url))[related]) == sorted([str(hidden.id), str(other.id)])
+    cleared = member.post(values_url, {"customer_property_values": {related: []}}, format="json")
+    assert cleared.status_code == 200
+    assert _json(api_key_client.get(values_url))[related] == [str(hidden.id)]
+
+    # A single-value property holding a hidden work item can't be overwritten by the caller.
+    overwrite = member.patch(f"{values_url}/{blocker}", {"values": [str(shown.id)]}, format="json")
+    assert overwrite.status_code == 400 and "error" in _json(overwrite)
+    assert _json(api_key_client.get(values_url))[blocker] == [str(hidden.id)]

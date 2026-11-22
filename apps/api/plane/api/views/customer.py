@@ -274,7 +274,24 @@ def _value_map(customer, user, properties):
 
 
 def _replace_values(customer, prop, values, user):
-    CustomerPropertyValue.objects.filter(customer=customer, property=prop).delete()
+    """Replace the property's values. For ISSUE relations only the values `user` can see are replaced:
+    work items linked by someone with wider access are kept, since the caller never saw them."""
+    rows = CustomerPropertyValue.objects.filter(customer=customer, property=prop)
+    kept = 0
+    if prop.relation_type == "ISSUE":
+        existing = list(rows.values_list("value", flat=True))
+        visible = {
+            str(pk)
+            for pk in _visible_issues(user, customer.workspace_id).filter(pk__in=existing).values_list("pk", flat=True)
+        }
+        hidden = [value for value in existing if value not in visible]
+        if hidden and values and not prop.is_multi:
+            raise CustomerError(
+                f"{prop.display_name} holds a work item you can't see, so it can't be replaced", field="values"
+            )
+        rows = rows.exclude(value__in=hidden)
+        kept = len(hidden)
+    rows.delete()
     CustomerPropertyValue.objects.bulk_create(
         [
             CustomerPropertyValue(
@@ -282,7 +299,7 @@ def _replace_values(customer, prop, values, user):
                 customer=customer,
                 property=prop,
                 value=value,
-                sort_order=index,
+                sort_order=kept + index,
                 created_by=user,
             )
             for index, value in enumerate(values)
