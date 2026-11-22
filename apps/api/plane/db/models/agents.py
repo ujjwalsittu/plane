@@ -77,6 +77,33 @@ class WorkspaceAIConfig(BaseModel):
         db_table = "workspace_ai_configs"
 
 
+class AIUsage(BaseModel):
+    """One Claude call made for a person (ask, triage, meeting notes); counts toward the monthly AI limit."""
+
+    KIND_CHOICES = (("ask", "Ask"), ("triage", "Triage"), ("meeting_notes", "Meeting notes"))
+
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="ai_usage")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="ai_usage"
+    )
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES)
+    model = models.CharField(max_length=100)
+    input_tokens = models.PositiveBigIntegerField(default=0)
+    output_tokens = models.PositiveBigIntegerField(default=0)
+    # Money is integer cents, USD only
+    cost_cents = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "AI Usage"
+        verbose_name_plural = "AI Usage"
+        db_table = "ai_usage"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["workspace", "created_at"], name="ai_usage_ws_created_idx")]
+
+    def __str__(self):
+        return f"{self.workspace_id} {self.kind} {self.cost_cents}"
+
+
 class AgentRun(ProjectBaseModel):
     """One run of an agent (or a person's own Claude Code session) on a work item."""
 

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from django.conf import settings
 from django.db.models import Sum
 
-from plane.db.models import AgentRun, APIToken, WorkspaceAgent, WorkspaceAIConfig
+from plane.db.models import AgentRun, AIUsage, APIToken, WorkspaceAgent, WorkspaceAIConfig
 from plane.license.utils.encryption import decrypt_data, encrypt_data
 from plane.utils.agents import AgentError, _require_admin
 
@@ -56,12 +56,15 @@ def model_for(workspace):
 
 
 def spent_this_month_cents(workspace):
-    """Sum of this UTC month's cloud (managed) run cost; external runs report cost but do not count."""
+    """This UTC month's cloud (managed) run cost plus person-started AI calls (AIUsage); external runs report cost but
+    do not count."""
     now = datetime.now(timezone.utc)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     runs = AgentRun.objects.filter(workspace=workspace, kind="managed", created_at__gte=start)
-    total = runs.aggregate(total=Sum("cost_cents"))
-    return int(total["total"] or 0)
+    usage = AIUsage.objects.filter(workspace=workspace, created_at__gte=start)
+    runs_total = runs.aggregate(total=Sum("cost_cents"))["total"] or 0
+    usage_total = usage.aggregate(total=Sum("cost_cents"))["total"] or 0
+    return int(runs_total) + int(usage_total)
 
 
 def check_spend(workspace, extra_cents=0):
