@@ -8,10 +8,12 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from plane.bgtasks import supervision_task
@@ -29,9 +31,10 @@ from plane.db.models import (
     SlackUserLink,
     State,
     User,
+    WorkspaceEvent,
     WorkspaceMember,
 )
-from plane.utils import agents, slack_app
+from plane.utils import agents, guardrails, slack_app
 from plane.utils.brief import brief_for
 
 SECRET = "signing-secret"
@@ -366,6 +369,59 @@ class TestApprovalClicks:
         with patch("plane.utils.slack_app.requests.post", side_effect=slack):
             supervision_task.notify_approval(str(approval.id))
         assert slack.posts() == [] and not Notification.objects.filter(entity_name="approval").exists()
+
+
+def _inbox_row(approval):
+    with patch("plane.utils.slack_app.requests.post", side_effect=FakeSlack()):
+        supervision_task.notify_approval(str(approval.id))
+    return Notification.objects.get(entity_name="approval", data__approval__id=str(approval.id))
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestApprovalInbox:
+    @pytest.fixture(autouse=True)
+    def _secret(self, settings):
+        settings.SLACK_SIGNING_SECRET = SECRET
+
+    def test_decided_approval_leaves_inbox(self, mock_celery, client, workspace, create_user, project, linked):
+        _, agent_client, _ = _agent(workspace, create_user, project)
+        _, approved = _held_delete(workspace, project, agent_client)
+        _, rejected = _held_delete(workspace, project, agent_client)
+        approved_row, rejected_row = _inbox_row(approved), _inbox_row(rejected)
+        assert approved_row.read_at is None and rejected_row.read_at is None
+
+        session = APIClient()
+        session.force_authenticate(user=create_user)
+        assert session.post(f"/api/workspaces/{workspace.slug}/approvals/{approved.id}/approve/").status_code == 200
+        approved_row.refresh_from_db()
+        assert approved_row.read_at is not None and rejected_row.read_at is None
+
+        response, _ = _post(client, _click(rejected, "reject"))
+        assert response.status_code == 200
+        rejected_row.refresh_from_db()
+        assert rejected_row.read_at is not None
+
+    def test_expired_approval_leaves_inbox(self, mock_celery, workspace, create_user, project, linked):
+        _, agent_client, _ = _agent(workspace, create_user, project)
+        _, approval = _held_delete(workspace, project, agent_client)
+        row = _inbox_row(approval)
+        AgentApproval.objects.filter(pk=approval.pk).update(created_at=timezone.now() - timedelta(days=8))
+        guardrails.expire_approvals()
+        approval.refresh_from_db()
+        row.refresh_from_db()
+        assert approval.status == "expired" and row.read_at is not None
+        events = WorkspaceEvent.objects.filter(event="approval", action="expired", entity_id=approval.id)
+        assert events.count() == 1 and events.get().actor_id is None
+
+    def test_late_decision_still_clears_inbox(self, mock_celery, workspace, create_user, project, linked):
+        _, agent_client, _ = _agent(workspace, create_user, project)
+        _, approval = _held_delete(workspace, project, agent_client)
+        row = _inbox_row(approval)
+        AgentApproval.objects.filter(pk=approval.pk).update(created_at=timezone.now() - timedelta(days=8))
+        assert _approve_http(create_user, workspace, approval).status_code == 409
+        row.refresh_from_db()
+        assert row.read_at is not None
 
 
 @pytest.mark.unit

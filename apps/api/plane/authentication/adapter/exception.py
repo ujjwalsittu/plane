@@ -21,8 +21,8 @@ def auth_exception_handler(exc, context):
     if isinstance(exc, NotAuthenticated):
         response.status_code = 401
 
-    # Check if an Throttled exception is raised.
-    if isinstance(exc, Throttled):
+    # Check if an Throttled exception is raised (unless it carries its own response body).
+    if isinstance(exc, Throttled) and not getattr(exc, "keep_body", False):
         exc = AuthenticationException(
             error_code=AUTHENTICATION_ERROR_CODES["RATE_LIMIT_EXCEEDED"],
             error_message="RATE_LIMIT_EXCEEDED",

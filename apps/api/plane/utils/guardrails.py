@@ -18,7 +18,7 @@ from django.http import QueryDict
 from django.urls import Resolver404, resolve
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.exceptions import APIException, AuthenticationFailed, PermissionDenied
+from rest_framework.exceptions import APIException, AuthenticationFailed, PermissionDenied, Throttled
 
 from plane.db.models import (
     AgentApproval,
@@ -41,6 +41,9 @@ APPROVAL_SALT = "agent-approval"
 # The signed header only lives for the in-process replay
 SIGNATURE_MAX_AGE = 600
 EXPIRE_DAYS = 7
+# An approved request that has not recorded a result after this long never ran
+STUCK_AFTER = timedelta(minutes=10)
+MAX_OPEN_APPROVALS = 50
 MAX_BODY_DEPTH = 6
 
 
@@ -53,6 +56,19 @@ class ApprovalRequired(APIException):
         name = owner.display_name or owner.first_name or owner.email
         detail = f"Waiting for {name} to approve: {approval.summary}. Plane runs it once approved; do not retry."
         super().__init__({"error": "approval_required", "approval_id": str(approval.id), "detail": detail})
+
+
+class TooManyApprovals(Throttled):
+    keep_body = True  # the API's exception handler otherwise replaces a Throttled body with its rate-limit error
+
+    def __init__(self):
+        super().__init__()
+        # Throttled turns `detail` into text; this body is structured, like ApprovalRequired's
+        self.detail = {
+            "error": "too_many_approvals",
+            "detail": f"{MAX_OPEN_APPROVALS} actions are already waiting for approval; "
+            "wait for decisions before asking again.",
+        }
 
 
 def on_approval_created(approval):
@@ -258,6 +274,8 @@ def _open_approval(request, agent, action, match):
             None,
         )
         if approval is None:
+            if AgentApproval.objects.filter(agent=agent, status="open").count() >= MAX_OPEN_APPROVALS:
+                raise TooManyApprovals()
             project, issue, summary = _describe(match, agent, action, method, path, body)
             approval = AgentApproval(
                 workspace_id=agent.workspace_id,
@@ -330,6 +348,18 @@ def _is_member(workspace_id, user_id):
     return WorkspaceMember.objects.filter(workspace_id=workspace_id, member_id=user_id, is_active=True).exists()
 
 
+def close_approval_notifications(approval_ids):
+    """Mark the approvals' inbox rows read, so a decided or expired approval leaves the owner's inbox."""
+    from plane.db.models import Notification
+
+    ids = [str(i) for i in approval_ids]
+    if not ids:
+        return 0
+    return Notification.objects.filter(
+        entity_name="approval", data__approval__id__in=ids, read_at__isnull=True
+    ).update(read_at=timezone.now())
+
+
 def decide_approval(approval, user, approve):
     """The owner (or a workspace admin) approves or rejects; an approval replays the held request once.
     The owner must still be an active workspace member (a removed member's Slack buttons stop working)."""
@@ -348,6 +378,8 @@ def decide_approval(approval, user, approve):
             approval.decided_by = user
             approval.decided_at = timezone.now()
             approval.save(update_fields=["status", "decided_by", "decided_at", "updated_at"])
+        # Whatever the outcome (even the 409 below), the row must not stay in the inbox
+        close_approval_notifications([approval.id])
     if not was_open or approval.status == "expired":
         raise AgentError("This approval has already been decided or has expired", 409, "status")
     _emit_approval(approval, approval.status, user)
@@ -424,12 +456,42 @@ def replay(approval):
     return approval
 
 
+def expire_open_approvals(queryset):
+    """Expire the open approvals in `queryset`: close their inbox rows and emit one `expired` event each."""
+    expired = []
+    for approval in queryset.filter(status="open"):
+        updated = AgentApproval.objects.filter(pk=approval.pk, status="open").update(
+            status="expired", updated_at=timezone.now()
+        )
+        if updated:
+            approval.status = "expired"
+            expired.append(approval)
+    close_approval_notifications([a.id for a in expired])
+    for approval in expired:
+        _emit_approval(approval, "expired", None)
+    return len(expired)
+
+
+def _fail_stuck_replays():
+    """Approved requests that never recorded a result (the replay died) are failed, so they stop looking pending."""
+    cutoff = timezone.now() - STUCK_AFTER
+    failed = 0
+    for approval in AgentApproval.objects.filter(status="approved", result_status__isnull=True, decided_at__lt=cutoff):
+        updated = AgentApproval.objects.filter(pk=approval.pk, status="approved", result_status__isnull=True).update(
+            status="failed", result_body={"error": "The approved request never ran"}, updated_at=timezone.now()
+        )
+        if updated:
+            approval.status = "failed"
+            _emit_approval(approval, "failed", None)
+            failed += 1
+    return failed
+
+
 def expire_approvals():
-    """Open approvals older than a week expire; the agent must ask again."""
+    """Open approvals older than a week expire (the agent must ask again); stuck approved replays are failed."""
     cutoff = timezone.now() - timedelta(days=EXPIRE_DAYS)
-    return AgentApproval.objects.filter(status="open", created_at__lt=cutoff).update(
-        status="expired", updated_at=timezone.now()
-    )
+    expired = expire_open_approvals(AgentApproval.objects.filter(created_at__lt=cutoff))
+    return expired + _fail_stuck_replays()
 
 
 # What a viewer outside the approval's project never gets: the request itself and what it returned

@@ -28,6 +28,7 @@ from plane.db.models import (
     ProjectMember,
     State,
     User,
+    WorkspaceEvent,
     WorkspaceMember,
 )
 from plane.utils import agents, guardrails
@@ -247,6 +248,52 @@ def test_expire_open_approvals(workspace, create_user, project, issue):
     AgentApproval.objects.filter(pk=fresh.data["approval_id"]).update(created_at=timezone.now() - timedelta(days=8))
     assert _approve(create_user, workspace, fresh.data["approval_id"]).status_code == 409
     assert AgentApproval.objects.get(pk=fresh.data["approval_id"]).status == "expired"
+
+
+def test_stuck_approved_replay_is_failed_by_sweep(workspace, create_user, project, issue):
+    agent, client = _agent(workspace, create_user, project)
+    ids = [client.delete(_issue_url(workspace, project, issue)).data["approval_id"]]
+    second = client.patch(_issue_url(workspace, project, issue), {"end_date": "2026-12-01"}, format="json")
+    ids.append(second.data["approval_id"])
+    now = timezone.now()
+    AgentApproval.objects.filter(pk=ids[0]).update(status="approved", decided_at=now - timedelta(minutes=11))
+    AgentApproval.objects.filter(pk=ids[1]).update(status="approved", decided_at=now - timedelta(minutes=5))
+    guardrails.expire_approvals()
+    stuck, recent = (AgentApproval.objects.get(pk=i) for i in ids)
+    assert stuck.status == "failed" and stuck.result_body == {"error": "The approved request never ran"}
+    assert recent.status == "approved"
+    assert WorkspaceEvent.objects.filter(event="approval", action="failed", entity_id=stuck.id).count() == 1
+    guardrails.expire_approvals()
+    assert WorkspaceEvent.objects.filter(event="approval", action="failed").count() == 1
+
+
+def test_open_approvals_capped_per_agent(workspace, create_user, project, issue):
+    agent, client = _agent(workspace, create_user, project)
+    for n in range(guardrails.MAX_OPEN_APPROVALS):
+        AgentApproval.objects.create(
+            workspace=workspace,
+            project=project,
+            agent=agent,
+            asked_user=create_user,
+            action="delete",
+            summary=f"delete item {n}",
+            method="DELETE",
+            path=f"/api/v1/x/{n}/",
+        )
+    over = client.delete(_issue_url(workspace, project, issue))
+    assert over.status_code == 429
+    assert over.data["error"] == "too_many_approvals"
+    assert over.data["detail"] == (
+        "50 actions are already waiting for approval; wait for decisions before asking again."
+    )
+    assert AgentApproval.objects.filter(agent=agent).count() == 50
+    # A request that already has an open approval is not refused
+    existing = AgentApproval.objects.filter(agent=agent).first()
+    existing.path, existing.method, existing.body = _issue_url(workspace, project, issue), "DELETE", None
+    existing.save()
+    again = client.delete(_issue_url(workspace, project, issue))
+    assert again.status_code == 403 and again.data["error"] == "approval_required"
+    assert again.data["approval_id"] == str(existing.id)
 
 
 def test_classify():
