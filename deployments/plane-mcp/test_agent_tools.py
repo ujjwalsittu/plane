@@ -16,6 +16,7 @@ from unittest import mock
 
 import httpx
 from fastmcp import Client, FastMCP
+from fastmcp.server.auth.auth import AccessToken
 
 from plane_mcp.auth import plane_header_auth_provider as provider_module
 from plane_mcp.auth.plane_header_auth_provider import PlaneHeaderAuthProvider, PlaneUnavailableError
@@ -109,12 +110,51 @@ class BearerAuthTests(unittest.IsolatedAsyncioTestCase):
                 await self.verify({})
 
 
+class AuthHeaderTests(unittest.TestCase):
+    """The agent tools authenticate the way the upstream tools do: by the token's auth_method claim."""
+
+    def headers_for(self, token):
+        with mock.patch.object(agent_tools, "get_access_token", return_value=token):
+            return agent_tools._auth_headers()
+
+    def test_oauth_connection_sends_bearer_not_api_key(self):
+        token = AccessToken(token="oauth-access", client_id="c", scopes=[], claims={"auth_method": "oauth"})
+        self.assertEqual(self.headers_for(token), {"Authorization": "Bearer oauth-access"})
+
+    def test_token_without_auth_method_claim_is_oauth(self):
+        token = AccessToken(token="oauth-access", client_id="c", scopes=[], claims={})
+        self.assertEqual(self.headers_for(token), {"Authorization": "Bearer oauth-access"})
+
+    def test_api_key_header_connection_sends_x_api_key(self):
+        token = AccessToken(token="key-1", client_id="c", scopes=[], claims={"auth_method": "api_key_header"})
+        self.assertEqual(self.headers_for(token), {"x-api-key": "key-1"})
+
+    def test_api_key_env_connection_sends_x_api_key(self):
+        token = AccessToken(token="key-2", client_id="c", scopes=[], claims={"auth_method": "api_key_env"})
+        self.assertEqual(self.headers_for(token), {"x-api-key": "key-2"})
+
+    def test_bearer_api_key_connection_sends_x_api_key(self):
+        # Our bearer provider validates the bearer as an API key and marks it api_key_header.
+        provider_module._validated.clear()
+        provider = PlaneHeaderAuthProvider(required_scopes=["read", "write"])
+        real = httpx.AsyncClient
+        transport = httpx.MockTransport(_plane(200, {"id": "u", "token_workspace_slug": "acme"}, []))
+        with mock.patch.object(provider_module.httpx, "AsyncClient", lambda **kw: real(transport=transport, **kw)):
+            with mock.patch("fastmcp.server.dependencies.get_http_headers", return_value={}):
+                access = asyncio.run(provider.verify_token(TOKEN))
+        self.assertEqual(self.headers_for(access), {"x-api-key": TOKEN})
+
+    def test_environment_fallback_uses_plane_api_key(self):
+        with mock.patch.dict("os.environ", {"PLANE_API_KEY": "env-key"}):
+            self.assertEqual(self.headers_for(None), {"x-api-key": "env-key"})
+
+
 class AgentToolTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.requests: list[dict] = []
         patches = [
             mock.patch.object(agent_tools, "get_plane_client_context", return_value=(None, "acme")),
-            mock.patch.object(agent_tools, "_api_key", return_value=TOKEN),
+            mock.patch.object(agent_tools, "_auth_headers", return_value={"x-api-key": TOKEN}),
             mock.patch.object(agent_tools.httpx, "request", side_effect=self.fake_request),
         ]
         for patch in patches:

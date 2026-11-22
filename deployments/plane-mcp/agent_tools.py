@@ -5,7 +5,7 @@
 """Agent tools for the Plane MCP server: runs, approvals and the event feed.
 
 The Plane SDK has no client for these endpoints, so the tools call the external API directly with the
-connection's own API key (the same one the other tools use). One tool per resource with an `action`
+connection's own credentials (same header choice as the other tools). One tool per resource with an `action`
 argument, like the upstream tools. `patch_mcp.py` copies this file into plane_mcp/tools/ and appends
 RESOURCES to the registry.
 """
@@ -29,9 +29,18 @@ FINISH_STATUSES = ("succeeded", "failed", "cancelled")
 RUN_STATUSES = ("running", "waiting", *FINISH_STATUSES)
 
 
-def _api_key() -> str:
+def _auth_headers() -> dict[str, str]:
+    """The auth header for this connection, chosen like upstream get_plane_client_context does.
+
+    API-key connections (env, x-api-key header, or our bearer provider) send x-api-key; OAuth access tokens
+    send Authorization: Bearer, as the Plane SDK's PlaneClient(access_token=...) does.
+    """
     token = get_access_token()
-    return token.token if token else os.getenv("PLANE_API_KEY", "")
+    if token is None:
+        return {"x-api-key": os.getenv("PLANE_API_KEY", "")}
+    if token.claims.get("auth_method", "oauth") in ("api_key_env", "api_key_header"):
+        return {"x-api-key": token.token}
+    return {"Authorization": f"Bearer {token.token}"}
 
 
 def _request(method: str, path: str, *, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None) -> Any:
@@ -43,7 +52,7 @@ def _request(method: str, path: str, *, params: dict[str, Any] | None = None, bo
             f"{base_url}/api/v1/{path}",
             params=params,
             json=body,
-            headers={"x-api-key": _api_key()},
+            headers=_auth_headers(),
             timeout=TIMEOUT_SECONDS,
         )
     except httpx.RequestError as exc:
