@@ -254,6 +254,8 @@ STALL_AFTER = timedelta(hours=6)
 UNSTARTED_AFTER = timedelta(minutes=5)
 SYNC_LOCK_SECONDS = 300
 REFRESH_TOKENS_EVERY = timedelta(minutes=45)
+# A refresh that failed (fully or in part) is tried again this soon rather than 45 minutes later
+REFRESH_RETRY_AFTER = timedelta(minutes=5)
 # How long a follow-up or cancel waits for an in-flight sync of the same run before giving up with a 409
 LOCK_WAIT_SECONDS = 5
 DENY_MESSAGE = "Nobody is watching this session to approve tool calls. Do this another way, or note it in a comment."
@@ -392,7 +394,9 @@ def _tokens_fresh_key(run):
 
 def refresh_repository_tokens(run, client):
     """Installation tokens last an hour, so a long run would lose push access: give every linked repository
-    mounted on the session a fresh token. Returns how many were updated; errors are logged, never raised."""
+    mounted on the session a fresh token. Returns how many were updated; errors are logged, never raised. When any
+    repository was left with its old token, the next sync tries again in 5 minutes."""
+    matched, updated, failed = [], 0, False
     try:
         links = {}
         for link in _linked_repositories(run.project):
@@ -404,7 +408,6 @@ def refresh_repository_tokens(run, client):
             if getattr(resource, "type", "") == "github_repository" and _normal_url(resource.url) in links
         ]
         tokens = _fresh_tokens([link for _, link in matched])
-        updated = 0
         for resource, link in matched:
             token = tokens.get(link.installation.installation_id)
             if token is None:
@@ -413,10 +416,12 @@ def refresh_repository_tokens(run, client):
                 resource.id, session_id=run.external_session_id, authorization_token=token
             )
             updated += 1
-        return updated
     except Exception as exc:
         log_exception(exc)
-        return 0
+        failed = True
+    if failed or updated < len(matched):
+        cache.set(_tokens_fresh_key(run), 1, int(REFRESH_RETRY_AFTER.total_seconds()))
+    return updated
 
 
 def _api_error(action, exc):

@@ -885,3 +885,41 @@ class TestManagedRuns:
         assert (run.status, run.external_session_id) == ("failed", "sesn_1")
         sent = [(c.args, c.kwargs["events"][0]["type"]) for c in client.beta.sessions.events.send.call_args_list]
         assert sent == [(("sesn_1",), "user.message"), (("sesn_1",), "user.interrupt")]
+
+    def test_failed_refresh_retries_after_five_minutes(self, workspace, project, issue, agent, create_user, client):
+        from plane.utils import github_app
+
+        _link_repos(workspace, project, ["acme/web"])
+        client.beta.sessions.resources = create_autospec(Resources, instance=True)
+        client.beta.sessions.resources.list.return_value = [_repo_resource("res_web", "https://github.com/acme/web")]
+        client.beta.sessions.events.list.return_value = [_user_message("sevt_0")]
+        client.beta.sessions.retrieve.return_value = _session("running")
+        run = _running_run(issue, agent, create_user)
+        key = f"agent-run:{run.id}:gh-fresh"
+
+        def refresh(**patches):
+            cache.delete(key)
+            with (
+                patch("plane.utils.github_app.is_configured", return_value=True),
+                patch("plane.utils.github_app.forget_installation_token"),
+                patch("plane.utils.github_app.installation_token", **patches),
+                patch.object(managed_agents.cache, "set", wraps=managed_agents.cache.set) as cache_set,
+            ):
+                managed_agents.sync_run(run)
+            return [c.args for c in cache_set.call_args_list if c.args[0] == key]
+
+        # No token could be minted: nothing updated, so the next sync retries in 5 minutes
+        assert refresh(side_effect=github_app.GitHubAppError("down")) == [(key, 1, 300)]
+        client.beta.sessions.resources.update.assert_not_called()
+
+        # Anthropic refuses the list: same
+        client.beta.sessions.resources.list.side_effect = _api_error(anthropic.InternalServerError, 500)
+        assert refresh(return_value="ghs_new") == [(key, 1, 300)]
+
+        # A full refresh keeps the 45-minute wait set by cache.add
+        client.beta.sessions.resources.list.side_effect = None
+        assert refresh(return_value="ghs_new") == []
+        client.beta.sessions.resources.update.assert_called_once()
+        assert 2600 < cache.ttl(key) <= 2700
+        run.refresh_from_db()
+        assert run.status == "running"
