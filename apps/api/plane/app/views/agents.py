@@ -202,7 +202,9 @@ class LiveAgentRunsEndpoint(_Session, BaseAPIView):
         # `poll` tells the web app whether anything in this workspace can be live, so idle workspaces stop polling
         can_be_live = (
             WorkspaceAgent.objects.filter(workspace=workspace, is_active=True).exists()
-            or AgentRun.objects.filter(issue__workspace=workspace, status__in=agent_runs.OPEN_STATUSES).exists()
+            or AgentRun.objects.filter(
+                workspace=workspace, issue__deleted_at__isnull=True, status__in=agent_runs.OPEN_STATUSES
+            ).exists()
         )
         return Response({"runs": runs, "poll": can_be_live})
 

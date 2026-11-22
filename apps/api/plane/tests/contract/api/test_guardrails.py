@@ -267,6 +267,24 @@ def test_stuck_approved_replay_is_failed_by_sweep(workspace, create_user, projec
     assert WorkspaceEvent.objects.filter(event="approval", action="failed").count() == 1
 
 
+def test_stuck_replay_sweep_runs_every_ten_minutes(workspace, create_user, project, issue):
+    from plane.bgtasks.guardrails_task import fail_stuck_approval_replays
+    from plane.celery import app
+
+    entry = app.conf.beat_schedule["fail-stuck-approval-replays"]
+    assert entry["task"] == "plane.bgtasks.guardrails_task.fail_stuck_approval_replays"
+    assert entry["schedule"].run_every == timedelta(minutes=10)
+    assert entry["options"]["expires"] == 540
+
+    _, client = _agent(workspace, create_user, project)
+    approval_id = client.delete(_issue_url(workspace, project, issue)).data["approval_id"]
+    AgentApproval.objects.filter(pk=approval_id).update(
+        status="approved", decided_at=timezone.now() - timedelta(minutes=11)
+    )
+    assert fail_stuck_approval_replays() == 1
+    assert AgentApproval.objects.get(pk=approval_id).status == "failed"
+
+
 def test_open_approvals_capped_per_agent(workspace, create_user, project, issue):
     agent, client = _agent(workspace, create_user, project)
     for n in range(guardrails.MAX_OPEN_APPROVALS):

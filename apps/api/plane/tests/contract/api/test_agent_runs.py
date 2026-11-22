@@ -204,3 +204,7 @@ def test_live_meta_reports_poll(api_key_client, workspace, project, issue, creat
 
     # Without meta the old bare dict comes back
     assert session.get(url).data[str(issue.id)]["id"] == run_id
+
+    # An open run on a soft-deleted work item no longer keeps polling alive
+    issue.delete()
+    assert session.get(url + "&meta=1").data["poll"] is False

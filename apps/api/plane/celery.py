@@ -110,6 +110,12 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.guardrails_task.expire_agent_approvals",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45
     },
+    "fail-stuck-approval-replays": {
+        "task": "plane.bgtasks.guardrails_task.fail_stuck_approval_replays",
+        "schedule": schedule(run_every=timedelta(minutes=10)),  # Every 10 minutes
+        # Dropped if still queued when the next run is due
+        "options": {"expires": 540},
+    },
     "sync-agent-runs": {
         "task": "plane.bgtasks.agent_runs_task.sync_agent_runs",
         "schedule": schedule(run_every=timedelta(seconds=15)),  # Every 15 seconds
