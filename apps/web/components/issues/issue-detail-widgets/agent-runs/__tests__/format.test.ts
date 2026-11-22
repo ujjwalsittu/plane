@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 import { describe, expect, it } from "vitest";
-import { formatDuration } from "../format";
+import { formatDuration, turnedTerminal } from "../format";
 
 describe("formatDuration", () => {
   it.each([
@@ -15,5 +15,17 @@ describe("formatDuration", () => {
     [3700, "1h 1m"],
   ])("%s seconds is %s", (seconds, expected) => {
     expect(formatDuration(seconds)).toBe(expected);
+  });
+});
+
+describe("turnedTerminal", () => {
+  it("is true when a run moves into a terminal status", () => {
+    expect(turnedTerminal("running", "succeeded")).toBe(true);
+    expect(turnedTerminal("waiting", "cancelled")).toBe(true);
+  });
+  it("is false for unchanged, non-terminal or first-seen statuses", () => {
+    expect(turnedTerminal("succeeded", "succeeded")).toBe(false);
+    expect(turnedTerminal("queued", "running")).toBe(false);
+    expect(turnedTerminal(undefined, "failed")).toBe(false);
   });
 });

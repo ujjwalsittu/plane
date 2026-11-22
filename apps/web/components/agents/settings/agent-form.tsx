@@ -28,6 +28,7 @@ import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { AgentsService } from "@/services/agents.service";
 import type { TCreatedWorkspaceAgent } from "@/services/agents.service";
+import { buildUpdatePayload } from "./agent-payload";
 import { centsToDollarInput, dollarInputToCents } from "./money";
 
 const service = new AgentsService();
@@ -112,7 +113,11 @@ export const AgentForm = observer(function AgentForm(props: Props) {
     setSaving(true);
     try {
       if (agent) {
-        const updated = await service.updateAgent(workspaceSlug, agent.id, payload);
+        const updated = await service.updateAgent(
+          workspaceSlug,
+          agent.id,
+          buildUpdatePayload(payload, agent.project_ids)
+        );
         setToast({ type: "success", title: t("agents.form.updated") });
         onUpdated(updated);
       } else {

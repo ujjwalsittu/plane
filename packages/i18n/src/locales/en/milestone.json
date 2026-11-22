@@ -701,6 +701,11 @@
       "cancel": "Cancel run",
       "cancelled": "Run cancelled",
       "cancel_error": "Could not cancel the run",
+      "cancel_confirm_title": "Cancel this run?",
+      "cancel_confirm_body": "The cloud session stops now. Work it already pushed stays.",
+      "cancel_confirm": "Cancel run",
+      "keep_running": "Keep running",
+      "steps_error": "Could not load the steps",
       "modal": {
         "title": "Delegate to agent",
         "description": "A cloud agent works on this work item in its own session. You can follow its steps here.",

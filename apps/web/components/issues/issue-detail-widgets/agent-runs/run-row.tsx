@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Avatar } from "@makeplane/propel/components/avatar";
 import type { BadgeVariant } from "@makeplane/propel/components/badge";
@@ -12,13 +12,14 @@ import { Badge } from "@makeplane/propel/components/badge";
 import { Button } from "@makeplane/propel/components/button";
 import { InputField } from "@makeplane/propel/components/input-field";
 import { ChevronRightOutline, LinkOutline } from "@makeplane/propel/icons";
+import { ConfirmDialog } from "@plane/blocks/dialog";
 import { setToast } from "@plane/blocks/toast";
 import { useTranslation } from "@plane/i18n";
 import type { TAgentRun, TAgentRunStatus } from "@plane/types";
 import { cn, getFileURL } from "@plane/utils";
 import { formatCents } from "@/components/agents/settings/money";
 import { agentsErrorMessage, AgentsService } from "@/services/agents.service";
-import { formatDuration } from "./format";
+import { formatDuration, turnedTerminal } from "./format";
 import { RunSteps } from "./run-steps";
 import { AGENT_RUNS_LIVE_REFRESH_MS, getAgentRunKey } from "./use-agent-runs";
 
@@ -48,13 +49,23 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   // The steps come with the single-run response, so they are fetched only for an expanded row.
-  const { data: detail, mutate } = useSWR(
-    open ? getAgentRunKey(run.id) : null,
-    () => service.getRun(workspaceSlug, projectId, issueId, run.id),
-    { refreshInterval: run.is_live ? AGENT_RUNS_LIVE_REFRESH_MS : 0 }
-  );
+  const {
+    data: detail,
+    error: stepsError,
+    mutate,
+  } = useSWR(open ? getAgentRunKey(run.id) : null, () => service.getRun(workspaceSlug, projectId, issueId, run.id), {
+    refreshInterval: run.is_live ? AGENT_RUNS_LIVE_REFRESH_MS : 0,
+  });
+
+  // When the run ends, fetch once more so the final steps show without waiting for a focus change.
+  const previousStatus = useRef(run.status);
+  useEffect(() => {
+    if (turnedTerminal(previousStatus.current, run.status) && open) void mutate();
+    previousStatus.current = run.status;
+  }, [run.status, open, mutate]);
 
   const name = run.agent?.name ?? run.actor.display_name;
   const isManaged = run.kind === "managed";
@@ -79,6 +90,7 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
 
   const cancel = async () => {
     setCancelling(true);
+    setConfirmCancel(false);
     try {
       await service.cancelRun(workspaceSlug, projectId, issueId, run.id);
       setToast({ type: "success", title: t("agents.runs.cancelled") });
@@ -154,6 +166,17 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
           {run.error && <p className="text-body-xs-regular text-danger-primary">{run.error}</p>}
           {detail ? (
             <RunSteps steps={detail.steps ?? []} links={run.links} />
+          ) : stepsError ? (
+            <div className="flex items-center gap-2">
+              <p className="text-body-xs-regular text-danger-primary">{t("agents.runs.steps_error")}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                stretch="auto"
+                label={t("common.retry")}
+                onClick={() => void mutate()}
+              />
+            </div>
           ) : (
             <p className="text-body-xs-regular text-tertiary">…</p>
           )}
@@ -205,12 +228,22 @@ export function RunRow({ workspaceSlug, projectId, issueId, run, disabled, onCha
                 stretch="auto"
                 loading={cancelling}
                 label={t("agents.runs.cancel")}
-                onClick={() => void cancel()}
+                onClick={() => setConfirmCancel(true)}
               />
             </div>
           )}
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmCancel}
+        handleClose={() => setConfirmCancel(false)}
+        handleSubmit={cancel}
+        isSubmitting={false}
+        title={t("agents.runs.cancel_confirm_title")}
+        content={t("agents.runs.cancel_confirm_body")}
+        primaryButtonText={{ default: t("agents.runs.cancel_confirm") }}
+        secondaryButtonText={t("agents.runs.keep_running")}
+      />
     </li>
   );
 }
