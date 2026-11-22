@@ -17,7 +17,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from plane.app.permissions import ROLE
-from plane.utils.ai_calls import ai_message
+from plane.utils.ai_calls import ai_message, check_ai_rate, tool_answer
 from plane.utils.brief import _visible_issues
 from plane.utils.supervision import OPEN_GROUPS
 
@@ -32,7 +32,9 @@ DUPLICATE_DESCRIPTION_CHARS = 300
 REASON_CHARS = 300
 MAX_LABELS = 3
 MAX_DUPLICATES = 3
-MAX_TOKENS = 1024
+MAX_TOKENS = 4096
+# Low effort: picking among a few dozen candidates needs little thinking (thinking tokens count against MAX_TOKENS)
+EFFORT = "low"
 CACHE_SECONDS = 24 * 60 * 60
 
 SYSTEM_PROMPT = """You triage a new work item in Plane. You get the item and candidates as JSON.
@@ -42,26 +44,31 @@ Suggest, using only ids from the candidates:
 - project: another project only when it clearly fits better than the current one, otherwise null.
 - duplicates: up to 3 candidates that describe the same problem or request, not merely a similar topic.
 Give each suggestion a short reason (one sentence). Suggest nothing rather than guess.
-Record the result with the record_suggestions tool."""
+Always answer by calling the record_suggestions tool exactly once."""
 
 _PICK = {
     "type": "object",
     "properties": {"id": {"type": "string"}, "reason": {"type": "string"}},
     "required": ["id", "reason"],
+    "additionalProperties": False,
 }
 
+# Strict: the call's input always matches the schema. Strict schemas don't support array length limits, so the
+# limits are in the descriptions and applied again in _checked.
 TOOL = {
     "name": "record_suggestions",
     "description": "Record the triage suggestions for the work item.",
+    "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {
             "assignee": {"anyOf": [_PICK, {"type": "null"}], "description": "A member id, or null."},
-            "labels": {"type": "array", "items": _PICK, "maxItems": MAX_LABELS},
+            "labels": {"type": "array", "items": _PICK, "description": f"At most {MAX_LABELS} labels."},
             "project": {"anyOf": [_PICK, {"type": "null"}], "description": "Another project id, or null."},
-            "duplicates": {"type": "array", "items": _PICK, "maxItems": MAX_DUPLICATES},
+            "duplicates": {"type": "array", "items": _PICK, "description": f"At most {MAX_DUPLICATES} duplicates."},
         },
         "required": ["assignee", "labels", "project", "duplicates"],
+        "additionalProperties": False,
     },
 }
 
@@ -352,21 +359,17 @@ def _for_viewer(result, issue, user):
     }
 
 
-def _tool_input(response):
-    for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == TOOL["name"]:
-            return block.input
-    return {}
-
-
 def suggest(issue, user, refresh=False):
     """Suggestions for `issue` as `user` may see them. Cached for 24 hours until the item changes; `refresh`
-    asks Claude again. Raises AgentError when AI isn't set up, the monthly limit is reached, or the call fails."""
+    asks Claude again. Raises AgentError when AI isn't set up, the person or the workspace is over their limit,
+    or the call fails or gives no answer."""
     key = cache_key(issue, user)
     if not refresh:
         cached = cache.get(key)
         if cached is not None:
             return _for_viewer(cached, issue, user)
+    # Counted only when Claude is actually asked
+    check_ai_rate(user)
     payload, allowed = _candidates(issue, user)
     response = ai_message(
         issue.workspace,
@@ -376,9 +379,10 @@ def suggest(issue, user, refresh=False):
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": json.dumps(payload)}],
         tools=[TOOL],
-        tool_choice={"type": "tool", "name": TOOL["name"]},
+        tool_choice={"type": "auto"},
+        output_config={"effort": EFFORT},
     )
-    result = _checked(_tool_input(response), allowed, issue)
+    result = _checked(tool_answer(response, TOOL["name"]), allowed, issue)
     result["generated_at"] = timezone.now().isoformat()
     cache.set(key, result, CACHE_SECONDS)
     return result

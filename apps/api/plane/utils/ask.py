@@ -9,10 +9,10 @@ membership, page access), so an answer can only draw on what the asking person c
 
 import json
 import re
+import time
 from datetime import timedelta
 from html import unescape
 
-from django.core.cache import cache
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.html import strip_tags
@@ -20,6 +20,7 @@ from django.utils.html import strip_tags
 from plane.utils.agents import AgentError
 from plane.utils.ai_calls import ai_message
 from plane.utils.brief import _local_date, _visible_issues
+from plane.utils.exception_logger import log_exception
 from plane.utils.supervision import OPEN_GROUPS, blocked_items as _blocked_items
 
 MAX_TOOL_ROUNDS = 8
@@ -28,13 +29,16 @@ MAX_RESULT_CHARS = 8000
 MAX_QUESTION_LENGTH = 2000
 MAX_HISTORY_TURNS = 10
 MAX_HISTORY_CONTENT = 4000
-MAX_TOKENS = 1024
+# Thinking is on (Opus 5.5 can't turn it off) and counts against MAX_TOKENS, so low effort keeps it short
+MAX_TOKENS = 8000
+EFFORT = "low"
+# Past this, no more tool rounds: one last call answers with what has been found
+ASK_DEADLINE_SECONDS = 45
+REFUSAL_ANSWER = "I can't help with that."
 DESCRIPTION_CHARS = 3000
 COMMENT_CHARS = 500
 PAGE_EXCERPT_CHARS = 500
 LAST_COMMENTS = 5
-RATE_LIMIT = 20
-RATE_WINDOW_SECONDS = 600
 # A title shorter than this is too common a word to count as a mention.
 MIN_TITLE_MENTION = 4
 
@@ -508,6 +512,10 @@ def run_tool(context, name, tool_input):
             return _fit({"results": rows[:MAX_ROWS], "truncated": len(rows) > MAX_ROWS}, "results")
     except _ToolError as error:
         return json.dumps({"error": str(error)})
+    except Exception as error:
+        # One failed lookup shouldn't cost the person their answer
+        log_exception(error)
+        return json.dumps({"error": "That lookup failed"})
     return json.dumps({"error": f"Unknown tool {name}"})
 
 
@@ -535,22 +543,24 @@ def _clean_history(history):
             or turn.get("role") not in ("user", "assistant")
             or not isinstance(turn.get("content"), str)
             or not turn["content"].strip()
-            or len(turn["content"]) > MAX_HISTORY_CONTENT
         ):
             raise AgentError("Each history turn needs a role and plain text content", 400, "history")
-        turns.append({"role": turn["role"], "content": turn["content"]})
+        # A long turn keeps its end, which is what the next question most likely follows on from
+        turns.append({"role": turn["role"], "content": turn["content"][-MAX_HISTORY_CONTENT:]})
     # The conversation sent to Claude must start with the person
     while turns and turns[0]["role"] != "user":
         turns.pop(0)
     return turns
 
 
-def _block_dict(block):
-    if block.type == "tool_use":
-        return {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
-    if block.type == "text":
-        return {"type": "text", "text": block.text}
-    return None
+def _block_param(block):
+    """A response block sent back unchanged in the next request. Thinking blocks must come back as they were for
+    the model to keep its reasoning across tool rounds."""
+    return block.model_dump(exclude_none=True)
+
+
+def _clock():
+    return time.monotonic()
 
 
 def _text(response):
@@ -581,22 +591,33 @@ def _cited(answer, sources):
 def ask(workspace, user, question, history=()):
     """Answer ``question`` for ``user`` from Plane data. Returns {"answer", "sources"}.
 
-    Raises AgentError for a bad question or history, no key (400), the monthly limit (409) or an API error (502)."""
+    Raises AgentError for a bad question or history, no key (400), the monthly limit (409), an API error or an
+    answer cut off before any text (502)."""
     question = _clean_question(question)
     messages = _clean_history(history) + [{"role": "user", "content": question}]
     context = AskContext(workspace, user)
     system = SYSTEM_PROMPT.format(today=_local_date(user, timezone.now()).isoformat())
+    started = _clock()
     response = None
     for round_number in range(MAX_TOOL_ROUNDS + 1):
-        kwargs = {"system": system, "messages": list(messages), "tools": TOOLS, "max_tokens": MAX_TOKENS}
-        if round_number == MAX_TOOL_ROUNDS:
-            # Out of tool rounds: answer with what has been found
+        kwargs = {
+            "system": system,
+            "messages": list(messages),
+            "tools": TOOLS,
+            "max_tokens": MAX_TOKENS,
+            "output_config": {"effort": EFFORT},
+        }
+        final = round_number == MAX_TOOL_ROUNDS or _clock() - started >= ASK_DEADLINE_SECONDS
+        if final:
+            # Out of tool rounds or time: answer with what has been found
             kwargs["tool_choice"] = {"type": "none"}
         response = ai_message(workspace, user, "ask", **kwargs)
+        if response.stop_reason == "refusal":
+            return {"answer": REFUSAL_ANSWER, "sources": []}
         tool_uses = [block for block in response.content if block.type == "tool_use"]
-        if response.stop_reason != "tool_use" or not tool_uses or round_number == MAX_TOOL_ROUNDS:
+        if final or response.stop_reason != "tool_use" or not tool_uses:
             break
-        messages.append({"role": "assistant", "content": [b for b in map(_block_dict, response.content) if b]})
+        messages.append({"role": "assistant", "content": [_block_param(block) for block in response.content]})
         messages.append(
             {
                 "role": "user",
@@ -610,22 +631,8 @@ def ask(workspace, user, question, history=()):
                 ],
             }
         )
-    answer = _text(response) or "I couldn't find an answer to that in this workspace."
+    answer = _text(response)
+    if not answer and response.stop_reason == "max_tokens":
+        raise AgentError("The answer ran out of room; try a narrower question", 502, "ai")
+    answer = answer or "I couldn't find an answer to that in this workspace."
     return {"answer": answer, "sources": _cited(answer, list(context.sources.values()))}
-
-
-def rate_key(user):
-    return f"ask:rate:{user.id}"
-
-
-def check_rate(user):
-    """At most RATE_LIMIT questions per person per RATE_WINDOW_SECONDS."""
-    key = rate_key(user)
-    cache.add(key, 0, timeout=RATE_WINDOW_SECONDS)
-    try:
-        count = cache.incr(key)
-    except ValueError:  # expired between add and incr
-        cache.set(key, 1, timeout=RATE_WINDOW_SECONDS)
-        count = 1
-    if count > RATE_LIMIT:
-        raise AgentError("You've asked a lot of questions; try again in a few minutes", 429, "rate_limited")

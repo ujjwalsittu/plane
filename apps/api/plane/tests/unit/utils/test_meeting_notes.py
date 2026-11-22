@@ -11,7 +11,9 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from django.core.cache import cache
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import (
@@ -26,7 +28,7 @@ from plane.db.models import (
     WorkspaceAIConfig,
     WorkspaceMember,
 )
-from plane.utils import ai_calls, meeting_notes
+from plane.utils import agents, ai_calls, meeting_notes
 from plane.utils.agents import AgentError
 
 MODEL = "claude-sonnet-5-5"
@@ -73,6 +75,12 @@ def _item(name, **fields):
     }
 
 
+@pytest.fixture(autouse=True)
+def _clear_rate():
+    yield
+    cache.delete_pattern("ai:rate:*")
+
+
 @pytest.fixture
 def client(monkeypatch):
     client = MagicMock()
@@ -115,8 +123,19 @@ class TestExtract:
         items = meeting_notes.extract_action_items(project, create_user, NOTES, title="Weekly sync")
 
         call = client.messages.create.call_args
-        assert call.kwargs["tool_choice"] == {"type": "tool", "name": "propose_work_items"}
+        # Forced tool use is rejected on current models: auto, a strict tool and a prompt that names it
+        assert call.kwargs["tool_choice"] == {"type": "auto"}
         assert [tool["name"] for tool in call.kwargs["tools"]] == ["propose_work_items"]
+        schema = meeting_notes.TOOL["input_schema"]
+        assert meeting_notes.TOOL["strict"] is True
+        assert schema["additionalProperties"] is False
+        item_schema = schema["properties"]["items"]["items"]
+        assert item_schema["additionalProperties"] is False
+        assert set(item_schema["required"]) == set(item_schema["properties"])
+        assert item_schema["properties"]["assignee_id"] == {"type": ["string", "null"]}
+        assert "calling the propose_work_items tool exactly once" in call.kwargs["system"]
+        assert call.kwargs["output_config"] == {"effort": "low"}
+        assert call.kwargs["max_tokens"] == 16000
         sent = _sent(call)
         assert sent["notes"] == NOTES and sent["title"] == "Weekly sync"
         members = {row["id"]: row for row in sent["members"]}
@@ -198,6 +217,27 @@ class TestExtract:
         assert meeting_notes.extract_action_items(project, create_user, NOTES) == []
         client.messages.create.return_value = _proposal_turn({"items": [_item("y" * 400)]})
         assert len(meeting_notes.extract_action_items(project, create_user, NOTES)[0]["name"]) == 255
+
+    @pytest.mark.parametrize(
+        "stop_reason, message",
+        [
+            ("end_turn", "The AI didn't return an answer; try again"),
+            ("max_tokens", "The AI's answer was cut off; try again"),
+            ("refusal", "The AI declined to answer this request"),
+        ],
+    )
+    def test_no_tool_call_is_an_error_not_empty_items(self, workspace, create_user, client, stop_reason, message):
+        project, _ = _project(workspace, "NOT", member=create_user)
+        client.messages.create.return_value = SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="Here are the items: ...")],
+            stop_reason=stop_reason,
+            usage=SimpleNamespace(input_tokens=500, output_tokens=200),
+        )
+
+        with pytest.raises(AgentError) as error:
+            meeting_notes.extract_action_items(project, create_user, NOTES)
+
+        assert (error.value.status_code, error.value.field, error.value.message) == (502, "ai", message)
 
     def test_extract_needs_member_role(self, workspace, create_user, client):
         project, _ = _project(workspace, "GST", member=create_user, role=5)
@@ -398,3 +438,23 @@ class TestMeetingNotesEndpoints:
         ProjectMember.objects.filter(project=setup.project, member=create_user).update(role=5)
         response = api_key_client.post(self._url(setup, "extract", v1=True), {"text": NOTES}, format="json")
         assert response.status_code == 403 and set(response.data) == {"error"}
+
+    def test_v1_extract_refuses_agents_but_create_stays_open(self, workspace, create_user, setup):
+        _, token = agents.create_agent(
+            workspace,
+            {"name": "Scribe", "owner": str(create_user.id), "project_ids": [str(setup.project.id)]},
+            create_user,
+        )
+        api_key_client = APIClient()
+        api_key_client.credentials(HTTP_X_API_KEY=token)
+
+        response = api_key_client.post(self._url(setup, "extract", v1=True), {"text": NOTES}, format="json")
+        assert response.status_code == 403
+        assert response.data == {"error": "AI suggestions are for people; agents do their own reasoning"}
+        assert setup.calls == []
+
+        with mock.patch.object(meeting_notes, "issue_activity"):
+            response = api_key_client.post(
+                self._url(setup, "create", v1=True), {"items": [_item("Ship it")]}, format="json"
+            )
+        assert response.status_code == 201, response.data

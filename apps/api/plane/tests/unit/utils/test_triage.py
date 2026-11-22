@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.core.cache import cache
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from plane.db.models import (
     AIUsage,
@@ -25,7 +26,7 @@ from plane.db.models import (
     WorkspaceAIConfig,
     WorkspaceMember,
 )
-from plane.utils import ai_calls, triage
+from plane.utils import agents, ai_calls, triage
 from plane.utils.agents import AgentError
 
 MODEL = "claude-sonnet-5-5"
@@ -73,6 +74,13 @@ def _suggestion_turn(tool_input):
     )
 
 
+def _text_only_turn(stop_reason="end_turn"):
+    block = SimpleNamespace(type="text", text="I think the dev team should own it.")
+    return SimpleNamespace(
+        content=[block], stop_reason=stop_reason, usage=SimpleNamespace(input_tokens=300, output_tokens=60)
+    )
+
+
 def _sent(call):
     """The candidates JSON sent to the model in a messages.create call."""
     return json.loads(call.kwargs["messages"][0]["content"])
@@ -90,6 +98,7 @@ def client(monkeypatch):
 def _clear_cache():
     yield
     cache.delete_pattern("triage:*")
+    cache.delete_pattern("ai:rate:*")
 
 
 @pytest.mark.unit
@@ -138,8 +147,15 @@ class TestTriage:
         ]
         assert result["generated_at"]
         call = client.messages.create.call_args
-        assert call.kwargs["tool_choice"] == {"type": "tool", "name": "record_suggestions"}
+        # Forced tool use is rejected on current models: auto, a strict tool and a prompt that names it
+        assert call.kwargs["tool_choice"] == {"type": "auto"}
         assert call.kwargs["tools"] == [triage.TOOL]
+        assert triage.TOOL["strict"] is True
+        assert triage.TOOL["input_schema"]["additionalProperties"] is False
+        assert triage.TOOL["input_schema"]["properties"]["labels"]["items"]["additionalProperties"] is False
+        assert "calling the record_suggestions tool exactly once" in call.kwargs["system"]
+        assert call.kwargs["output_config"] == {"effort": "low"}
+        assert call.kwargs["max_tokens"] == 4096
         sent = _sent(call)
         assert {m["id"] for m in sent["members"]} == {str(create_user.id), str(dev.id)}
         assert {lb["id"] for lb in sent["labels"]} == {str(bug.id), str(ui.id)}
@@ -315,6 +331,37 @@ class TestTriage:
         assert client.messages.create.call_count == 1
         assert result["duplicates"] == [] and result["project"] is None
 
+    @pytest.mark.parametrize(
+        "turn, message",
+        [
+            (_text_only_turn(), "The AI didn't return an answer; try again"),
+            (_text_only_turn("max_tokens"), "The AI's answer was cut off; try again"),
+            (_text_only_turn("refusal"), "The AI declined to answer this request"),
+        ],
+    )
+    def test_no_tool_call_is_an_error_not_empty_suggestions(self, workspace, create_user, client, turn, message):
+        project, state = _project(workspace, "ERR", member=create_user)
+        issue = _issue(project, state, "Exports time out")
+        client.messages.create.return_value = turn
+
+        with pytest.raises(AgentError) as error:
+            triage.suggest(issue, create_user)
+
+        assert (error.value.status_code, error.value.field, error.value.message) == (502, "ai", message)
+        # Nothing is cached, so the next request asks again
+        assert cache.get(triage.cache_key(issue, create_user)) is None
+
+    def test_cached_answers_dont_count_toward_the_rate_limit(self, workspace, create_user, client):
+        project, state = _project(workspace, "RAT", member=create_user)
+        issue = _issue(project, state, "Search is slow")
+        client.messages.create.return_value = _suggestion_turn({"labels": [], "duplicates": []})
+
+        for _ in range(ai_calls.RATE_LIMIT + 5):
+            triage.suggest(issue, create_user)
+
+        assert client.messages.create.call_count == 1
+        assert int(cache.get(ai_calls.rate_key(create_user))) == 1
+
     def test_usage_recorded_and_limit_enforced(self, workspace, create_user, client, monkeypatch):
         project, state = _project(workspace, "USE", member=create_user)
         issue = _issue(project, state, "Charts render blank")
@@ -396,3 +443,18 @@ class TestTriageEndpoints:
 
         ProjectMember.objects.filter(project=setup.project, member=create_user).update(role=5)
         assert api_key_client.get(self._v1(setup)).status_code == 403
+
+    def test_v1_refuses_agents(self, workspace, create_user, setup):
+        _, token = agents.create_agent(
+            workspace,
+            {"name": "Triager", "owner": str(create_user.id), "project_ids": [str(setup.project.id)]},
+            create_user,
+        )
+        bot = APIClient()
+        bot.credentials(HTTP_X_API_KEY=token)
+
+        response = bot.get(self._v1(setup))
+
+        assert response.status_code == 403
+        assert response.data == {"error": "AI suggestions are for people; agents do their own reasoning"}
+        assert setup.calls == []

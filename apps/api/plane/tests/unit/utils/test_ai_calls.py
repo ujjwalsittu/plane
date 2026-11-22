@@ -8,8 +8,11 @@ from unittest.mock import MagicMock
 import anthropic
 import httpx
 import pytest
+from django.core.cache import cache
 
 from plane.db.models import AIUsage, WorkspaceAIConfig
+from plane.tests.unit.utils.test_meeting_notes import NOTES
+from plane.tests.unit.utils.test_triage import _issue, _project
 from plane.utils import ai_calls, ai_config
 from plane.utils.agents import AgentError
 
@@ -121,3 +124,38 @@ def test_spend_includes_usage_and_managed_runs_only(workspace, create_user):
     AIUsage.objects.filter(pk=old.pk).update(created_at=last_month)
 
     assert ai_config.spent_this_month_cents(workspace) == 37
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestSharedRateLimit:
+    def test_21st_paid_call_across_features_is_refused(self, session_client, workspace, create_user, patch_client):
+        cache.delete(ai_calls.rate_key(create_user))
+        project, state = _project(workspace, "RTE", member=create_user)
+        issue = _issue(project, state, "Exports time out")
+        client = _client(
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Nothing found.")],
+                stop_reason="end_turn",
+                usage=SimpleNamespace(input_tokens=10, output_tokens=5),
+            )
+        )
+        patch_client(client)
+        base = f"/api/workspaces/{workspace.slug}"
+        triage_url = f"{base}/projects/{project.id}/work-items/{issue.id}/triage/?refresh=1"
+        extract_url = f"{base}/projects/{project.id}/meeting-notes/extract/"
+        try:
+            for _ in range(ai_calls.RATE_LIMIT):
+                assert session_client.post(f"{base}/ask/", {"question": "Hi"}, format="json").status_code == 200
+
+            # The 21st paid request, in another feature, is refused before any model call
+            response = session_client.get(triage_url)
+            assert response.status_code == 429
+            assert response.data == {
+                "error": "You've made a lot of AI requests; try again in a few minutes",
+                "field": "rate_limited",
+            }
+            assert session_client.post(extract_url, {"text": NOTES}, format="json").status_code == 429
+            assert client.messages.create.call_count == ai_calls.RATE_LIMIT
+        finally:
+            cache.delete(ai_calls.rate_key(create_user))

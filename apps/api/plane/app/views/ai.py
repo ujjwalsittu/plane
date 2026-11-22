@@ -15,6 +15,7 @@ from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import WorkspaceMember
 from plane.utils import ask as ask_util
 from plane.utils import triage
+from plane.utils.ai_calls import check_ai_rate
 from plane.utils.agents import AgentError
 
 
@@ -42,7 +43,7 @@ class AskEndpoint(_Session, BaseAPIView):
             return Response({"error": "Only workspace members can ask"}, status=status.HTTP_403_FORBIDDEN)
         data = request.data if isinstance(request.data, dict) else {}
         try:
-            ask_util.check_rate(request.user)
+            check_ai_rate(request.user)
             return Response(ask_util.ask(workspace, request.user, data.get("question"), data.get("history") or []))
         except AgentError as exc:
             return _error(exc)

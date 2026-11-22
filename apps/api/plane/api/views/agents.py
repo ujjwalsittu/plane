@@ -12,6 +12,7 @@ from plane.api.views.issue import guest_cannot_view_issue
 from plane.app.permissions import ROLE, ProjectEntityPermission
 from plane.db.models import AgentApproval, AgentRun, Issue, Project, ProjectMember, Workspace, WorkspaceAgent
 from plane.utils import agent_runs, agents, guardrails, loops, managed_agents, meeting_notes, triage
+from plane.utils.ai_calls import require_person
 from plane.utils.host import base_host
 
 
@@ -239,6 +240,10 @@ class WorkItemTriageAPIEndpoint(BaseAPIView):
     """Suggested assignee, labels, project and duplicates for a work item; `?refresh=1` asks Claude again."""
 
     def get(self, request, slug, project_id, issue_id):
+        try:
+            require_person(request.user)
+        except agents.AgentError as exc:
+            return Response({exc.field: exc.message}, status=exc.status_code)
         issue, refusal = triage_issue(request, slug, project_id, issue_id)
         if refusal is not None:
             return Response({"error": refusal[0]}, status=refusal[1])
@@ -291,10 +296,12 @@ def create_from_meeting_notes(request, slug, project_id):
 
 
 class MeetingNotesExtractAPIEndpoint(BaseAPIView):
-    """Proposed work items from pasted meeting notes (`text`, `title`, `meeting_date`); nothing is created."""
+    """Proposed work items from pasted meeting notes (`text`, `title`, `meeting_date`); nothing is created.
+    People only: agents do their own reasoning (creating the accepted items stays open to them)."""
 
     def post(self, request, slug, project_id):
         try:
+            require_person(request.user)
             return Response(extract_meeting_notes(request, slug, project_id))
         except agents.AgentError as exc:
             return Response({exc.field: exc.message}, status=exc.status_code)

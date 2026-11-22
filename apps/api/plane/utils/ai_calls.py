@@ -7,6 +7,8 @@ call, and records its cost in AIUsage so it counts toward the same limit as clou
 
 import math
 
+from django.core.cache import cache
+
 from plane.db.models import AIUsage
 from plane.utils.agents import AgentError
 from plane.utils.ai_config import anthropic_client_for, check_spend, model_for
@@ -31,6 +33,10 @@ PRICES = {
     "claude-haiku-5-5": (10, 50),
     "claude-haiku-4-5": (100, 500),
 }
+# Paid AI requests one person may make across Ask, Triage and Meeting notes extract in a rolling window
+RATE_LIMIT = 20
+RATE_WINDOW_SECONDS = 600
+
 # An unknown model is charged the most expensive listed price
 _MOST_EXPENSIVE = (max(p[0] for p in PRICES.values()), max(p[1] for p in PRICES.values()))
 
@@ -67,3 +73,40 @@ def ai_message(workspace, user, kind, **kwargs):
         cost_cents=cost_cents(model, usage.input_tokens, usage.output_tokens),
     )
     return response
+
+
+def rate_key(user):
+    return f"ai:rate:{user.id}"
+
+
+def check_ai_rate(user):
+    """At most RATE_LIMIT paid AI requests per person per RATE_WINDOW_SECONDS, shared across the AI features."""
+    key = rate_key(user)
+    cache.add(key, 0, timeout=RATE_WINDOW_SECONDS)
+    try:
+        count = cache.incr(key)
+    except ValueError:  # expired between add and incr
+        cache.set(key, 1, timeout=RATE_WINDOW_SECONDS)
+        count = 1
+    if count > RATE_LIMIT:
+        raise AgentError("You've made a lot of AI requests; try again in a few minutes", 429, "rate_limited")
+
+
+def require_person(user):
+    """Paid AI suggestions are for people: an agent calling the API does its own reasoning."""
+    if getattr(user, "is_bot", False):
+        raise AgentError("AI suggestions are for people; agents do their own reasoning", 403, "error")
+
+
+def tool_answer(response, tool_name):
+    """The input of the one `tool_name` call in a structured-output response. The call is made with
+    tool_choice auto (forced tool use is rejected on current models), so a missing call, a cut-off answer or a
+    refusal is an error rather than an empty answer."""
+    if response.stop_reason == "refusal":
+        raise AgentError("The AI declined to answer this request", 502, "ai")
+    if response.stop_reason == "max_tokens":
+        raise AgentError("The AI's answer was cut off; try again", 502, "ai")
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == tool_name:
+            return block.input
+    raise AgentError("The AI didn't return an answer; try again", 502, "ai")

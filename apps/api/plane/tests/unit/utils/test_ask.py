@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from anthropic.types import TextBlock, ThinkingBlock, ToolUseBlock
 from django.core.cache import cache
 
 from plane.db.models import (
@@ -63,12 +64,12 @@ def _usage():
 
 
 def _tool_turn(name, tool_input, tool_id="toolu_1"):
-    block = SimpleNamespace(type="tool_use", id=tool_id, name=name, input=tool_input)
+    block = ToolUseBlock(type="tool_use", id=tool_id, name=name, input=tool_input)
     return SimpleNamespace(content=[block], stop_reason="tool_use", usage=_usage())
 
 
 def _text_turn(text):
-    return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], stop_reason="end_turn", usage=_usage())
+    return SimpleNamespace(content=[TextBlock(type="text", text=text)], stop_reason="end_turn", usage=_usage())
 
 
 @pytest.fixture
@@ -256,6 +257,92 @@ class TestAsk:
         assert client.messages.create.call_args.kwargs["tool_choice"] == {"type": "none"}
         assert result == {"answer": "Here is what I found so far.", "sources": []}
 
+    def test_ask_stops_tool_rounds_after_the_deadline(self, workspace, create_user, client, monkeypatch):
+        # Started at 0; round 1 begins at 10s, round 2 at 46s, past the 45 second deadline
+        ticks = iter([0, 10, 46])
+        monkeypatch.setattr(ask, "_clock", lambda: next(ticks))
+
+        def respond(**kwargs):
+            if kwargs.get("tool_choice") == {"type": "none"}:
+                return _text_turn("Here is what I found in time.")
+            return _tool_turn("search_work_items", {"query": "slow"})
+
+        client.messages.create.side_effect = respond
+
+        result = ask.ask(workspace, create_user, "Keep looking")
+
+        assert ask.ASK_DEADLINE_SECONDS == 45
+        assert client.messages.create.call_count == 2
+        first, second = client.messages.create.call_args_list
+        assert "tool_choice" not in first.kwargs
+        assert second.kwargs["tool_choice"] == {"type": "none"}
+        assert result["answer"] == "Here is what I found in time."
+
+    def test_thinking_blocks_sent_back_unchanged(self, workspace, create_user, client):
+        thinking = ThinkingBlock(type="thinking", thinking="", signature="sig-round-1")
+        lookup = ToolUseBlock(type="tool_use", id="toolu_9", name="blocked_items", input={})
+        client.messages.create.side_effect = [
+            SimpleNamespace(content=[thinking, lookup], stop_reason="tool_use", usage=_usage()),
+            _text_turn("Nothing is blocked."),
+        ]
+
+        ask.ask(workspace, create_user, "What is blocked?")
+
+        first, second = client.messages.create.call_args_list
+        assert first.kwargs["max_tokens"] == 8000
+        assert first.kwargs["output_config"] == {"effort": "low"}
+        assert second.kwargs["messages"][1] == {
+            "role": "assistant",
+            "content": [
+                {"type": "thinking", "thinking": "", "signature": "sig-round-1"},
+                {"type": "tool_use", "id": "toolu_9", "name": "blocked_items", "input": {}},
+            ],
+        }
+
+    def test_refusal_gets_a_short_answer(self, workspace, create_user, client):
+        client.messages.create.return_value = SimpleNamespace(content=[], stop_reason="refusal", usage=_usage())
+
+        assert ask.ask(workspace, create_user, "Anything?") == {"answer": "I can't help with that.", "sources": []}
+
+    def test_answer_cut_off_before_any_text_is_502(self, workspace, create_user, client):
+        client.messages.create.return_value = SimpleNamespace(
+            content=[ThinkingBlock(type="thinking", thinking="", signature="sig")],
+            stop_reason="max_tokens",
+            usage=_usage(),
+        )
+
+        with pytest.raises(AgentError) as error:
+            ask.ask(workspace, create_user, "Summarise everything")
+        assert (error.value.status_code, error.value.field) == (502, "ai")
+
+    def test_failed_lookup_still_gets_an_answer(self, workspace, create_user, client, monkeypatch):
+        def broken(context, tool_input):
+            raise RuntimeError("database went away")
+
+        logged = []
+        monkeypatch.setattr(ask, "_search_work_items", broken)
+        monkeypatch.setattr(ask, "log_exception", logged.append)
+        client.messages.create.side_effect = [
+            _tool_turn("search_work_items", {"query": "login"}),
+            _text_turn("I couldn't look that up."),
+        ]
+
+        result = ask.ask(workspace, create_user, "Is login broken?")
+
+        assert json.loads(_tool_result_text(client.messages.create.call_args)) == {"error": "That lookup failed"}
+        assert len(logged) == 1
+        assert result["answer"] == "I couldn't look that up."
+
+    def test_long_history_turns_keep_their_end(self, workspace, create_user, client):
+        client.messages.create.return_value = _text_turn("Nothing found.")
+        long_answer = "a" * 1000 + "b" * ask.MAX_HISTORY_CONTENT
+        history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": long_answer}]
+
+        ask.ask(workspace, create_user, "And now?", history=history)
+
+        sent = client.messages.create.call_args.kwargs["messages"]
+        assert sent[1] == {"role": "assistant", "content": "b" * ask.MAX_HISTORY_CONTENT}
+
     def test_ask_refused_without_key_or_over_limit(self, workspace, create_user, monkeypatch):
         monkeypatch.setattr(ai_calls, "anthropic_client_for", lambda workspace: None)
         with pytest.raises(AgentError) as error:
@@ -292,7 +379,7 @@ class TestAsk:
 class TestAskEndpoint:
     @pytest.fixture(autouse=True)
     def _fake_ask(self, monkeypatch, create_user):
-        cache.delete(ask.rate_key(create_user))
+        cache.delete(ai_calls.rate_key(create_user))
         calls = []
 
         def fake(workspace, user, question, history=()):
@@ -301,7 +388,7 @@ class TestAskEndpoint:
 
         monkeypatch.setattr(ask, "ask", fake)
         yield calls
-        cache.delete(ask.rate_key(create_user))
+        cache.delete(ai_calls.rate_key(create_user))
 
     def test_ask_answers(self, session_client, workspace, _fake_ask):
         history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
@@ -312,12 +399,12 @@ class TestAskEndpoint:
         assert _fake_ask == [("What's due?", history)]
 
     def test_ask_rate_limited(self, session_client, workspace):
-        for _ in range(ask.RATE_LIMIT):
+        for _ in range(ai_calls.RATE_LIMIT):
             assert session_client.post(ASK_URL, {"question": "Hi"}, format="json").status_code == 200
 
         response = session_client.post(ASK_URL, {"question": "Hi"}, format="json")
 
-        assert ask.RATE_LIMIT == 20
+        assert ai_calls.RATE_LIMIT == 20
         assert response.status_code == 429
         assert response.data["error"]
 
