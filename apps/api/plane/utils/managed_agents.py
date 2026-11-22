@@ -253,6 +253,7 @@ TOOL_INPUT_MAX = 200
 STALL_AFTER = timedelta(hours=6)
 UNSTARTED_AFTER = timedelta(minutes=5)
 SYNC_LOCK_SECONDS = 300
+REFRESH_TOKENS_EVERY = timedelta(minutes=45)
 # How long a follow-up or cancel waits for an in-flight sync of the same run before giving up with a 409
 LOCK_WAIT_SECONDS = 5
 DENY_MESSAGE = "Nobody is watching this session to approve tool calls. Do this another way, or note it in a comment."
@@ -328,37 +329,94 @@ def build_brief(issue, instructions):
     return "\n".join(lines)
 
 
-def _repository_resources(project):
-    """One github_repository resource per linked repository (at most three), each with an installation token
-    minted now. No GitHub App, or no linked repositories, means no resources."""
+def _linked_repositories(project):
+    """The repositories a cloud run mounts: at most three, from installations that are not suspended."""
     if not github_app.is_configured():
         return []
-    links = (
+    return list(
         GitHubRepositoryLink.objects.filter(project=project, installation__suspended_at__isnull=True)
         .select_related("installation")
         .order_by("full_name")[:MAX_REPOS]
     )
-    resources, fresh = [], set()
-    for link in links:
-        installation_id = link.installation.installation_id
+
+
+def _repo_url(link):
+    return link.html_url or f"https://github.com/{link.full_name}"
+
+
+def _normal_url(url):
+    url = (url or "").strip().lower().rstrip("/")
+    return url[:-4] if url.endswith(".git") else url
+
+
+def _fresh_tokens(links):
+    """An installation token minted now for each link's installation (the cached one may be most of its hour old
+    already). An installation that fails is logged and left out."""
+    tokens = {}
+    for installation_id in {link.installation.installation_id for link in links}:
         try:
-            if installation_id not in fresh:
-                # A fresh token: the cached one may be most of its hour old already.
-                github_app.forget_installation_token(installation_id)
-                fresh.add(installation_id)
-            token = github_app.installation_token(installation_id)
+            github_app.forget_installation_token(installation_id)
+            tokens[installation_id] = github_app.installation_token(installation_id)
         except github_app.GitHubAppError as exc:
             log_exception(exc)
+    return tokens
+
+
+def _repository_resources(project):
+    """One github_repository resource per linked repository (at most three), each with an installation token
+    minted now. No GitHub App, or no linked repositories, means no resources. Two repositories with the same name
+    mount at /workspace/{owner}-{repo} so neither hides the other."""
+    links = _linked_repositories(project)
+    tokens = _fresh_tokens(links)
+    names = [link.full_name.split("/")[-1].lower() for link in links]
+    resources = []
+    for link, name in zip(links, names):
+        token = tokens.get(link.installation.installation_id)
+        if token is None:
             continue
+        owner, repo = link.full_name.split("/", 1)[0], link.full_name.split("/")[-1]
         resources.append(
             {
                 "type": "github_repository",
-                "url": link.html_url or f"https://github.com/{link.full_name}",
+                "url": _repo_url(link),
                 "authorization_token": token,
-                "mount_path": f"/workspace/{link.full_name.split('/')[-1]}",
+                "mount_path": f"/workspace/{owner}-{repo}" if names.count(name) > 1 else f"/workspace/{repo}",
             }
         )
     return resources
+
+
+def _tokens_fresh_key(run):
+    return f"agent-run:{run.id}:gh-fresh"
+
+
+def refresh_repository_tokens(run, client):
+    """Installation tokens last an hour, so a long run would lose push access: give every linked repository
+    mounted on the session a fresh token. Returns how many were updated; errors are logged, never raised."""
+    try:
+        links = {}
+        for link in _linked_repositories(run.project):
+            links[_normal_url(_repo_url(link))] = link
+            links[_normal_url(f"https://github.com/{link.full_name}")] = link
+        matched = [
+            (resource, links[_normal_url(resource.url)])
+            for resource in client.beta.sessions.resources.list(run.external_session_id)
+            if getattr(resource, "type", "") == "github_repository" and _normal_url(resource.url) in links
+        ]
+        tokens = _fresh_tokens([link for _, link in matched])
+        updated = 0
+        for resource, link in matched:
+            token = tokens.get(link.installation.installation_id)
+            if token is None:
+                continue
+            client.beta.sessions.resources.update(
+                resource.id, session_id=run.external_session_id, authorization_token=token
+            )
+            updated += 1
+        return updated
+    except Exception as exc:
+        log_exception(exc)
+        return 0
 
 
 def _api_error(action, exc):
@@ -400,6 +458,7 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
     )
     agent_runs.on_run_changed(run, "created")
     client = client.with_options(max_retries=0)
+    session = None
     try:
         session = client.beta.sessions.create(
             agent={"type": "agent", "id": agent.ma_agent_id, "version": agent.ma_agent_version},
@@ -410,6 +469,7 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
             budget={"type": "limit", "max_list_cost": {"amount": str(agent.run_budget_cents), "currency": "USD"}},
             resources=_repository_resources(project),
         )
+        cache.set(_tokens_fresh_key(run), 1, int(REFRESH_TOKENS_EVERY.total_seconds()))
         agent_runs.update_managed_run(run, external_session_id=session.id, external_url=SESSION_URL.format(session.id))
         client.beta.sessions.events.send(
             session.id,
@@ -420,6 +480,12 @@ def start_managed_run(issue, agent, delegated_by, instructions=""):
         # ever left queued without a session.
         log_exception(exc)
         agent_runs.finish_run(run, "failed", error=_api_error("start the cloud session", exc))
+        if session is not None:
+            # The session exists but never got its brief: interrupt it rather than leave it open and idle.
+            try:
+                client.beta.sessions.events.send(session.id, events=[{"type": "user.interrupt"}])
+            except Exception as interrupt_exc:
+                log_exception(interrupt_exc)
     return run
 
 
@@ -631,6 +697,12 @@ def _sync_run(run):
             _send(client, run, [{**deny, "tool_use_id": event_id} for event_id in stop.event_ids])
             text = "A tool call asked for approval; Plane denied it because cloud runs are unattended"
             _add_step_quietly(run, "error", text, {"event_ids": list(stop.event_ids)}, key)
+
+    # Still open: refresh the repository tokens once they are 45 minutes old.
+    if cache.add(_tokens_fresh_key(run), 1, int(REFRESH_TOKENS_EVERY.total_seconds())) and _linked_repositories(
+        run.project
+    ):
+        refresh_repository_tokens(run, client)
 
 
 def _require_managed(run, session=True):

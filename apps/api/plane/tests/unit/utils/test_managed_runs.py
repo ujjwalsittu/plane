@@ -11,10 +11,12 @@ import anthropic
 import httpx
 import pytest
 from anthropic.resources.beta.sessions.events import Events
+from anthropic.resources.beta.sessions.resources import Resources
 from anthropic.resources.beta.sessions.sessions import Sessions
 from anthropic.types.beta import BetaManagedAgentsSession, BetaManagedAgentsSessionUsage
 from anthropic.types.beta import sessions as ev
 from anthropic.types.beta_monetary_amount import BetaMonetaryAmount
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -167,6 +169,25 @@ def _running_run(issue, agent, user, session_id="sesn_1", status="running"):
         started_at=now,
         last_event_at=now,
     )
+
+
+def _link_repos(workspace, project, names, installation_id=77):
+    installation = GitHubInstallation.objects.create(
+        workspace=workspace, installation_id=installation_id, account_login=names[0].split("/")[0]
+    )
+    for number, name in enumerate(names):
+        GitHubRepositoryLink.objects.create(
+            project=project,
+            workspace=workspace,
+            installation=installation,
+            repository_id=installation_id * 100 + number,
+            full_name=name,
+            html_url=f"https://github.com/{name}",
+        )
+
+
+def _repo_resource(rid, url):
+    return ev.BetaManagedAgentsGitHubRepositoryResource.model_construct(id=rid, type="github_repository", url=url)
 
 
 @pytest.mark.unit
@@ -776,3 +797,91 @@ class TestManagedRuns:
 
         entry = app.conf.beat_schedule["sync-agent-runs"]
         assert entry["options"] == {"expires": 14}
+
+    def test_long_run_refreshes_repository_tokens(self, workspace, project, issue, agent, create_user, client):
+        _link_repos(workspace, project, ["acme/web", "acme/api"])
+        client.beta.sessions.resources = create_autospec(Resources, instance=True)
+        client.beta.sessions.resources.list.return_value = [
+            _repo_resource("res_web", "https://github.com/Acme/Web.git"),
+            _repo_resource("res_api", "https://github.com/acme/api/"),
+            _repo_resource("res_other", "https://github.com/someone/else"),
+        ]
+        client.beta.sessions.events.list.return_value = [_user_message("sevt_0")]
+        client.beta.sessions.retrieve.return_value = _session("running")
+        run = _running_run(issue, agent, create_user)
+        key = f"agent-run:{run.id}:gh-fresh"
+
+        with (
+            patch("plane.utils.github_app.is_configured", return_value=True),
+            patch("plane.utils.github_app.forget_installation_token") as forget,
+            patch("plane.utils.github_app.installation_token", return_value="ghs_new") as token,
+        ):
+            # Tokens refreshed less than 45 minutes ago: nothing to do
+            cache.set(key, 1, 60)
+            managed_agents.sync_run(run)
+            client.beta.sessions.resources.update.assert_not_called()
+
+            # The key expired: every linked repository mounted on the session gets a fresh token
+            cache.delete(key)
+            managed_agents.sync_run(run)
+
+        client.beta.sessions.resources.list.assert_called_once_with("sesn_1")
+        forget.assert_called_once_with(77)
+        token.assert_called_with(77)
+        updates = sorted(
+            c.args + (c.kwargs["session_id"], c.kwargs["authorization_token"])
+            for c in client.beta.sessions.resources.update.call_args_list
+        )
+        assert updates == [("res_api", "sesn_1", "ghs_new"), ("res_web", "sesn_1", "ghs_new")]
+        assert cache.get(key) == 1
+        run.refresh_from_db()
+        assert run.status == "running"
+
+    def test_token_refresh_failure_does_not_fail_run(self, workspace, project, issue, agent, create_user, client):
+        _link_repos(workspace, project, ["acme/web"])
+        client.beta.sessions.resources = create_autospec(Resources, instance=True)
+        client.beta.sessions.resources.list.side_effect = _api_error(anthropic.InternalServerError, 500)
+        client.beta.sessions.events.list.return_value = [_user_message("sevt_0")]
+        client.beta.sessions.retrieve.return_value = _session("running")
+        run = _running_run(issue, agent, create_user)
+        cache.delete(f"agent-run:{run.id}:gh-fresh")
+
+        with (
+            patch("plane.utils.github_app.is_configured", return_value=True),
+            patch("plane.utils.managed_agents.log_exception") as logged,
+        ):
+            managed_agents.sync_run(run)
+
+        logged.assert_called_once()
+        assert isinstance(logged.call_args.args[0], anthropic.APIError)
+        client.beta.sessions.resources.update.assert_not_called()
+        run.refresh_from_db()
+        assert run.status == "running"
+
+    def test_same_named_repos_get_distinct_mount_paths(self, workspace, project, issue, agent, create_user, client):
+        _link_repos(workspace, project, ["acme/web", "acme/api"])
+        _link_repos(workspace, project, ["beta/web"], installation_id=88)
+
+        with (
+            patch("plane.utils.github_app.is_configured", return_value=True),
+            patch("plane.utils.github_app.forget_installation_token"),
+            patch("plane.utils.github_app.installation_token", return_value="ghs_fresh"),
+        ):
+            run = managed_agents.start_managed_run(issue, agent, create_user, "Go")
+
+        resources = client.beta.sessions.create.call_args.kwargs["resources"]
+        assert [(r["url"], r["mount_path"]) for r in resources] == [
+            ("https://github.com/acme/api", "/workspace/api"),
+            ("https://github.com/acme/web", "/workspace/acme-web"),
+            ("https://github.com/beta/web", "/workspace/beta-web"),
+        ]
+        # The session just got fresh tokens, so the sync leaves them for 45 minutes
+        assert cache.get(f"agent-run:{run.id}:gh-fresh") == 1
+
+    def test_failed_brief_send_interrupts_session(self, workspace, project, issue, agent, create_user, client):
+        client.beta.sessions.events.send.side_effect = _api_error(anthropic.RateLimitError, 429)
+        run = managed_agents.start_managed_run(issue, agent, create_user, "Go")
+        run.refresh_from_db()
+        assert (run.status, run.external_session_id) == ("failed", "sesn_1")
+        sent = [(c.args, c.kwargs["events"][0]["type"]) for c in client.beta.sessions.events.send.call_args_list]
+        assert sent == [(("sesn_1",), "user.message"), (("sesn_1",), "user.interrupt")]
