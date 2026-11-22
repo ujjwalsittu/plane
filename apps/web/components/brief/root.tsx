@@ -12,6 +12,7 @@ import { setToast } from "@plane/blocks/toast";
 import { useTranslation } from "@plane/i18n";
 import { renderFormattedDate } from "@plane/utils";
 import { SupervisionService } from "@/services/supervision.service";
+import { BriefAsk } from "./ask";
 import { BlockedColumn } from "./blocked";
 import { DoneColumn } from "./done";
 import { MilestonesDue } from "./milestones-due";
@@ -79,6 +80,7 @@ export const BriefRoot = observer(function BriefRoot({ workspaceSlug }: { worksp
         />
       </div>
       <BriefSummary workspaceSlug={workspaceSlug} />
+      <BriefAsk workspaceSlug={workspaceSlug} />
       <MilestonesDue milestones={brief.milestones_due} />
       <ProjectsStrip workspaceSlug={workspaceSlug} projects={brief.projects} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

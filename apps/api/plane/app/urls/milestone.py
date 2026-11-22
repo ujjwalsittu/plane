@@ -48,6 +48,7 @@ from plane.app.views.initiative import (
     InitiativeWorkItemEndpoint,
 )
 from plane.app.views import agents as agent_views
+from plane.app.views import ai as ai_views
 from plane.app.views import release as release_views
 from plane.app.views import supervision as supervision_views
 from plane.app.views import template as template_views
@@ -352,6 +353,7 @@ urlpatterns = [
         supervision_views.MyDecisionsEndpoint.as_view(http_method_names=["get"]),
         name="app-my-decisions",
     ),
+    path("workspaces/<str:slug>/ask/", ai_views.AskEndpoint.as_view(), name="app-ask"),
     path(
         "workspaces/<str:slug>/brief/",
         supervision_views.BriefEndpoint.as_view(http_method_names=["get"]),

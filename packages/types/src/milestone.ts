@@ -549,6 +549,24 @@ export type TBriefSummary = {
   item_ids: string[];
 };
 
+export type TAskSource = {
+  kind: "work_item" | "page" | "milestone" | "pull_request";
+  id: string;
+  identifier: string | null;
+  title: string;
+  url: string;
+};
+
+export type TAskAnswer = {
+  answer: string;
+  sources: TAskSource[];
+};
+
+export type TAskTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type TWorkItemWaiting = {
   id: string;
   issue_id: string;

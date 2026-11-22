@@ -942,6 +942,16 @@
         "load_error": "Could not load the runs",
         "close": "Close"
       }
+    },
+    "ask": {
+      "title": "Ask your workspace",
+      "placeholder": "Ask about work items, milestones, pages or pull requests",
+      "submit": "Ask",
+      "follow_up_placeholder": "Ask a follow-up",
+      "thinking": "Looking through your workspace…",
+      "clear": "Start over",
+      "error": "Could not get an answer; try again",
+      "hint": "Answers use only what you can see and count toward the workspace's monthly AI limit."
     }
   }
 }
