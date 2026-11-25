@@ -17,6 +17,20 @@ The script checks the images exist, sets `APP_RELEASE`, deploys, and waits until
 If the stack stalls it asks Coolify to start the service. Don't use a plain Coolify "restart" to
 change releases: it keeps the old `APP_RELEASE`.
 
+### Plane MCP server
+
+The `plane-mcp` service (`pllozvf5ra9qd0wlwzb9tynu`) is separate from `plane`. Its compose names a
+fixed image, `ghcr.io/ujjwalsittu/plane-mcp:sha-<7>`, and `APP_RELEASE` does not change it.
+Redeploying the service without changing that tag restarts the old image. When a release changes
+`deployments/plane-mcp`:
+
+1. Set the image tag in the service's compose to the new `sha-<7>`. In the Coolify UI, use the
+   service's compose editor. Through the API, PATCH `docker_compose_raw`, base64-encoded, and keep
+   the environment entries as `${VAR:-default}` references.
+2. Deploy the service.
+3. Check the `mcp` container log for `Plane MCP: advertising N tools`. N should match the release:
+   34 at `sha-65d0213`.
+
 ## Roll back
 
 Run the deploy script with the previous release (it prints it on failure). Migrations are only
